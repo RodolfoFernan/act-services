@@ -1,13 +1,3 @@
-
-Ver perfil de José Rodolfo José Rodolfo Lima
-José Rodolfo Lima 20:50
-
-https://github.com/netogan/act-challenge
-GitHub - netogan/carrefour-challenge
-github.com
-Ver perfil de José Rodolfo José Rodolfo Lima
-José Rodolfo Lima 20:56
-
 # Controle de Lançamentos e Consolidação Diária - Microsserviços
 
 Este repositório contém a implementação dos serviços de Controle de Lançamentos e Consolidação Diária, seguindo uma arquitetura de microsserviços com Spring Boot, RabbitMQ, Redis, PostgreSQL, Docker, Kubernetes e diversas outras tecnologias.
