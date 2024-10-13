@@ -1,0 +1,26 @@
+spring:
+ cloud:
+ gateway:
+ routes:
+ - id: lancamentos-service
+ uri: http://localhost:8081
+ predicates:
+ - Path=/lancamentos/**
+ - id: outro-servico
+ uri: http://localhost:8082
+ predicates:
+ - Path=/outro-servico/**
+ security:
+ oauth2:
+ client:
+ registration:
+ custom:
+ client-id: your-client-id
+ client-secret: your-client-secret
+ authorization-grant-type: authorization_code
+ redirect-uri: http://localhost:8080/login/oauth2/code/custom
+ scope: read,write
+ provider:
+ custom:
+ authorization-uri: http://auth-server/oauth/authorize
+ token-uri: http://auth-server/oauth/token
