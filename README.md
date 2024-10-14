@@ -1,85 +1,98 @@
 <h1>Controle de Lançamentos e Consolidação Diária - Microsserviços</h1>
 
-<p>Este repositório contém a implementação dos serviços de Controle de Lançamentos e Consolidação Diária, seguindo uma arquitetura de microsserviços com Spring Boot, RabbitMQ, Redis, PostgreSQL, Docker, Kubernetes e diversas outras tecnologias.</p>
 
-<h2>1. Etapas do Desenvolvimento</h2>
+![image](https://github.com/user-attachments/assets/00b4d0be-f17a-4f24-95e8-cd6882136e5a)
 
+<p>Este repositório contém a implementação dos serviços de Controle de Lançamentos e Consolidação Diária, seguindo uma arquitetura de microsserviços com tecnologias como Spring Boot, Kafka, Redis, PostgreSQL,MySql,Kibana, Docker,Kubernets.A aplicação é dividida em modulos separados  como :api-gateway,lancamentos-service,redis-cache,kafka-service,monitoring. Cada serviço tem uma função específica, e utilizamos diversas ferramentas para garantir alta disponibilidade, escalabilidade e desempenho.</p>
+
+<h2>1. Estrutura dos Microsserviços</h2>
+<p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
+
+<pre>
+├── api-gateway
+│ ├── config # Configurações do Gateway (routes, security, etc.)
+│ ├── controller # Controladores para manipulação de requisições
+│ ├── service # Serviços para lógica de negócio
+│ └── exception # Exceções personalizadas
+├── lancamentos-service
+│ ├── config # Configurações do serviço (Redis, Actuator, etc.)
+│ ├── controller # Controladores para manipulação de requisições
+│ ├── service # Serviços para lógica de negócio
+│ ├── repository # Repositórios para acesso a dados
+│ ├── model # Modelos de dados (entidades)
+│ └── dto # Objetos de transferência de dados
+├── outro-servico
+│ ├── config
+│ ├── controller
+│ ├── service
+│ └── repository
+├── redis-cache
+│ ├── config # Configurações do Redis e Cache
+│ ├── service # Serviços que utilizam cache
+├── kafka-service
+│ ├── config # Configurações do Kafka (producers, consumers)
+│ └── service # Serviços que interagem com Kafka
+├── monitoring
+│ ├── config # Configurações do monitoramento (Prometheus, Kibana)
+│ └── service # Serviços de monitoramento
+└── pom.xml (root)
+</pre>
+
+<h2>2. Funcionalidades Principais</h2>
+<ul>
+ <li><b>Controle de Lançamentos:</b> Gerenciar débitos e créditos financeiros.</li>
+ <li><b>Consolidação Diária:</b> Consolidação diária de saldos.</li>
+ <li><b>API Gateway:</b> Controle de rotas e segurança para os microsserviços.</li>
+ <li><b>Cache:</b> Uso de Redis/Memcached para otimização de consultas.</li>
+ <li><b>Comunicação:</b> RabbitMQ/Kafka para comunicação assíncrona entre os microsserviços.</li>
+ <li><b>Monitoramento:</b> Observabilidade com Prometheus, Grafana e a ELK Stack.</li>
+</ul>
+
+<h2>3. Etapas do Desenvolvimento</h2>
 <h3>1.1 Planejamento e Desenho da Solução</h3>
 <ul>
- <li><b>Funcionalidades:</b> Desenvolver dois serviços principais: Controle de Lançamentos e Consolidação Diária.</li>
- <li><b>Arquitetura:</b> Arquitetura baseada em microsserviços.</li>
- <li><b>Tecnologias:</b> Escolha de frameworks como Spring Boot para o backend e PostgreSQL para banco de dados.</li>
+ <li><b>Microsserviços:</b> A solução foi desenhada com base em microsserviços, cada um responsável por uma função específica.</li>
+ <li><b>Tecnologias:</b> Usamos Spring Boot para o backend, RabbitMQ/Kafka para mensageria, PostgreSQL para persistência de dados, Redis para caching e Docker/Kubernetes para orquestração de contêineres.</li>
 </ul>
 
 <h3>1.2 Configuração do Ambiente de Desenvolvimento</h3>
 <ul>
  <li><b>Instalar:</b> Java 8+, Spring Boot, Docker, Kubernetes.</li>
  <li><b>Configurar banco de dados:</b> PostgreSQL/MySQL.</li>
- <li><b>Ferramentas adicionais:</b>
- <ul>
- <li>Git para controle de versionamento.</li>
- <li>Maven ou Gradle para controle de dependências.</li>
- <li>Jenkins para automação de CI/CD.</li>
- </ul>
- </li>
+ <li><b>Ferramentas adicionais:</b> Git, Maven, Jenkins.</li>
 </ul>
 
-<h3>1.3 Desenvolvimento do Serviço de Controle de Lançamentos</h3>
+<h3>1.3 Desenvolvimento dos Serviços</h3>
 <ul>
- <li><b>API REST:</b> Gerenciar débitos e créditos.</li>
- <li><b>Banco de Dados:</b> Integração com PostgreSQL para persistência de lançamentos.</li>
- <li><b>Cache:</b> Uso de Redis/Memcached para otimização de consultas.</li>
+ <li><b>Controle de Lançamentos:</b> API REST para gerenciar lançamentos financeiros.</li>
+ <li><b>Consolidação Diária:</b> Consolidação dos saldos financeiros diariamente.</li>
+ <li><b>Comunicação:</b> RabbitMQ/Kafka para orquestrar as comunicações entre os microsserviços.</li>
 </ul>
 
-<h3>1.4 Desenvolvimento do Serviço de Consolidação Diária</h3>
+<h3>1.4 Segurança</h3>
 <ul>
- <li><b>Serviço:</b> Consolidação diária dos saldos.</li>
- <li><b>Integração:</b> RabbitMQ/Kafka para comunicação entre microsserviços.</li>
- <li><b>Cache:</b> Uso de Redis para otimização de consultas.</li>
+ <li><b>Autenticação e autorização:</b> OAuth 2.0.</li>
+ <li><b>Segurança:</b> TLS/SSL, Rate Limiting, Firewalls.</li>
 </ul>
 
-<h3>1.5 Segurança</h3>
+<h3>1.5 Observabilidade e Monitoramento</h3>
 <ul>
- <li><b>Autenticação e autorização:</b> Configurar OAuth 2.0.</li>
- <li><b>Segurança:</b> Implementação de TLS/SSL para comunicação segura.</li>
- <li><b>Proteção:</b> Rate limiting, firewalls, WAFs.</li>
-</ul>
-
-<h3>1.6 Observabilidade e Monitoramento</h3>
-<ul>
- <li><b>Monitoramento:</b> Prometheus e Grafana.</li>
+ <li><b>Prometheus e Grafana:</b> Monitoramento e visualização de métricas.</li>
  <li><b>Logs centralizados:</b> ELK Stack (Elasticsearch, Logstash, Kibana).</li>
 </ul>
 
 <hr>
 
-<h2>2. Tecnologias Utilizadas</h2>
-
-<h3>Backend:</h3>
+<h2>4. Tecnologias Utilizadas</h2>
 <ul>
- <li><b>Java (Spring Boot):</b> Para o desenvolvimento do backend.</li>
- <li><b>RabbitMQ/Kafka:</b> Comunicação entre microsserviços.</li>
- <li><b>OAuth 2.0:</b> Autenticação/autorização.</li>
- <li><b>Swagger:</b> Documentação de APIs.</li>
-</ul>
-
-<h3>Banco de Dados:</h3>
-<ul>
- <li><b>PostgreSQL/MySQL:</b> Para persistência de dados.</li>
- <li><b>Redis/Memcached:</b> Para otimização de cache.</li>
-</ul>
-
-<h3>Infraestrutura:</h3>
-<ul>
- <li><b>Docker:</b> Para contêinerização.</li>
- <li><b>Kubernetes:</b> Orquestração dos microsserviços.</li>
- <li><b>Jenkins:</b> Para CI/CD.</li>
+ <li><b>Backend:</b> Spring Boot, RabbitMQ/Kafka, Redis.</li>
+ <li><b>Banco de Dados:</b> PostgreSQL, Redis.</li>
+ <li><b>Infraestrutura:</b> Docker, Kubernetes, Jenkins.</li>
 </ul>
 
 <hr>
 
-<h2>4. Passos para Execução</h2>
-
+<h2>5. Passos para Execução</h2>
 <h3>Pré-requisitos:</h3>
 <ul>
  <li>Java 8+</li>
@@ -92,7 +105,7 @@
 
 <h3>Passos para Execução:</h3>
 <ol>
- <li>Clone o repositório:
+ <li>Clone o repositório: 
  <pre><code>git clone https://github.com/seu_usuario/repositorio.git</code></pre>
  </li>
  <li>Compile o projeto:
@@ -102,32 +115,7 @@
  <pre><code>docker-compose up</code></pre>
  </li>
  <li>Execute os serviços:
- <pre><code>java -jar target/controle-lancamentos.jar
+ <pre><code>java -jar target/controle-lancamentos.jar 
 java -jar target/consolidacao-diaria.jar</code></pre>
  </li>
 </ol>
-
-<h3>Acessar a Documentação da API:</h3>
-<p>Após iniciar os serviços, você pode acessar a documentação da API no Swagger:</p>
-<ul>
- <li><b>Controle de Lançamentos:</b> <a href="http://localhost:8080/swagger-ui.html">http://localhost:8080/swagger-ui.html</a></li>
- <li><b>Consolidação Diária:</b> <a href="http://localhost:8081/swagger-ui.html">http://localhost:8081/swagger-ui.html</a></li>
-</ul>
-
-<hr>
-
-<h2>5. Monitoramento e Observabilidade</h2>
-<ul>
- <li><b>Prometheus e Grafana:</b> Configurar dashboards para monitorar métricas de sistema.</li>
- <li><b>Logs:</b> Centralizados com a ELK Stack.</li>
-</ul>
-
-<hr>
-
-<h2>6. Contribuições</h2>
-<p>Sinta-se à vontade para enviar Pull Requests e contribuir com melhorias para o projeto!</p>
-
-<hr>
-
-<h2>7. Licença</h2>
-<p>Este projeto está sob a licença MIT.</p>
