@@ -15,7 +15,7 @@
 │ ├── service # Serviços para lógica de negócio
 │ └── exception # Exceções personalizadas
 ├── lancamentos-service
-│ ├── config # Configurações do serviço (Redis, Actuator, etc.)
+│ ├── config # Configurações do serviço (Redis, Actuator)
 │ ├── controller # Controladores para manipulação de requisições
 │ ├── service # Serviços para lógica de negócio
 │ ├── repository # Repositórios para acesso a dados
