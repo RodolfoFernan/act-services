@@ -21,7 +21,7 @@
 │ ├── repository # Repositórios para acesso a dados
 │ ├── model # Modelos de dados (entidades)
 │ └── dto # Objetos de transferência de dados
-├── outro-servico
+├── Consolidado-service
 │ ├── config
 │ ├── controller
 │ ├── service
@@ -52,7 +52,7 @@
 <h3>1.1 Planejamento e Desenho da Solução</h3>
 <ul>
  <li><b>Microsserviços:</b> A solução foi desenhada com base em microsserviços, cada um responsável por uma função específica.</li>
- <li><b>Tecnologias:</b> Usamos Spring Boot para o backend, RabbitMQ/Kafka para mensageria, PostgreSQL para persistência de dados, Redis para caching e Docker/Kubernetes para orquestração de contêineres.</li>
+ <li><b>Tecnologias:</b> Usamos Spring Boot para o backend, Kafka para mensageria, PostgreSQL para persistência de dados, Redis para caching e Docker/Kubernetes para orquestração de contêineres.</li>
 </ul>
 
 <h3>1.2 Configuração do Ambiente de Desenvolvimento</h3>
