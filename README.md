@@ -95,12 +95,12 @@
 <h2>5. Passos para Execução</h2>
 <h3>Pré-requisitos:</h3>
 <ul>
- <li>Java 8+</li>
+ <li>Java 17</li>
  <li>Maven</li>
  <li>Docker e Kubernetes</li>
  <li>PostgreSQL/MySQL</li>
  <li>Redis</li>
- <li>RabbitMQ ou Kafka</li>
+ <li>Kafka</li>
 </ul>
 
 <h3>Passos para Execução:</h3>
