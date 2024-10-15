@@ -33,7 +33,7 @@
 │ ├── config # Configurações do Kafka (producers, consumers)
 │ └── service # Serviços que interagem com Kafka
 ├── monitoring
-│ ├── config # Configurações do monitoramento (Prometheus, Kibana)
+│ ├── config # Configurações do monitoramento ( Kibana)
 │ └── service # Serviços de monitoramento
 └── pom.xml (root)
 </pre>
@@ -57,7 +57,7 @@
 
 <h3>1.2 Configuração do Ambiente de Desenvolvimento</h3>
 <ul>
- <li><b>Instalar:</b> Java 8+, Spring Boot, Docker, Kubernetes.</li>
+ <li><b>Instalar:</b> Java 17, Spring Boot, Docker, Kubernetes.</li>
  <li><b>Configurar banco de dados:</b> PostgreSQL/MySQL.</li>
  <li><b>Ferramentas adicionais:</b> Git, Maven, Jenkins.</li>
 </ul>
@@ -66,7 +66,7 @@
 <ul>
  <li><b>Controle de Lançamentos:</b> API REST para gerenciar lançamentos financeiros.</li>
  <li><b>Consolidação Diária:</b> Consolidação dos saldos financeiros diariamente.</li>
- <li><b>Comunicação:</b> RabbitMQ/Kafka para orquestrar as comunicações entre os microsserviços.</li>
+ <li><b>Comunicação:</b> Kafka para orquestrar as comunicações entre os microsserviços.</li>
 </ul>
 
 <h3>1.4 Segurança</h3>
@@ -78,7 +78,7 @@
 <h3>1.5 Observabilidade e Monitoramento</h3>
 <ul>
  <li><b>Prometheus e Grafana:</b> Monitoramento e visualização de métricas.</li>
- <li><b>Logs centralizados:</b> ELK Stack (Elasticsearch, Logstash, Kibana).</li>
+ <li><b>Logs centralizados:</b> ELK Stack (Kibana).</li>
 </ul>
 
 <hr>
