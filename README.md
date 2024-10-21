@@ -9,33 +9,174 @@
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
 
 <pre>
-├── api-gateway
-│ ├── config # Configurações do Gateway (routes, security, etc.)
-│ ├── controller # Controladores para manipulação de requisições
-│ ├── service # Serviços para lógica de negócio
-│ └── exception # Exceções personalizadas
-├── lancamentos-service
-│ ├── config # Configurações do serviço (Redis, Actuator)
-│ ├── controller # Controladores para manipulação de requisições
-│ ├── service # Serviços para lógica de negócio
-│ ├── repository # Repositórios para acesso a dados
-│ ├── model # Modelos de dados (entidades)
-│ └── dto # Objetos de transferência de dados
-├── Consolidado-service
-│ ├── config
-│ ├── controller
-│ ├── service
-│ └── repository
-├── redis-cache
-│ ├── config # Configurações do Redis e Cache
-│ ├── service # Serviços que utilizam cache
-├── kafka-service
-│ ├── config # Configurações do Kafka (producers, consumers)
-│ └── service # Serviços que interagem com Kafka
-├── monitoring
-│ ├── config # Configurações do monitoramento ( Kibana)
-│ └── service # Serviços de monitoramento
-└── pom.xml (root)
+openapi: 3.0.1
+info:
+  version: 1.0.0
+  title: API Aditamento de Dilatação - SIFES
+  description: >-
+    ## *Orientações*
+    
+    API utilizada para permitir aos estudantes inscritos no programa de
+    financiamento estudantil FIES realizarem o aditamento de dilatação de seus
+    contratos junto à Caixa.
+
+servers:
+  - url: https://sifes-intranet-operador.esteiras.des.caixa/fes-web
+
+paths:
+  /emprest/dilatacaoContrato/buscarEstudante:
+    post:
+      summary: Buscar dados do estudante para aditamento de dilatação
+      description: Esse endpoint busca as informações do estudante para verificar se ele pode solicitar uma dilatação de contrato no semestre corrente.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cpf:
+                  type: string
+                  example: "03392645001"
+                  description: CPF do estudante
+      responses:
+        '200':
+          description: Informações do estudante retornadas com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensagem:
+                    type: string
+                    example: ""
+                  codigo:
+                    type: integer
+                    example: null
+                  tipo:
+                    type: string
+                    example: null
+                  qtdDilatacoes:
+                    type: integer
+                    example: 0
+                  possuiDilatacaoAberta:
+                    type: boolean
+                    example: false
+                  justificativa:
+                    type: string
+                    example: null
+                  dilatacoesRealizadas:
+                    type: array
+                    items:
+                      type: object
+                  statusDilatacao:
+                    type: string
+                    example: null
+                  uf:
+                    type: string
+                    example: "MG"
+                  duracaoRegularCurso:
+                    type: integer
+                    example: 12
+                  diasAprovacaoIes:
+                    type: integer
+                    example: null
+                  totalSemestreContratado:
+                    type: integer
+                    example: 6
+                  localOferta:
+                    type: string
+                    example: "Unidade I - Rua Euridamas Avelino de Barros"
+                  municipio:
+                    type: string
+                    example: "PARACATU"
+                  nuIes:
+                    type: integer
+                    example: 2579
+                  nomeIes:
+                    type: string
+                    example: "CENTRO UNIVERSITÁRIO ATENAS"
+                  situacao:
+                    type: string
+                    example: "U"
+                  cpf:
+                    type: string
+                    example: "03392645001"
+                  nome:
+                    type: string
+                    example: "CANDIDATO_20005266"
+                  descCurso:
+                    type: string
+                    example: "MEDICINA"
+                  fies:
+                    type: integer
+                    example: 20005266
+                  nuOperacaoSiapi:
+                    type: integer
+                    example: 187
+                  dataLimiteMask:
+                    type: string
+                    example: "28/10/2024"
+                description: Retorno contendo as informações do estudante.
+
+  /emprest/dilatacaoContrato/confirmarSolicitacaoEstudante:
+    post:
+      summary: Confirmar solicitação de dilatação de contrato
+      description: Esse endpoint confirma a solicitação de dilatação de contrato para o estudante em um semestre específico.
+      parameters:
+        - in: query
+          name: ano
+          schema:
+            type: integer
+          required: true
+          example: 2024
+          description: Ano da dilatação.
+        - in: query
+          name: semestre
+          schema:
+            type: integer
+          required: true
+          example: 1
+          description: Semestre da dilatação.
+        - in: query
+          name: iesEncerrada
+          schema:
+            type: boolean
+          required: true
+          example: false
+          description: Indica se a IES está encerrada.
+        - in: query
+          name: codFies
+          schema:
+            type: integer
+          required: true
+          example: 20005266
+          description: Código FIES do estudante.
+        - in: query
+          name: cpf
+          schema:
+            type: string
+          required: true
+          example: "03392645001"
+          description: CPF do estudante.
+      responses:
+        '200':
+          description: Solicitação de dilatação confirmada com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensagem:
+                    type: string
+                    example: "Operação realizada com sucesso. Prazo para a IES validar o aditamento de dilatação até 28/10/2024."
+                  codigo:
+                    type: integer
+                    example: 0
+                  tipo:
+                    type: string
+                    example: "alert-success"
+                description: Confirmação da dilatação.
 </pre>
 
 <h2>2. Funcionalidades Principais</h2>
