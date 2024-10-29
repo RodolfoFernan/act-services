@@ -9,7 +9,38 @@
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
 
 <pre>
-
+/v1/confirmarSolicitacaoEstudanteApp:
+  post:
+    summary: Confirmar solicitação de dilatação de contrato
+    description: Esse endpoint confirma a solicitação de dilatação de contrato para o estudante em um semestre específico.
+    requestBody:
+      description: Dados da solicitação de dilatação.
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              ano:
+                type: integer
+                description: Ano da dilatação.
+                example: 2024
+              semestre:
+                type: integer
+                description: Semestre da dilatação.
+                example: 1
+              iesEncerrada:
+                type: boolean
+                description: Indica se a IES está encerrada.
+                example: false
+              codFies:
+                type: integer
+                description: Código FIES do estudante.
+                example: 20005266
+              cpf:
+                type: string
+                description: CPF do estudante.
+                example: "03392645001"
 
 
 </pre>
