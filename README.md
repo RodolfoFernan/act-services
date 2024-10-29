@@ -9,46 +9,19 @@
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
 
 <pre>
-/v1/confirmarSolicitacaoEstudanteApp:
-  post:
-    summary: Confirmar solicitação de dilatação de contrato
-    description: Esse endpoint confirma a solicitação de dilatação de contrato para o estudante em um semestre específico.
-    requestBody:
-      description: Dados da solicitação de dilatação.
-      required: true
-      content:
-        application/json:
+paths:
+  /v1/validarCriteriosDilatacaoApp/{cpf}:
+    get:
+      summary: Buscar dados do estudante para aditamento de dilatação
+      description: Esse endpoint busca as informações do estudante para verificar se ele pode solicitar uma dilatação de contrato no semestre corrente.
+      parameters:
+        - name: cpf
+          in: path
+          required: true
           schema:
-            type: object
-            properties:
-              ano:
-                type: integer
-                description: Ano da dilatação.
-                example: 2024
-              semestre:
-                type: integer
-                description: Semestre da dilatação.
-                example: 1
-              iesEncerrada:
-                type: boolean
-                description: Indica se a IES está encerrada.
-                example: false
-              codFies:
-                type: integer
-                description: Código FIES do estudante.
-                example: 20005266
-              cpf:
-                type: string
-                description: CPF do estudante.
-                example: "03392645001"
-    responses:
-      '200':
-        description: Solicitação confirmada com sucesso.
-      '400':
-        description: Erro de validação nos dados enviados.
-      '500':
-        description: Erro interno do servidor.
-
+            type: string
+          example: "03392645001"
+          description: CPF do estudante
 
 </pre>
 
