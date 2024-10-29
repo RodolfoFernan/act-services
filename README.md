@@ -9,220 +9,45 @@
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
 
 <pre>
-openapi: 3.0.1
-info:
-  version: 1.0.0
-  title: API Aditamento de Dilatação - SIFES
-  description: >-
-    ## *Orientações*
-
-    API utilizada para permitir aos estudantes inscritos no programa de
-    financiamento estudantil FIES realizarem o aditamento de dilatação de seus
-    contratos junto à Caixa.
-
-    Para cada um dos paths desta API, além dos escopos (`scopes`) indicados
-    existem (`permissions`) que deverão ser observadas:
-
-    ### `/personal/identifications`
-    - permissions:
-      - GET: **CUSTOMERS_PERSONAL_IDENTIFICATIONS_READ**
-    ### `/personal/qualifications`
-    - permissions: **CUSTOMERS_PERSONAL_ADITTIONALINFO_READ**
-    ### `/personal/financial-relations`
-
-    ### `- API Segurança Nível III`
-
-    `- Timeout no API Manager:` **3 segundos**
-
-    `- Timeout no Middleware` **_____ milissegundos**
-
-    `- Timeout no Backend:` **865 milissegundos**
-
-    `- Equipe de Desenvolvimento Responsável: ` **CESOB220**
-
-    `- Equipe Gestora Negocial (Dono do Produto): ` **GEFET**
-
-    `- Nº do RTC de Validação do Swagger: ` **20961817**
-  contact:
-    name: Equipe de Desenvolvimento (cesob220@caixa.gov.br)
-    email: sudeXXX@caixa.gov.br
-servers:
-  - url: 'https://api.des.caixa:8446/financiamentoestudantil/aditamentodilatacao'
-    description: Ambiente de desenvolvimento
-
-paths:
-  /v1/validarCriteriosDilatacaoApp/{cpf}:
-    get:
-      summary: Buscar dados do estudante para aditamento de dilatação
-      description: Esse endpoint busca as informações do estudante para verificar se ele pode solicitar uma dilatação de contrato no semestre corrente.
-      parameters:
-        - name: cpf
-          in: path
-          required: true
+/v1/confirmarSolicitacaoEstudanteApp:
+  post:
+    summary: Confirmar solicitação de dilatação de contrato
+    description: Esse endpoint confirma a solicitação de dilatação de contrato para o estudante em um semestre específico.
+    requestBody:
+      description: Dados da solicitação de dilatação.
+      required: true
+      content:
+        application/json:
           schema:
-            type: string
-            example: "03392645001"
-          description: CPF do estudante
-      responses:
-        '200':
-          description: Informações do estudante retornadas com sucesso.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  mensagem:
-                    type: string
-                    example: ""
-                  codigo:
-                    type: integer
-                    example: null
-                  tipo:
-                    type: string
-                    example: null
-                  qtdDilatacoes:
-                    type: integer
-                    example: 0
-                  possuiDilatacaoAberta:
-                    type: boolean
-                    example: false
-                  justificativa:
-                    type: string
-                    example: null
-                  dilatacoesRealizadas:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        statusDilatacao:
-                          type: string
-                          example: null
-                        uf:
-                          type: string
-                          example: "MG"
-                        duracaoRegularCurso:
-                          type: integer
-                          example: 12
-                        diasAprovacaoIes:
-                          type: integer
-                          example: null
-                        totalSemestreContratado:
-                          type: integer
-                          example: 6
-                        localOferta:
-                          type: string
-                          example: "Unidade I - Rua Euridamas Avelino de Barros"
-                        municipio:
-                          type: string
-                          example: "PARACATU"
-                        nuIes:
-                          type: integer
-                          example: 2579
-                        nomeIes:
-                          type: string
-                          example: "CENTRO UNIVERSITÁRIO ATENAS"
-                        situacao:
-                          type: string
-                          example: "U"
-                        cpf:
-                          type: string
-                          example: "03392645001"
-                        nome:
-                          type: string
-                          example: "CANDIDATO_20005266"
-                        descCurso:
-                          type: string
-                          example: "MEDICINA"
-                        fies:
-                          type: integer
-                          example: 20005266
-                        nuOperacaoSiapi:
-                          type: integer
-                          example: 187
-                        dataLimiteMask:
-                          type: string
-                          example: "28/10/2024"
-          examples:
-            OperacaoIndisponivelContrato:
-              summary: Operação não disponível para este contrato.
-              value:
-                mensagem: "Já existe solicitação de dilatação para este semestre."
-                codigo: 2
-                possuiDilatacaoAberta: true
-                uf: "MG"
-            CalendarioFechado:
-              summary: Operação não disponível para este contrato. (calendário fechado)
-              value:
-                mensagem: "Operação não disponível para este contrato."
-                codigo: 2
-                possuiDilatacaoAberta: false
-                uf: "MG"
-            PeriodoEmUtilizacao:
-              summary: Dilatação não permitida, ainda existe período de utilização
-              value:
-                mensagem: "Operação não disponível para este contrato."
-                codigo: 2
-                possuiDilatacaoAberta: false
-                uf: "MG"
-        '401':
-          description: >-
-            Identificação provida pelo token aponta para usuário não autorizado
-            a utilizar a API.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RetornoErro'
-          examples:
-            Exemplo:
-              value:
-                codigo: 401
-                mensagem: O token fornecido para acesso à API é inválido.
-                tipo: Erro
-                editavel: false
-        '404':
-          description: Não foi localizado um contrato para o código Fies fornecido.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RetornoErro'
-          examples:
-            Exemplo:
-              value:
-                codigo: 404
-                mensagem: >-
-                  Não foi localizado um contrato para o código Fies
-                  fornecido.
-                tipo: Erro
-                editavel: false
-        '412':
-          description: Erro negocial ou estrutural na chamada da API.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RetornoErro'
-          examples:
-            Exemplo:
-              value:
-                codigo: 412
-                mensagem: Os dados fornecidos não são válidos.
-                tipo: Erro
-                editavel: false
-        '500':
-          description: Erro interno do servidor.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RetornoErro'
-          examples:
-            Exemplo:
-              value:
-                codigo: 500
-                mensagem: Erro na execução da funcionalidade no backend.
-                tipo: Erro
-                editavel: false
-      security:
-        - Internet: []
-        - APIKey: []
+            type: object
+            properties:
+              ano:
+                type: integer
+                description: Ano da dilatação.
+                example: 2024
+              semestre:
+                type: integer
+                description: Semestre da dilatação.
+                example: 1
+              iesEncerrada:
+                type: boolean
+                description: Indica se a IES está encerrada.
+                example: false
+              codFies:
+                type: integer
+                description: Código FIES do estudante.
+                example: 20005266
+              cpf:
+                type: string
+                description: CPF do estudante.
+                example: "03392645001"
+    responses:
+      '200':
+        description: Solicitação confirmada com sucesso.
+      '400':
+        description: Erro de validação nos dados enviados.
+      '500':
+        description: Erro interno do servidor.
 
 
 </pre>
