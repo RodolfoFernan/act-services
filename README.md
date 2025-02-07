@@ -7,6 +7,67 @@
 
 <h2>1. Estrutura dos Microsserviços</h2>
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
+post:
+  summary: Confirmar solicitação de transferência de contrato
+  description: >
+    Esse endpoint confirma a solicitação de Transferência.
+  requestBody:
+    description: Dados da solicitação de Transferência.
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            numeroSemestresCursar:
+              type: integer
+              description: Número de semestres a cursar.
+              example: 3
+            dtDesligamento:
+              type: string
+              format: date
+              description: Data de desligamento.
+              example: "12/01/2024"
+            codFies:
+              type: integer
+              description: Código FIES do estudante.
+              example: 20360669
+            tipoTransferencia:
+              type: integer
+              description: Tipo de transferência.
+              example: 2
+            nuCurso:
+              type: integer
+              description: Número do curso atual.
+              example: 1109229
+            numeroCursoDestino:
+              type: integer
+              description: Número do curso de destino.
+              example: 48800
+            numeroCampusDestino:
+              type: integer
+              description: Número do campus de destino.
+              example: 1003212
+            nuCampus:
+              type: integer
+              description: Número do campus atual.
+              example: 1080012
+            nuTurno:
+              type: integer
+              description: Número do turno atual.
+              example: 3
+            campusDestino:
+              type: integer
+              description: Código do campus de destino.
+              example: 1003212
+            cursoDestino:
+              type: integer
+              description: Código do curso de destino.
+              example: 1109229
+            turnoDestino:
+              type: integer
+              description: Código do turno de destino.
+              example: 3
 
 <pre>
 
