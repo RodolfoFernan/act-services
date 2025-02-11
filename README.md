@@ -16,58 +16,177 @@ post:
     required: true
     content:
       application/json:
-        schema:
-          type: object
-          properties:
-            numeroSemestresCursar:
-              type: integer
-              description: Número de semestres a cursar.
-              example: 3
-            dtDesligamento:
-              type: string
-              format: date
-              description: Data de desligamento.
-              example: "12/01/2024"
-            codFies:
-              type: integer
-              description: Código FIES do estudante.
-              example: 20360669
-            tipoTransferencia:
-              type: integer
-              description: Tipo de transferência.
-              example: 2
-            nuCurso:
-              type: integer
-              description: Número do curso atual.
-              example: 1109229
-            numeroCursoDestino:
-              type: integer
-              description: Número do curso de destino.
-              example: 48800
-            numeroCampusDestino:
-              type: integer
-              description: Número do campus de destino.
-              example: 1003212
-            nuCampus:
-              type: integer
-              description: Número do campus atual.
-              example: 1080012
-            nuTurno:
-              type: integer
-              description: Número do turno atual.
-              example: 3
-            campusDestino:
-              type: integer
-              description: Código do campus de destino.
-              example: 1003212
-            cursoDestino:
-              type: integer
-              description: Código do curso de destino.
-              example: 1109229
-            turnoDestino:
-              type: integer
-              description: Código do turno de destino.
-              example: 3
+  schema:
+    type: object
+    properties:
+      mensagem:
+        type: string
+        example: "Operação não disponível para este contrato."
+      codigo:
+        type: integer
+        example: 2
+      tipo:
+        type: string
+        example: null
+      editavel:
+        type: string
+        example: null
+      idTransferencia:
+        type: integer
+        example: null
+      codFies:
+        type: integer
+        example: 20360669
+      cpfCandidato:
+        type: string
+        example: "06741761209"
+      nomeCandidato:
+        type: string
+        example: "Candidato_20360669"
+      tipoTransferencia:
+        type: string
+        example: null
+      idIes:
+        type: integer
+        example: 14901
+      nuMantenedora:
+        type: integer
+        example: 14228
+      nuCampus:
+        type: integer
+        example: 1080012
+      nuCurso:
+        type: integer
+        example: 1109229
+      nuTurno:
+        type: integer
+        example: 3
+      nomeIes:
+        type: string
+        example: "FACULDADE INTEGRADA CARAJÁS"
+      nomeMantenedora:
+        type: string
+        example: "Faculdades Integradas Carajas S/C Ltda - Epp"
+      turnoDescDestino:
+        type: string
+        example: "Noturno"
+      uf:
+        type: string
+        example: "PA"
+      municipio:
+        type: string
+        example: "REDENCAO"
+      endereco:
+        type: string
+        example: "BR 155, km 03"
+      nomeCampus:
+        type: string
+        example: "Faculdade Integrada Carajás"
+      nomeCurso:
+        type: string
+        example: "ENFERMAGEM"
+      duracaoRegularCurso:
+        type: integer
+        example: 10
+      nuSemestresCursados:
+        type: integer
+        example: 8
+      qtSemestresDilatado:
+        type: integer
+        example: 0
+      qtSemestresSuspenso:
+        type: integer
+        example: 0
+      iesDestino:
+        type: string
+        example: null
+      nuMantenedoraDestino:
+        type: integer
+        example: null
+      campusDestino:
+        type: string
+        example: null
+      cursoDestino:
+        type: string
+        example: null
+      turnoDestino:
+        type: string
+        example: null
+      nomeIesDestino:
+        type: string
+        example: null
+      nomeMantenedoraDestino:
+        type: string
+        example: null
+      ufDestino:
+        type: string
+        example: null
+      municipioDestino:
+        type: string
+        example: null
+      enderecoDestino:
+        type: string
+        example: null
+      nomeCampusDestino:
+        type: string
+        example: null
+      nomeCursoDestino:
+        type: string
+        example: null
+      transferenciasRealizadas:
+        type: string
+        example: null
+      icCondicaoFuncionamento:
+        type: string
+        example: "N"
+      icSituacaoContrato:
+        type: string
+        example: "U"
+      icSituacaoIES:
+        type: string
+        example: null
+      nuOperacaoSiapi:
+        type: integer
+        example: 187
+      totalSemestresContratados:
+        type: integer
+        example: 6
+      totalSemestresUtilizados:
+        type: integer
+        example: 1
+      totalSemestresDestino:
+        type: integer
+        example: null
+      habilitarSolicitacao:
+        type: boolean
+        example: true
+      numeroSemestresCursar:
+        type: integer
+        example: 10
+      descTunoOrigem:
+        type: string
+        example: "Noturno"
+      semestreReferencia:
+        type: integer
+        example: 1
+      anoReferencia:
+        type: integer
+        example: 2025
+      notaEnemCandidato:
+        type: string
+        example: null
+      anoReferenciaNotaEnem:
+        type: string
+        example: null
+      jsonRetornoConsultaEnem:
+        type: string
+        example: null
+      estudantePodeTransfCurso:
+        type: string
+        example: "S"
+      totalSemestresDisponiveis:
+        type: integer
+        example: 5
 
 <pre>
 
