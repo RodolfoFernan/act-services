@@ -7,186 +7,163 @@
 
 <h2>1. Estrutura dos Microsserviços</h2>
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
-post:
-  summary: Confirmar solicitação de transferência de contrato
-  description: >
-    Esse endpoint confirma a solicitação de Transferência.
-  requestBody:
-    description: Dados da solicitação de Transferência.
-    required: true
-    content:
-      application/json:
-  schema:
-    type: object
-    properties:
-      mensagem:
-        type: string
-        example: "Operação não disponível para este contrato."
-      codigo:
-        type: integer
-        example: 2
-      tipo:
-        type: string
-        example: null
-      editavel:
-        type: string
-        example: null
-      idTransferencia:
-        type: integer
-        example: null
-      codFies:
-        type: integer
-        example: 20360669
-      cpfCandidato:
-        type: string
-        example: "06741761209"
-      nomeCandidato:
-        type: string
-        example: "Candidato_20360669"
-      tipoTransferencia:
-        type: string
-        example: null
-      idIes:
-        type: integer
-        example: 14901
-      nuMantenedora:
-        type: integer
-        example: 14228
-      nuCampus:
-        type: integer
-        example: 1080012
-      nuCurso:
-        type: integer
-        example: 1109229
-      nuTurno:
-        type: integer
-        example: 3
-      nomeIes:
-        type: string
-        example: "FACULDADE INTEGRADA CARAJÁS"
-      nomeMantenedora:
-        type: string
-        example: "Faculdades Integradas Carajas S/C Ltda - Epp"
-      turnoDescDestino:
-        type: string
-        example: "Noturno"
-      uf:
-        type: string
-        example: "PA"
-      municipio:
-        type: string
-        example: "REDENCAO"
-      endereco:
-        type: string
-        example: "BR 155, km 03"
-      nomeCampus:
-        type: string
-        example: "Faculdade Integrada Carajás"
-      nomeCurso:
-        type: string
-        example: "ENFERMAGEM"
-      duracaoRegularCurso:
-        type: integer
-        example: 10
-      nuSemestresCursados:
-        type: integer
-        example: 8
-      qtSemestresDilatado:
-        type: integer
-        example: 0
-      qtSemestresSuspenso:
-        type: integer
-        example: 0
-      iesDestino:
-        type: string
-        example: null
-      nuMantenedoraDestino:
-        type: integer
-        example: null
-      campusDestino:
-        type: string
-        example: null
-      cursoDestino:
-        type: string
-        example: null
-      turnoDestino:
-        type: string
-        example: null
-      nomeIesDestino:
-        type: string
-        example: null
-      nomeMantenedoraDestino:
-        type: string
-        example: null
-      ufDestino:
-        type: string
-        example: null
-      municipioDestino:
-        type: string
-        example: null
-      enderecoDestino:
-        type: string
-        example: null
-      nomeCampusDestino:
-        type: string
-        example: null
-      nomeCursoDestino:
-        type: string
-        example: null
-      transferenciasRealizadas:
-        type: string
-        example: null
-      icCondicaoFuncionamento:
-        type: string
-        example: "N"
-      icSituacaoContrato:
-        type: string
-        example: "U"
-      icSituacaoIES:
-        type: string
-        example: null
-      nuOperacaoSiapi:
-        type: integer
-        example: 187
-      totalSemestresContratados:
-        type: integer
-        example: 6
-      totalSemestresUtilizados:
-        type: integer
-        example: 1
-      totalSemestresDestino:
-        type: integer
-        example: null
-      habilitarSolicitacao:
-        type: boolean
-        example: true
-      numeroSemestresCursar:
-        type: integer
-        example: 10
-      descTunoOrigem:
-        type: string
-        example: "Noturno"
-      semestreReferencia:
-        type: integer
-        example: 1
-      anoReferencia:
-        type: integer
-        example: 2025
-      notaEnemCandidato:
-        type: string
-        example: null
-      anoReferenciaNotaEnem:
-        type: string
-        example: null
-      jsonRetornoConsultaEnem:
-        type: string
-        example: null
-      estudantePodeTransfCurso:
-        type: string
-        example: "S"
-      totalSemestresDisponiveis:
-        type: integer
-        example: 5
+openapi: 3.0.1
+info:
+  version: 1.0.0
+  title: API Aditamento de Transferência - SIFES
+  description: |
+    ## *Orientações*
+    
+    API utilizada para permitir aos estudantes inscritos no programa de financiamento estudantil FIES realizarem a Transferência de IES e Curso junto à Caixa.
+    
+    Para cada um dos paths desta API, além dos escopos (`scopes`) indicados, existem (`permissions`) que deverão ser observadas:
+    
+    ### Permissões
+    
+    **`/personal/identifications`**
+    - GET: **CUSTOMERS_PERSONAL_IDENTIFICATIONS_READ**
+    
+    **`/personal/qualifications`**
+    - GET: **CUSTOMERS_PERSONAL_ADDITIONALINFO_READ**
+    
+    **`/personal/financial-relations`**
+    
+    ### Segurança
+    - API Segurança Nível III
+    - Timeout no API Manager: **3 segundos**
+    - Timeout no Middleware: **_____ milissegundos**
+    - Timeout no Backend: **865 milissegundos**
+    
+    ### Equipes Responsáveis
+    - Equipe de Desenvolvimento: **CESOB220**
+    - Equipe Gestora Negocial (Dono do Produto): **GEFET**
+    - Nº do RTC de Validação do Swagger: **20961817**
+
+contact:
+  name: Equipe de Desenvolvimento
+  email: cesob220@caixa.gov.br
+
+servers:
+  - url: https://api.des.caixa:8446/financiamentoestudantil/transferenciaContrato
+
+paths:
+  /v1/validar-criterios-transfer/{cpf}:
+    get:
+      summary: Buscar dados do estudante para aditamento de transferência
+      description: |
+        Esse endpoint busca as informações do estudante para verificar se ele pode solicitar uma Transferência.
+      parameters:
+        - name: cpf
+          in: path
+          required: true
+          schema:
+            type: string
+          example: '06741761209'
+          description: CPF do estudante
+      responses:
+        '200':
+          description: Informações do estudante retornadas com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensagem:
+                    type: string
+                    example: "Operação não disponível para este contrato."
+                  codigo:
+                    type: integer
+                    example: 2
+                  tipo:
+                    type: string
+                    example: null
+                  habilitarSolicitacao:
+                    type: boolean
+                    example: true
+        '401':
+          description: Usuário não autorizado a utilizar a API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+        '404':
+          description: Não foi localizado um contrato para o código Fies fornecido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+        '500':
+          description: Erro interno do servidor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+
+  /v1/confirmar-solicitacao-app:
+    post:
+      summary: Confirmar solicitação de transferência de contrato
+      description: |
+        Esse endpoint confirma a solicitação de Transferência.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                numeroSemestresCursar:
+                  type: integer
+                  description: Número de semestres a cursar.
+                  example: 3
+                dtDesligamento:
+                  type: string
+                  format: date
+                  description: Data de desligamento.
+                  example: "12/01/2024"
+                codFies:
+                  type: integer
+                  description: Código FIES do estudante.
+                  example: 20360669
+      responses:
+        '200':
+          description: Solicitação de Transferência confirmada com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensagem:
+                    type: string
+                    example: "Operação realizada com sucesso."
+                  codigo:
+                    type: integer
+                    example: 200
+        '401':
+          description: Usuário não autorizado a utilizar a API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+        '500':
+          description: Erro interno do servidor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+
+components:
+  schemas:
+    RetornoErro:
+      type: object
+      properties:
+        codigo:
+          type: integer
+        mensagem:
+          type: string
+        tipo:
+          type: string
+        editavel:
+          type: boolean
 
 <pre>
 
