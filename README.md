@@ -7,163 +7,126 @@
 
 <h2>1. Estrutura dos Microsserviços</h2>
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
-openapi: 3.0.1
-info:
-  version: 1.0.0
-  title: API Aditamento de Transferência - SIFES
-  description: |
-    ## *Orientações*
-    
-    API utilizada para permitir aos estudantes inscritos no programa de financiamento estudantil FIES realizarem a Transferência de IES e Curso junto à Caixa.
-    
-    Para cada um dos paths desta API, além dos escopos (`scopes`) indicados, existem (`permissions`) que deverão ser observadas:
-    
-    ### Permissões
-    
-    **`/personal/identifications`**
-    - GET: **CUSTOMERS_PERSONAL_IDENTIFICATIONS_READ**
-    
-    **`/personal/qualifications`**
-    - GET: **CUSTOMERS_PERSONAL_ADDITIONALINFO_READ**
-    
-    **`/personal/financial-relations`**
-    
-    ### Segurança
-    - API Segurança Nível III
-    - Timeout no API Manager: **3 segundos**
-    - Timeout no Middleware: **_____ milissegundos**
-    - Timeout no Backend: **865 milissegundos**
-    
-    ### Equipes Responsáveis
-    - Equipe de Desenvolvimento: **CESOB220**
-    - Equipe Gestora Negocial (Dono do Produto): **GEFET**
-    - Nº do RTC de Validação do Swagger: **20961817**
 
-contact:
-  name: Equipe de Desenvolvimento
-  email: cesob220@caixa.gov.br
+    
+Classe: RepasseTituloServiceImpl
 
-servers:
-  - url: https://api.des.caixa:8446/financiamentoestudantil/transferenciaContrato
+Descrição: Classe responsável pelo processo batch de repasse de títulos no sistema SIFES, que inclui a apuração, cálculo, verificação de saldo e integralização no FG-FIES, além da persistência das movimentações e atualização de históricos.
+Principais Tabelas Utilizadas:
 
-paths:
-  /v1/validar-criterios-transfer/{cpf}:
-    get:
-      summary: Buscar dados do estudante para aditamento de transferência
-      description: |
-        Esse endpoint busca as informações do estudante para verificar se ele pode solicitar uma Transferência.
-      parameters:
-        - name: cpf
-          in: path
-          required: true
-          schema:
-            type: string
-          example: '06741761209'
-          description: CPF do estudante
-      responses:
-        '200':
-          description: Informações do estudante retornadas com sucesso.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  mensagem:
-                    type: string
-                    example: "Operação não disponível para este contrato."
-                  codigo:
-                    type: integer
-                    example: 2
-                  tipo:
-                    type: string
-                    example: null
-                  habilitarSolicitacao:
-                    type: boolean
-                    example: true
-        '401':
-          description: Usuário não autorizado a utilizar a API.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RetornoErro'
-        '404':
-          description: Não foi localizado um contrato para o código Fies fornecido.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RetornoErro'
-        '500':
-          description: Erro interno do servidor.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RetornoErro'
+    ApuracaoRepasseTO: Contém os dados de apuração de repasses de títulos.
+    PrecoUnitarioTO: Armazena os preços unitários utilizados nos cálculos.
+    MovimentacaoTituloTO: Registra os movimentos de repasse de títulos.
+    RelatorioContratacaoSinteticoTO: Utilizado para obter informações sintéticas das mantenedoras.
 
-  /v1/confirmar-solicitacao-app:
-    post:
-      summary: Confirmar solicitação de transferência de contrato
-      description: |
-        Esse endpoint confirma a solicitação de Transferência.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                numeroSemestresCursar:
-                  type: integer
-                  description: Número de semestres a cursar.
-                  example: 3
-                dtDesligamento:
-                  type: string
-                  format: date
-                  description: Data de desligamento.
-                  example: "12/01/2024"
-                codFies:
-                  type: integer
-                  description: Código FIES do estudante.
-                  example: 20360669
-      responses:
-        '200':
-          description: Solicitação de Transferência confirmada com sucesso.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  mensagem:
-                    type: string
-                    example: "Operação realizada com sucesso."
-                  codigo:
-                    type: integer
-                    example: 200
-        '401':
-          description: Usuário não autorizado a utilizar a API.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RetornoErro'
-        '500':
-          description: Erro interno do servidor.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RetornoErro'
+Métodos Principais:
+1. apuraRepasseTitulos(Integer mesRef, Integer anoRef)
 
-components:
-  schemas:
-    RetornoErro:
-      type: object
-      properties:
-        codigo:
-          type: integer
-        mensagem:
-          type: string
-        tipo:
-          type: string
-        editavel:
-          type: boolean
+Descrição: Inicia o processo de apuração e cálculo do repasse de títulos.
+
+Fluxo:
+
+    Define o mês e ano de referência do período anterior.
+    Executa uma consulta para buscar registros de apuração no banco.
+    Caso não haja apuração, o processo é interrompido.
+    Busca o preço unitário para o próximo mês.
+    Se o preço unitário não estiver cadastrado, interrompe o processo.
+    Para cada mantenedora encontrada, realiza os cálculos de repasse.
+
+2. Cálculo do Repasse de Títulos para a Mantenedora
+
+Descrição: Obtém o valor residual do último movimento da mantenedora, soma esse valor ao repasse calculado e converte o valor final para títulos.
+
+Fluxo:
+
+    Consulta do Valor Residual:
+        Chama getResiduoUltimoMovimentoMantenedora(nuMantenedora) para obter o resíduo financeiro do último repasse.
+    Cálculo do Valor Total de Repasse:
+        Obtém o valor do repasse já calculado e adiciona o valor residual.
+    Conversão para Quantidade de Títulos:
+        Divide o valor total de repasse pelo preço unitário (valorPU) e converte para long.
+    Cálculo do Valor Residual Financeiro:
+        Calcula o valor do repasse sem resíduo e o valor financeiro não convertido em títulos.
+    Verificação de Saldo:
+        Verifica se há saldo suficiente para a quantidade de títulos calculada. Caso contrário, interrompe o processo.
+
+3. Consolidação do Repasse e Registro na Base de Dados
+
+Fluxo:
+
+    Consulta do Título Associado ao Repasse:
+        Chama consultaTitulo(repasseTitulos) para obter o ID do título.
+    Registro de Integralização FGFIES:
+        Chama realizaIntegralizacaoFGFies() para registrar a integralização dos valores no Fundo Garantidor (FGFIES).
+    Preenchimento dos Dados do Repasse:
+        Define os atributos de repasseTituloTO com dados como código do usuário, mantenedora, valor do movimento, número de títulos movimentados, valor residual e data de movimentação.
+    Atualização do Saldo da Mantenedora:
+        Chama atualizaSaldoMantenedoraFies() para ajustar o saldo da mantenedora no FIES.
+    Gravação do Histórico:
+        Chama gravarHistoricoTitulo() para registrar o histórico da movimentação.
+    Persistência no Banco de Dados:
+        Insere o registro na tabela MovimentacaoTituloTO e garante a efetivação da transação com entityManager.flush() e entityManager.clear().
+
+Métodos Auxiliares:
+4.1. consultaTitulo(Long repasseTitulos)
+
+Descrição: Consulta o título associado ao repasse.
+
+Fluxo:
+
+    Utiliza a query MovimentacaoTituloTO.QUERY_CONSULTA_TITULO_REPASSE para buscar o título e retorna o ID do título associado ao repasse.
+
+4.2. gravarHistoricoTitulo(MovimentacaoTituloTO repasseTituloTO, BigDecimal valorTotal, BigDecimal taxaAdm, BigDecimal vlrIntegralizacao)
+
+Descrição: Persiste o histórico da movimentação dos títulos.
+
+Fluxo:
+
+    Consulta o ID da Apuração:
+        Executa ApuracaoRepasseTO.QUERY_CONSULTA_ID para obter o ID da apuração.
+    Consulta o Último ID de Apropriação:
+        Obtém o último ID de apropriação com QUERY_MAX_ID_APROPRIACAO. Se não houver, inicia com 0L.
+    Preenchimento dos Dados do Histórico:
+        Define atributos como referência temporal, situação de apropriação e valores do repasse.
+    Persiste o Histórico:
+        Insere o histórico de movimentação na base de dados.
+
+Pontos de Atenção na Análise:
+1. Atualização de Saldo (atualizaSaldoMantenedoraFies)
+
+    Certifique-se de que a multiplicação por -1 nos valores e cotas seja adequada às regras de negócio.
+
+2. Verificação de Saldo (fiesPossuiSaldoParaRepasse)
+
+    Verifique se o método está tratando corretamente valores nulos para evitar NullPointerException ao verificar saldo.
+
+3. Integralização no FG-FIES (realizaIntegralizacaoFGFies)
+
+    A integralização depende de pcIntegralizacao > 0.
+    Verifique se a consulta de cotas retorna resultados válidos e trate os casos onde valorCota é 0.
+
+4. Consulta de Cota (consultaCota)
+
+    Assegure que os parâmetros de referência de mês e ano anterior estejam corretamente inicializados.
+
+5. Adição de Mantenedora ao Fundo (adicionarMantenedoraNoFundo)
+
+    Verifique se a conversão de CNPJ para Long está correta para evitar NumberFormatException.
+
+6. Resíduo do Último Movimento (getResiduoUltimoMovimentoMantenedora)
+
+    Certifique-se de que a conversão dos campos de referência de movimento está correta para evitar falhas na consulta.
+
+Sugestões para Análise:
+
+    Testes Unitários: Criar testes para cenários de repasse, saldo insuficiente e integralização.
+    Verificação de Nulos: Melhorar o tratamento de valores nulos para evitar exceções inesperadas.
+    Validação de Regras: Certificar-se de que os cálculos financeiros e integrações estão corretos e atendem às regras do FG-FIES.
+
+Se precisar de mais detalhes ou ajustes, estou à disposição!
+
+
+
 
 <pre>
 
