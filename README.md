@@ -9,121 +9,111 @@
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
 
     
-Classe: RepasseTituloServiceImpl
+Segue abaixo um parecer técnico consolidado referente ao Item de Backlog 22771690 - NOVO FIES - AGENTE OPERADOR - REPASSE DUPLICADO, com organização das informações técnicas e contexto dos eventos:
+🧾 Resumo do Problema
 
-Descrição: Classe responsável pelo processo batch de repasse de títulos no sistema SIFES, que inclui a apuração, cálculo, verificação de saldo e integralização no FG-FIES, além da persistência das movimentações e atualização de históricos.
-Principais Tabelas Utilizadas:
+Item de Backlog: 22771690
+Título: NOVO FIES - AGENTE OPERADOR - REPASSE DUPLICADO
+Resumo Técnico:
+Foram identificadas liberações que foram indevidamente repassadas duas vezes no repasse de fevereiro/2025 (02/2025). Essas liberações já haviam sido repassadas anteriormente, ocasionando duplicidade de repasse.
+🔎 Causa Raiz
 
-    ApuracaoRepasseTO: Contém os dados de apuração de repasses de títulos.
-    PrecoUnitarioTO: Armazena os preços unitários utilizados nos cálculos.
-    MovimentacaoTituloTO: Registra os movimentos de repasse de títulos.
-    RelatorioContratacaoSinteticoTO: Utilizado para obter informações sintéticas das mantenedoras.
+A duplicidade está relacionada à demanda anterior 22278713, na qual aditamentos revalidados pelo app causaram o sumiço da última liberação do semestre 1/2024. Como correção, liberações foram recriadas manualmente, mas não houve controle de que essas liberações já haviam sido repassadas anteriormente, gerando repasses duplicados.
+📌 Demanda Original Relacionada
 
-Métodos Principais:
-1. apuraRepasseTitulos(Integer mesRef, Integer anoRef)
+Item de Backlog: 22278713
+Título: NOVO FIES - ADITAMENTO REVALIDADO PELO APP SUMIU COM ÚLTIMA LIBERAÇÃO
+Problema: A revalidação de aditamentos já contratados fez com que a última liberação desaparecesse, gerando necessidade de recriação.
+Exemplos de casos:
 
-Descrição: Inicia o processo de apuração e cálculo do repasse de títulos.
+    CPF: 10361402961, 441.844.118-27
 
-Fluxo:
+    Outros CPFs:
 
-    Define o mês e ano de referência do período anterior.
-    Executa uma consulta para buscar registros de apuração no banco.
-    Caso não haja apuração, o processo é interrompido.
-    Busca o preço unitário para o próximo mês.
-    Se o preço unitário não estiver cadastrado, interrompe o processo.
-    Para cada mantenedora encontrada, realiza os cálculos de repasse.
+        143.231.746-67
 
-2. Cálculo do Repasse de Títulos para a Mantenedora
+        134.280.946-70
 
-Descrição: Obtém o valor residual do último movimento da mantenedora, soma esse valor ao repasse calculado e converte o valor final para títulos.
+        154.806.536-60
 
-Fluxo:
+        165.237.576-76
 
-    Consulta do Valor Residual:
-        Chama getResiduoUltimoMovimentoMantenedora(nuMantenedora) para obter o resíduo financeiro do último repasse.
-    Cálculo do Valor Total de Repasse:
-        Obtém o valor do repasse já calculado e adiciona o valor residual.
-    Conversão para Quantidade de Títulos:
-        Divide o valor total de repasse pelo preço unitário (valorPU) e converte para long.
-    Cálculo do Valor Residual Financeiro:
-        Calcula o valor do repasse sem resíduo e o valor financeiro não convertido em títulos.
-    Verificação de Saldo:
-        Verifica se há saldo suficiente para a quantidade de títulos calculada. Caso contrário, interrompe o processo.
+        059.015.631-40
 
-3. Consolidação do Repasse e Registro na Base de Dados
+        088.401.083-00
 
-Fluxo:
+        718.450.694-47
 
-    Consulta do Título Associado ao Repasse:
-        Chama consultaTitulo(repasseTitulos) para obter o ID do título.
-    Registro de Integralização FGFIES:
-        Chama realizaIntegralizacaoFGFies() para registrar a integralização dos valores no Fundo Garantidor (FGFIES).
-    Preenchimento dos Dados do Repasse:
-        Define os atributos de repasseTituloTO com dados como código do usuário, mantenedora, valor do movimento, número de títulos movimentados, valor residual e data de movimentação.
-    Atualização do Saldo da Mantenedora:
-        Chama atualizaSaldoMantenedoraFies() para ajustar o saldo da mantenedora no FIES.
-    Gravação do Histórico:
-        Chama gravarHistoricoTitulo() para registrar o histórico da movimentação.
-    Persistência no Banco de Dados:
-        Insere o registro na tabela MovimentacaoTituloTO e garante a efetivação da transação com entityManager.flush() e entityManager.clear().
+        082.379.504-70
 
-Métodos Auxiliares:
-4.1. consultaTitulo(Long repasseTitulos)
+        104.018.975-08
 
-Descrição: Consulta o título associado ao repasse.
+        086.786.894-55
 
-Fluxo:
+        021.235.666-67
 
-    Utiliza a query MovimentacaoTituloTO.QUERY_CONSULTA_TITULO_REPASSE para buscar o título e retorna o ID do título associado ao repasse.
+🛠️ Correção Aplicada
 
-4.2. gravarHistoricoTitulo(MovimentacaoTituloTO repasseTituloTO, BigDecimal valorTotal, BigDecimal taxaAdm, BigDecimal vlrIntegralizacao)
+Stored Procedure Criada: FES.FESSPZA0_COMPENSA_RPSE_INDEVIDO()
+Objetivo:
+Compensar automaticamente os repasses duplicados, criando registros de retenção para serem tratados na próxima execução do fluxo de repasse.
 
-Descrição: Persiste o histórico da movimentação dos títulos.
+Execução da Procedure:
 
-Fluxo:
+    Início da execução: Jair Jose dos Santos
 
-    Consulta o ID da Apuração:
-        Executa ApuracaoRepasseTO.QUERY_CONSULTA_ID para obter o ID da apuração.
-    Consulta o Último ID de Apropriação:
-        Obtém o último ID de apropriação com QUERY_MAX_ID_APROPRIACAO. Se não houver, inicia com 0L.
-    Preenchimento dos Dados do Histórico:
-        Define atributos como referência temporal, situação de apropriação e valores do repasse.
-    Persiste o Histórico:
-        Insere o histórico de movimentação na base de dados.
+    Ambiente: TGE
 
-Pontos de Atenção na Análise:
-1. Atualização de Saldo (atualizaSaldoMantenedoraFies)
+    Data: 21/02/2025
 
-    Certifique-se de que a multiplicação por -1 nos valores e cotas seja adequada às regras de negócio.
+    Quantidade de compensações criadas: 16.017
 
-2. Verificação de Saldo (fiesPossuiSaldoParaRepasse)
+📂 Evidências de Teste (Clear Case)
 
-    Verifique se o método está tratando corretamente valores nulos para evitar NullPointerException ao verificar saldo.
+    SIFES_RM_22771690_LIBERACOES_APURADAS.xlsx
 
-3. Integralização no FG-FIES (realizaIntegralizacaoFGFies)
+    SIFES_RM_22771690_LIBERACOES_CRIADAS.xlsx
 
-    A integralização depende de pcIntegralizacao > 0.
-    Verifique se a consulta de cotas retorna resultados válidos e trate os casos onde valorCota é 0.
+    SIFES_RM_22771690_LIBERACOES_ALTERADAS.xlsx
 
-4. Consulta de Cota (consultaCota)
+    SIFES_RM_22771690_COMPENSACOES_CRIADAS.xlsx
 
-    Assegure que os parâmetros de referência de mês e ano anterior estejam corretamente inicializados.
+🔄 Plano de Retorno (Caso Necessário)
 
-5. Adição de Mantenedora ao Fundo (adicionarMantenedoraNoFundo)
+Requisição de Mudança: 22777223
+Caso seja necessário rollback:
 
-    Verifique se a conversão de CNPJ para Long está correta para evitar NumberFormatException.
+    Restaurar backups das tabelas:
 
-6. Resíduo do Último Movimento (getResiduoUltimoMovimentoMantenedora)
+        FES.FESTB817_RETENCAO_LIBERACAO
 
-    Certifique-se de que a conversão dos campos de referência de movimento está correta para evitar falhas na consulta.
+        FES.FESTB812_CMPSO_RPSE_INDVO
 
-Sugestões para Análise:
+    A procedure não exige ação adicional para rollback.
 
-    Testes Unitários: Criar testes para cenários de repasse, saldo insuficiente e integralização.
-    Verificação de Nulos: Melhorar o tratamento de valores nulos para evitar exceções inesperadas.
-    Validação de Regras: Certificar-se de que os cálculos financeiros e integrações estão corretos e atendem às regras do FG-FIES.
+📎 Anexos Técnicos Relevantes
 
-Se precisar de mais detalhes ou ajustes, estou à disposição!
+    RETENCOES CRIADAS FESSPZA0.xlsx
+
+    LIBERACOES CRIADAS.xlsx
+
+    LIBERACOES ALTERADAS - POS EXECUCAO SPs REPASSE.xlsx
+
+    LIBERACOES APURADAS - POS EXECUCAO ROTINA FESREPASSE.xlsx
+
+    COMPENSACOES CRIADAS FESSPZA0.xlsx
+
+✅ Status Atual
+
+    Procedure executada com sucesso.
+
+    Requisição RTC 22771690 virada para "Pronto".
+
+    Evidências de execução coletadas.
+
+    Item pronto para validação de qualidade.
+
+Se desejar, posso gerar um documento formal (PDF ou Word) com esse parecer. Deseja que eu faça isso?
 
 
 
