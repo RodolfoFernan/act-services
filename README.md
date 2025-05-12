@@ -9,81 +9,43 @@
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
 
     
-
 /v1/contrato/consulta-estudante:
-  post:
-    summary: Busca informações do contrato FIES do estudante por CPF (via corpo da requisição)
+  get:
+    summary: Busca informações do contrato FIES do estudante por CPF (via query parameters)
     description: |
       Este endpoint permite consultar os detalhes do contrato do Fundo de Financiamento Estudantil (FIES)
       de um estudante específico, utilizando o seu número de Cadastro de Pessoa Física (CPF).
-      Os parâmetros são enviados no corpo da requisição.
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              cpf:
-                type: string
-                pattern: '^[0-9]{11}$'
-                description: CPF do estudante a ser consultado (apenas números).
-                example: "70966798120"
-              codigoFies:
-                type: string
-                required: false
-                description: Código FIES do estudante (opcional).
-                example: "0000"
-              agencia:
-                type: string
-                required: false
-                description: Código da agência bancária (opcional).
-                example: "0"
-              _:
-                type: integer
-                required: false
-                description: Timestamp para evitar cache (gerado dinamicamente).
-                example: 1747058495351
-    responses:
-      '200':
-        description: Resposta bem-sucedida com os detalhes do contrato do estudante.
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                mensagem:
-                  type: string
-                  description: Mensagem informativa (geralmente vazia em caso de sucesso).
-                  nullable: true
-                  example: ""
-                codigo:
-                  type: string
-                  description: Código de retorno (geralmente nulo em caso de sucesso).
-                  nullable: true
-                  example: null
-                tipo:
-                  type: string
-                  description: Tipo da mensagem (geralmente nulo em caso de sucesso).
-                  nullable: true
-                  example: null
-                editavel:
-                  type: boolean
-                  description: Indica se os dados são editáveis.
-                  nullable: true
-                  example: null
-                agencia:
-                  type: integer
-                  description: Código da agência bancária do contrato.
-                  example: 4736
-                estudante:
-                  type: object
-                  description: Informações detalhadas do estudante.
-                  properties:
-                    mensagem:
-                      type: string
-                      nullable: true
-                      example: ""
+      Os parâmetros são enviados na URL como query parameters.
+    parameters:
+      - in: query
+        name: cpf
+        schema:
+          type: string
+          pattern: '^[0-9]{11}$'
+        description: CPF do estudante a ser consultado (apenas números).
+        required: true
+        example: "70966798120"
+      - in: query
+        name: codigoFies
+        schema:
+          type: string
+        required: false
+        description: Código FIES do estudante (opcional).
+        example: "0000"
+      - in: query
+        name: agencia
+        schema:
+          type: string
+        required: false
+        description: Código da agência bancária (opcional).
+        example: "0"
+      - in: query
+        name: _
+        schema:
+          type: integer
+        required: false
+        description: Timestamp para evitar cache (gerado dinamicamente).
+        example: 1747058495351
 
 
 
