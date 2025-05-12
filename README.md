@@ -9,19 +9,34 @@
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
 
     
-/emprest/combo/buscarComboTodasIes:
+/emprest/combo/consultarCampusTransferenciaResolucao35:
   get:
-    summary: Busca informações de Instituições de Ensino (IES)
-    description: Retorna uma lista de IES com base nos critérios de busca.
+    summary: Busca campus de transferência para uma IES, semestre e ano de referência.
+    description: Retorna uma lista de campus disponíveis para transferência com base nos parâmetros fornecidos.
     parameters:
       - in: query
-        name: nomeIes
+        name: ies
         schema:
           type: string
-        description: Filtra IES por nome (parcial ou completo).
+        description: Código da Instituição de Ensino (IES).
+        required: true
+      - in: query
+        name: semestreReferencia
+        schema:
+          type: integer
+          enum: [1, 2] # Assumindo que os semestres são 1 ou 2
+        description: Semestre de referência para a busca.
+        required: true
+      - in: query
+        name: anoReferencia
+        schema:
+          type: integer
+          format: int32
+        description: Ano de referência para a busca.
+        required: true
     responses:
       '200':
-        description: Sucesso - Retorna a lista de IES encontradas.
+        description: Sucesso - Retorna a lista de campus de transferência encontrados.
         content:
           application/json:
             schema:
@@ -63,8 +78,6 @@
                       atributo:
                         type: string
                         nullable: true
-      '500':
-        description: Erro interno do servidor.
 
 
 
