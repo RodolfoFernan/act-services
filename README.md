@@ -9,34 +9,53 @@
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
 
     
-/emprest/combo/consultarCampusTransferenciaResolucao35:
+/emprest/combo/consultarCursoPorCampusOfertaRes35:
   get:
-    summary: Busca campus de transferência para uma IES, semestre e ano de referência.
-    description: Retorna uma lista de campus disponíveis para transferência com base nos parâmetros fornecidos.
+    summary: Busca cursos disponíveis em um campus de oferta para transferência.
+    description: Retorna uma lista de cursos disponíveis para transferência com base nos parâmetros fornecidos.
     parameters:
       - in: query
-        name: ies
+        name: nuCampus
         schema:
           type: string
-        description: Código da Instituição de Ensino (IES).
+        description: Número do campus de oferta.
         required: true
       - in: query
-        name: semestreReferencia
+        name: nuCurso
+        schema:
+          type: string
+        description: Número do curso de oferta.
+        required: true
+      - in: query
+        name: nuTurno
+        schema:
+          type: integer
+          # Você pode adicionar um enum se souber os valores possíveis para turno (ex: [1, 2, 3])
+        description: Número do turno do curso de oferta.
+        required: true
+      - in: query
+        name: nuCampusDestino
+        schema:
+          type: string
+        description: Número do campus de destino para a transferência.
+        required: true
+      - in: query
+        name: semestre
         schema:
           type: integer
           enum: [1, 2] # Assumindo que os semestres são 1 ou 2
-        description: Semestre de referência para a busca.
+        description: Semestre de referência.
         required: true
       - in: query
-        name: anoReferencia
+        name: ano
         schema:
           type: integer
           format: int32
-        description: Ano de referência para a busca.
+        description: Ano de referência.
         required: true
     responses:
       '200':
-        description: Sucesso - Retorna a lista de campus de transferência encontrados.
+        description: Sucesso - Retorna a lista de cursos disponíveis para transferência.
         content:
           application/json:
             schema:
@@ -78,7 +97,10 @@
                       atributo:
                         type: string
                         nullable: true
-
+      '400':
+        description: Requisição inválida - Algum parâmetro está ausente ou incorreto.
+      '500':
+        description: Erro interno do servidor.
 
 
 
