@@ -9,35 +9,40 @@
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
 
     
-/emprest/combo/consultarCursoPorCampusOfertaRes35:
+emprest/combo/consultarTurnosRes35:
   get:
-    summary: Busca cursos disponíveis em um campus de oferta para transferência.
-    description: Retorna uma lista de cursos disponíveis para transferência com base nos parâmetros fornecidos.
+    summary: Busca turnos disponíveis para um curso em um campus de destino.
+    description: Retorna uma lista de turnos disponíveis com base nos parâmetros fornecidos.
     parameters:
       - in: query
         name: nuCampus
         schema:
           type: string
-        description: Número do campus de oferta.
+        description: Número do campus de oferta (pode ser '0' para indicar todos).
         required: true
       - in: query
         name: nuCurso
         schema:
           type: string
-        description: Número do curso de oferta.
+        description: Número do curso de oferta (pode ser '0' para indicar todos).
         required: true
       - in: query
         name: nuTurno
         schema:
-          type: integer
-          # Você pode adicionar um enum se souber os valores possíveis para turno (ex: [1, 2, 3])
-        description: Número do turno do curso de oferta.
+          type: string
+        description: Número do turno de oferta (pode ser '0' para indicar todos).
+        required: true
+      - in: query
+        name: coCurso
+        schema:
+          type: string
+        description: Código do curso de destino.
         required: true
       - in: query
         name: nuCampusDestino
         schema:
           type: string
-        description: Número do campus de destino para a transferência.
+        description: Número do campus de destino.
         required: true
       - in: query
         name: semestre
@@ -55,7 +60,7 @@
         required: true
     responses:
       '200':
-        description: Sucesso - Retorna a lista de cursos disponíveis para transferência.
+        description: Sucesso - Retorna a lista de turnos disponíveis.
         content:
           application/json:
             schema:
@@ -97,10 +102,6 @@
                       atributo:
                         type: string
                         nullable: true
-      '400':
-        description: Requisição inválida - Algum parâmetro está ausente ou incorreto.
-      '500':
-        description: Erro interno do servidor.
 
 
 
