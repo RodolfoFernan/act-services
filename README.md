@@ -9,22 +9,35 @@
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
 
     
-/emprest/transferenciaContrato/buscarCursoDestino:
+//emprest/transferenciaContrato/confirmarSolicitacaoEstudante:
   get:
-    summary: Busca informações do curso de destino para transferência de contrato.
-    description: Retorna detalhes sobre o curso de destino com base nos parâmetros fornecidos.
+    summary: Confirma a solicitação de transferência do estudante.
+    description: Confirma a solicitação de transferência com os dados fornecidos.
     parameters:
       - in: query
-        name: cpf
+        name: numeroSemestresCursar
         schema:
-          type: string
-        description: CPF do estudante.
+          type: integer
+        description: Número de semestres a cursar.
         required: true
       - in: query
-        name: nuCampus
+        name: dtDesligamento
         schema:
           type: string
-        description: Número do campus de origem.
+          format: date
+        description: Data de desligamento (formato DD/MM/YYYY).
+        required: true
+      - in: query
+        name: codFies
+        schema:
+          type: string
+        description: Código FIES do contrato.
+        required: true
+      - in: query
+        name: tipoTransferencia
+        schema:
+          type: integer
+        description: Tipo da transferência.
         required: true
       - in: query
         name: nuCurso
@@ -33,35 +46,50 @@
         description: Número do curso de origem.
         required: true
       - in: query
+        name: numeroCursoDestino
+        schema:
+          type: string
+        description: Número do curso de destino.
+        required: true
+      - in: query
+        name: numeroCampusDestino
+        schema:
+          type: string
+        description: Número do campus de destino.
+        required: true
+      - in: query
+        name: nuCampus
+        schema:
+          type: string
+        description: Número do campus de origem.
+        required: true
+      - in: query
         name: nuTurno
         schema:
           type: integer
-          # Você pode adicionar um enum se souber os valores possíveis para turno (ex: [1, 2, 3])
         description: Número do turno de origem.
         required: true
       - in: query
-        name: nuCampusDestino
+        name: campusDestino
         schema:
           type: string
-        description: Número do campus de destino (pode ser '0' para indicar algum critério).
+        description: Código do campus de destino.
         required: true
       - in: query
-        name: semestrePendencia
+        name: cursoDestino
         schema:
-          type: integer
-          enum: [1, 2] # Assumindo que os semestres são 1 ou 2
-        description: Semestre da pendência.
+          type: string
+        description: Código do curso de destino.
         required: true
       - in: query
-        name: anoPendencia
+        name: turnoDestino
         schema:
           type: integer
-          format: int32
-        description: Ano da pendência.
+        description: Código do turno de destino.
         required: true
     responses:
       '200':
-        description: Sucesso - Retorna os detalhes do curso de destino.
+        description: Sucesso - Operação realizada com sucesso.
         content:
           application/json:
             schema:
@@ -73,48 +101,8 @@
                   type: integer
                 tipo:
                   type: string
-                  nullable: true
                 editavel:
-                  type: boolean
                   nullable: true
-                campusDest:
-                  type: string
-                cursoDest:
-                  type: string
-                mantenedoraDest:
-                  type: string
-                ufDest:
-                  type: string
-                municipioDest:
-                  type: string
-                iesDest:
-                  type: string
-                numeroIesDestino:
-                  type: integer
-                enderecoDest:
-                  type: string
-                duracaoCursoDest:
-                  type: integer
-                codigoCursoHabilitacao:
-                  type: string
-                numeroCursoDestino:
-                  type: integer
-                semestreReferenciaDest:
-                  type: string
-                numeroCampusDestino:
-                  type: integer
-                numeroMantenedoraDestino:
-                  type: integer
-                numeroTurnoDestino:
-                  type: integer
-                descTurnoDestino:
-                  type: string
-                notaEnem:
-                  type: number
-                jsonRetornoConsultaEnem:
-                  type: string
-                possuiLiminarNotaDeCorte:
-                  type: boolean
       '400':
         description: Requisição inválida - Algum parâmetro está ausente ou incorreto.
       '500':
