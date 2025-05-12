@@ -9,289 +9,62 @@
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
 
     
-/transferenciaContrato/buscarEstudante:
-    get:
-      summary: Busca informações do estudante para transferência de contrato (via corpo da requisição)
-      description: |
-        Este endpoint permite buscar os detalhes de um estudante específico para iniciar o processo
-        de transferência do contrato do Fundo de Financiamento Estudantil (FIES).
-        Os parâmetros (codFies, cpf) são enviados no corpo da requisição.
-      requestBody:
-        required: true
+/emprest/combo/buscarComboTodasIes:
+  get:
+    summary: Busca informações de Instituições de Ensino (IES)
+    description: Retorna uma lista de IES com base nos critérios de busca.
+    parameters:
+      - in: query
+        name: nomeIes
+        schema:
+          type: string
+        description: Filtra IES por nome (parcial ou completo).
+    responses:
+      '200':
+        description: Sucesso - Retorna a lista de IES encontradas.
         content:
           application/json:
             schema:
               type: object
               properties:
-                codFies:
-                  type: integer
-                  description: Código FIES do estudante.
-                  example: 20242515
-                cpf:
+                codigo:
                   type: string
-                  pattern: '^[0-9]{11}$'
-                  description: CPF do estudante a ser consultado (apenas números).
-                  example: "70966798120"
-                _:
-                  type: integer
-                  required: false
-                  description: Timestamp para evitar cache (gerado dinamicamente).
-                  example: 1747058495355
-      responses:
-        '200':
-          description: Resposta bem-sucedida com os detalhes do estudante para transferência.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  mensagem:
-                    type: string
-                    description: Mensagem informativa (geralmente vazia em caso de sucesso).
-                    nullable: true
-                    example: ""
-                  codigo:
-                    type: integer
-                    description: Código de retorno (0 em caso de sucesso).
-                    nullable: true
-                    example: 0
-                  tipo:
-                    type: string
-                    description: Tipo da mensagem (geralmente nulo em caso de sucesso).
-                    nullable: true
-                    example: null
-                  editavel:
-                    type: boolean
-                    description: Indica se os dados são editáveis.
-                    nullable: true
-                    example: null
-                  idTransferencia:
-                    type: integer
-                    description: Identificador da transferência (se aplicável).
-                    nullable: true
-                    example: null
-                  codFies:
-                    type: integer
-                    description: Código FIES do estudante.
-                    example: 20242515
-                  cpfCandidato:
-                    type: string
-                    description: CPF do candidato.
-                    example: "70966798120"
-                  nomeCandidato:
-                    type: string
-                    description: Nome completo do candidato.
-                    example: "LUANA GARCIA FERREIRA"
-                  tipoTransferencia:
-                    type: string
-                    nullable: true
-                    description: Tipo da transferência (se aplicável).
-                    example: null
-                  idIes:
-                    type: integer
-                    description: ID da Instituição de Ensino Superior (IES) de origem.
-                    example: 1113
-                  nuMantenedora:
-                    type: integer
-                    description: Número da mantenedora da IES de origem.
-                    example: 770
-                  nuCampus:
-                    type: integer
-                    description: Número do campus da IES de origem.
-                    example: 27693
-                  nuCurso:
-                    type: integer
-                    description: Número do curso na IES de origem.
-                    example: 73537
-                  nuTurno:
-                    type: integer
-                    description: Número do turno do curso na IES de origem.
-                    example: 1
-                  nomeIes:
-                    type: string
-                    description: Nome da IES de origem.
-                    example: "CENTRO UNIVERSITÁRIO EURO-AMERICANO"
-                  nomeMantenedora:
-                    type: string
-                    description: Nome da mantenedora da IES de origem.
-                    example: "Instituto Euro Americano De Educacao Ciencia Tecnologia"
-                  turnoDescDestino:
-                    type: string
-                    description: Descrição do turno de destino (se aplicável).
-                    example: "Matutino"
-                  uf:
-                    type: string
-                    description: Unidade Federativa da IES de origem.
-                    example: "DF"
-                  municipio:
-                    type: string
-                    description: Município da IES de origem.
-                    example: "BRASILIA"
-                  endereco:
-                    type: string
-                    description: Endereço da IES de origem.
-                    example: "SCES Trecho 0 - Conjunto 5"
-                  nomeCampus:
-                    type: string
-                    description: Nome do campus da IES de origem.
-                    example: "Centro Universitário Euro-Americano - Unidade Asa Sul"
-                  nomeCurso:
-                    type: string
-                    description: Nome do curso de origem.
-                    example: "ENFERMAGEM"
-                  duracaoRegularCurso:
-                    type: integer
-                    description: Duração regular do curso (em semestres).
-                    example: 10
-                  nuSemestresCursados:
-                    type: integer
-                    description: Número de semestres já cursados.
-                    example: 1
-                  qtSemestresDilatado:
-                    type: integer
-                    description: Quantidade de semestres dilatados.
-                    example: 0
-                  qtSemestresSuspenso:
-                    type: integer
-                    description: Quantidade de semestres suspensos.
-                    example: 0
-                  iesDestino:
-                    type: integer
-                    nullable: true
-                    description: ID da IES de destino (se aplicável).
-                    example: null
-                  nuMantenedoraDestino:
-                    type: integer
-                    nullable: true
-                    description: Número da mantenedora da IES de destino (se aplicável).
-                    example: null
-                  campusDestino:
-                    type: integer
-                    nullable: true
-                    description: Número do campus da IES de destino (se aplicável).
-                    example: null
-                  cursoDestino:
-                    type: integer
-                    nullable: true
-                    description: Número do curso na IES de destino (se aplicável).
-                    example: null
-                  turnoDestino:
-                    type: integer
-                    nullable: true
-                    description: Número do turno do curso na IES de destino (se aplicável).
-                    example: null
-                  nomeIesDestino:
-                    type: string
-                    nullable: true
-                    description: Nome da IES de destino (se aplicável).
-                    example: null
-                  nomeMantenedoraDestino:
-                    type: string
-                    nullable: true
-                    description: Nome da mantenedora da IES de destino (se aplicável).
-                    example: null
-                  ufDestino:
-                    type: string
-                    nullable: true
-                    description: Unidade Federativa da IES de destino (se aplicável).
-                    example: null
-                  municipioDestino:
-                    type: string
-                    nullable: true
-                    description: Município da IES de destino (se aplicável).
-                    example: null
-                  enderecoDestino:
-                    type: string
-                    nullable: true
-                    description: Endereço da IES de destino (se aplicável).
-                    example: null
-                  nomeCampusDestino:
-                    type: string
-                    nullable: true
-                    description: Nome do campus da IES de destino (se aplicável).
-                    example: null
-                  nomeCursoDestino:
-                    type: string
-                    nullable: true
-                    description: Nome do curso de destino (se aplicável).
-                    example: null
-                  transferenciasRealizadas:
-                    type: array
-                    items:
-                      type: string
-                    description: Lista de transferências realizadas (se houver).
-                    example: []
-                  icCondicaoFuncionamento:
-                    type: string
-                    description: Condição de funcionamento da IES.
-                    example: "N"
-                  icSituacaoContrato:
-                    type: string
-                    description: Situação do contrato.
-                    example: "U"
-                  icSituacaoIES:
-                    type: string
-                    description: Situação da IES.
-                    example: "L"
-                  nuOperacaoSiapi:
-                    type: integer
-                    description: Número da operação no SIAPI.
-                    example: 187
-                  totalSemestresContratados:
-                    type: integer
-                    description: Total de semestres contratados.
-                    example: 7
-                  totalSemestresUtilizados:
-                    type: integer
-                    description: Total de semestres utilizados.
-                    example: 2
-                  totalSemestresDestino:
-                    type: integer
-                    nullable: true
-                    description: Total de semestres no curso de destino (se aplicável).
-                    example: null
-                  habilitarSolicitacao:
-                    type: boolean
-                    description: Indica se a solicitação de transferência está habilitada.
-                    example: true
-                  numeroSemestresCursar:
-                    type: integer
-                    description: Número de semestres a cursar no destino (se aplicável).
-                    example: 7
-                  descTunoOrigem:
-                    type: string
-                    description: Descrição do turno de origem.
-                    example: "Matutino"
-                  semestreReferencia:
-                    type: integer
-                    description: Semestre de referência.
-                    example: 1
-                  anoReferencia:
-                    type: integer
-                    description: Ano de referência.
-                    example: 2025
-                  notaEnemCandidato:
-                    type: number
-                    format: float
-                    description: Nota do ENEM do candidato.
-                    example: 495.34
-                  anoReferenciaNotaEnem:
-                    type: integer
-                    description: Ano de referência da nota do ENEM.
-                    example: 2020
-                  jsonRetornoConsultaEnem:
-                    type: string
-                    description: JSON de retorno da consulta ENEM.
-                    example: "{\"nuCpf\":\"70966798120\",\"vlNotaEnemConsiderada\":\"495.34\",\"nuSemestreReferencia\":\"22020\",\"coInscricao\":6614627,\"nuAnoEnem\":\"2019\"}"
-                  estudantePodeTransfCurso:
-                    type: string
-                    description: Indica se o estudante pode transferir de curso.
-                    example: "S"
-                  totalSemestresDisponiveis:
-                    type: integer
-                    description: Total de semestres disponíveis para financiamento.
-                    example: 5
-
+                  nullable: true
+                mensagem:
+                  type: string
+                  nullable: true
+                tipo:
+                  type: string
+                  nullable: true
+                listaRetorno:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      mensagem:
+                        type: string
+                        nullable: true
+                      codigo:
+                        type: string
+                        nullable: true
+                      tipo:
+                        type: string
+                        nullable: true
+                      editavel:
+                        type: boolean
+                        nullable: true
+                      dominioCombo:
+                        type: string
+                        nullable: true
+                      id:
+                        type: string
+                      descricao:
+                        type: string
+                      atributo:
+                        type: string
+                        nullable: true
+      '500':
+        description: Erro interno do servidor.
 
 
 
