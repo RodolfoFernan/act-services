@@ -9,111 +9,589 @@
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
 
     
-Segue abaixo um parecer técnico consolidado referente ao Item de Backlog 22771690 - NOVO FIES - AGENTE OPERADOR - REPASSE DUPLICADO, com organização das informações técnicas e contexto dos eventos:
-🧾 Resumo do Problema
+paths:
+  /contrato/consultaEstudante:
+    get:
+      summary: Busca informações do contrato FIES do estudante por CPF (via corpo da requisição)
+      description: |
+        Este endpoint permite consultar os detalhes do contrato do Fundo de Financiamento Estudantil (FIES)
+        de um estudante específico, utilizando o seu número de Cadastro de Pessoa Física (CPF).
+        Os parâmetros são enviados no corpo da requisição.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cpf:
+                  type: string
+                  pattern: '^[0-9]{11}$'
+                  description: CPF do estudante a ser consultado (apenas números).
+                  example: "70966798120"
+                codigoFies:
+                  type: string
+                  required: false
+                  description: Código FIES do estudante (opcional).
+                  example: "0000"
+                agencia:
+                  type: string
+                  required: false
+                  description: Código da agência bancária (opcional).
+                  example: "0"
+                _:
+                  type: integer
+                  required: false
+                  description: Timestamp para evitar cache (gerado dinamicamente).
+                  example: 1747058495351
+      responses:
+        '200':
+          description: Resposta bem-sucedida com os detalhes do contrato do estudante.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensagem:
+                    type: string
+                    description: Mensagem informativa (geralmente vazia em caso de sucesso).
+                    nullable: true
+                    example: ""
+                  codigo:
+                    type: string
+                    description: Código de retorno (geralmente nulo em caso de sucesso).
+                    nullable: true
+                    example: null
+                  tipo:
+                    type: string
+                    description: Tipo da mensagem (geralmente nulo em caso de sucesso).
+                    nullable: true
+                    example: null
+                  editavel:
+                    type: boolean
+                    description: Indica se os dados são editáveis.
+                    nullable: true
+                    example: null
+                  agencia:
+                    type: integer
+                    description: Código da agência bancária do contrato.
+                    example: 4736
+                  estudante:
+                    type: object
+                    description: Informações detalhadas do estudante.
+                    properties:
+                      mensagem:
+                        type: string
+                        nullable: true
+                        example: ""
+                      codigo:
+                        type: string
+                        nullable: true
+                        example: null
+                      tipo:
+                        type: string
+                        nullable: true
+                        example: null
+                      editavel:
+                        type: boolean
+                        nullable: true
+                        example: null
+                      cpf:
+                        type: string
+                        description: CPF do estudante.
+                        example: "70966798120"
+                      dependenteCPF:
+                        type: integer
+                        description: CPF do dependente (se houver).
+                        example: 0
+                      nome:
+                        type: string
+                        description: Nome completo do estudante.
+                        example: "LUANA GARCIA FERREIRA"
+                      dataNascimento:
+                        type: string
+                        format: date
+                        description: Data de nascimento do estudante (DD/MM/AAAA).
+                        example: "20/02/2002"
+                      ric:
+                        type: string
+                        nullable: true
+                        description: Registro de Identidade Civil (RIC).
+                        example: null
+                      nacionalidade:
+                        type: string
+                        nullable: true
+                        description: Nacionalidade do estudante.
+                        example: null
+                      identidade:
+                        type: object
+                        description: Detalhes da identidade do estudante.
+                        properties:
+                          identidade:
+                            type: string
+                            description: Número da identidade.
+                            example: "4116034"
+                          orgaoExpedidor:
+                            type: object
+                            properties:
+                              codigo:
+                                type: integer
+                                example: 10
+                              nome:
+                                type: string
+                                example: "Secretaria de Segurança Pública(SSP)"
+                              uf:
+                                type: object
+                                properties:
+                                  mensagem:
+                                    type: string
+                                    nullable: true
+                                    example: ""
+                                  codigo:
+                                    type: string
+                                    nullable: true
+                                    example: null
+                                  tipo:
+                                    type: string
+                                    nullable: true
+                                    example: null
+                                  editavel:
+                                    type: boolean
+                                    nullable: true
+                                    example: null
+                                  sigla:
+                                    type: string
+                                    example: "GO"
+                                  descricao:
+                                    type: string
+                                    example: ""
+                                  regiao:
+                                    type: string
+                                    nullable: true
+                                    example: null
+                              dataExpedicaoIdentidade:
+                                type: string
+                                format: date
+                                example: "16/03/2017"
+                      estadoCivil:
+                        type: object
+                        properties:
+                          codigo:
+                            type: integer
+                            example: 1
+                          nome:
+                            type: string
+                            example: "Solteiro(a)"
+                          possuiConjuge:
+                            type: boolean
+                            example: false
+                      regimeBens:
+                        type: string
+                        nullable: true
+                        example: null
+                      endereco:
+                        type: object
+                        properties:
+                          endereco:
+                            type: string
+                            example: "Rua 02qd B LT 03 00"
+                          numero:
+                            type: string
+                            nullable: true
+                            example: null
+                          bairro:
+                            type: string
+                            example: "boa vista"
+                          cep:
+                            type: string
+                            example: "75620000"
+                          cidade:
+                            type: object
+                            properties:
+                              codigoCidade:
+                                type: integer
+                                example: 1770
+                              nome:
+                                type: string
+                                example: "BRASILIA"
+                              uf:
+                                type: object
+                                properties:
+                                  mensagem:
+                                    type: string
+                                    nullable: true
+                                    example: ""
+                                  codigo:
+                                    type: string
+                                    nullable: true
+                                    example: null
+                                  tipo:
+                                    type: string
+                                    nullable: true
+                                    example: null
+                                  editavel:
+                                    type: boolean
+                                    nullable: true
+                                    example: null
+                                  sigla:
+                                    type: string
+                                    example: "GO"
+                                  descricao:
+                                    type: string
+                                    example: ""
+                                  regiao:
+                                    type: string
+                                    nullable: true
+                                    example: null
+                      contato:
+                        type: object
+                        properties:
+                          email:
+                            type: string
+                            format: email
+                            example: "priscilaini@yahoo.com.br"
+                          telefoneResidencial:
+                            type: object
+                            properties:
+                              ddd:
+                                type: string
+                                example: "62"
+                              numero:
+                                type: string
+                                example: "99930009"
+                          telefoneCelular:
+                            type: object
+                            properties:
+                              ddd:
+                                type: string
+                                example: "61"
+                              numero:
+                                type: string
+                                example: "999930007"
+                          telefoneComercial:
+                            type: object
+                            properties:
+                              ddd:
+                                type: string
+                                nullable: true
+                                example: null
+                              numero:
+                                type: string
+                                example: "(61)3445-5888"
+                      vinculacao:
+                        type: string
+                        nullable: true
+                        example: null
+                      codigoFies:
+                        type: integer
+                        example: 20242515
+                      sexo:
+                        type: object
+                        properties:
+                          sexo:
+                            type: string
+                            example: "M"
+                          sexoDetalhe:
+                            type: string
+                            example: "Masculino"
+                      pis:
+                        type: string
+                        example: ""
+                      conjuge:
+                        type: string
+                        nullable: true
+                        example: null
+                      responsavelLegal:
+                        type: string
+                        nullable: true
+                        example: null
+                      emancipado:
+                        type: object
+                        properties:
+                          codigo:
+                            type: string
+                            example: ""
+                          descricao:
+                            type: string
+                            nullable: true
+                            example: null
+                          nome:
+                            type: string
+                            example: ""
+                      nomeCandidato:
+                        type: string
+                        nullable: true
+                        example: null
+                      nomeCurso:
+                        type: string
+                        example: "ENFERMAGEM"
+                      idCampus:
+                        type: integer
+                        example: 27693
+                      nomeCampus:
+                        type: string
+                        example: "Centro Universitário Euro-Americano - Unidade Asa Sul"
+                      numeroCandidato:
+                        type: string
+                        nullable: true
+                        example: null
+                      descricaoMunicipio:
+                        type: string
+                        nullable: true
+                        example: null
+                      nomeIes:
+                        type: string
+                        example: "CENTRO UNIVERSITÁRIO EURO-AMERICANO"
+                      ufCampus:
+                        type: string
+                        nullable: true
+                        example: null
+                      contaCorrente:
+                        type: string
+                        nullable: true
+                        example: null
+                      permiteLiquidar:
+                        type: string
+                        example: "N"
+                      voucher:
+                        type: string
+                        nullable: true
+                        example: null
+                      dataValidadeVoucher:
+                        type: string
+                        nullable: true
+                        example: null
+                      motivoImpeditivo:
+                        type: string
+                        nullable: true
+                        example: null
+                      inadimplente:
+                        type: string
+                        nullable: true
+                        example: null
+                      atrasado:
+                        type: string
+                        nullable: true
+                        example: null
+                      liquidado:
+                        type: string
+                        nullable: true
+                        example: null
+                      rendaFamiliar:
+                        type: string
+                        nullable: true
+                        example: null
+                      recebeSms:
+                        type: string
+                        nullable: true
+                        example: null
+                      vinculoSolidario:
+                        type: integer
+                        example: 0
+                      contratoEstudante:
+                        type: string
+                        nullable: true
+                        example: null
+                  ies:
+                    type: object
+                    description: Informações da Instituição de Ensino Superior (IES).
+                    # (Detailed IES object structure - truncated for brevity, see full response for details)
+                  codigoStatusContrato:
+                    type: integer
+                    description: Código do status do contrato.
+                    example: 5
+                  numeroOperacaoSIAPI:
+                    type: integer
+                    description: Número da operação no SIAPI.
+                    example: 187
+                  statusContrato:
+                    type: string
+                    description: Status do contrato.
+                    example: "CONTRATO ENVIADO AO SIAPI"
+                  situacaoContrato:
+                    type: string
+                    description: Situação do contrato.
+                    example: ""
+                  dataLimiteContratacao:
+                    type: string
+                    format: date
+                    description: Data limite para contratação.
+                    example: "04/12/2020"
+                  valorMensalidade:
+                    type: number
+                    format: float
+                    description: Valor da mensalidade.
+                    example: 635.74
+                  valorContrato:
+                    type: number
+                    format: float
+                    description: Valor total do contrato.
+                    example: 3814.45
+                  dataAssinatura:
+                    type: string
+                    format: date
+                    description: Data de assinatura do contrato.
+                    example: "01/01/2024"
+                  percentualFinanciamento:
+                    type: integer
+                    description: Percentual de financiamento.
+                    example: 50
+                  numeroContrato:
+                    type: string
+                    description: Número do contrato.
+                    example: "08.4736.187.0000058-00"
+                  diaVencimento:
+                    type: string
+                    description: Dia do vencimento da parcela.
+                    example: "15"
+                  codigoTipoGarantia:
+                    type: integer
+                    description: Código do tipo de garantia.
+                    example: 81
+                  descricaoTipoGarantia:
+                    type: string
+                    description: Descrição do tipo de garantia.
+                    example: "Fiança Simples/FG-FIES"
+                  valorGarantia:
+                    type: number
+                    format: float
+                    description: Valor da garantia.
+                    example: 3814.45
+                  codCurso:
+                    type: string
+                    nullable: true
+                    description: Código do curso.
+                    example: null
+                  semestreCursados:
+                    type: integer
+                    description: Semestres já cursados.
+                    example: 1
+                  estudanteCurso:
+                    type: object
+                    description: Informações do estudante no curso.
+                    # (Detailed estudanteCurso object structure - truncated for brevity, see full response for details)
+                  valorAditamento:
+                    type: integer
+                    description: Valor do aditamento.
+                    example: 0
+                  unidadeCaixa:
+                    type: string
+                    nullable: true
+                    description: Unidade da Caixa.
+                    example: null
+                  prazoContratoMec:
+                    type: integer
+                    description: Prazo do contrato no MEC.
+                    example: 7
+                  semestreReferencia:
+                    type: integer
+                    description: Semestre de referência.
+                    example: 2
+                  anoReferencia:
+                    type: integer
+                    description: Ano de referência.
+                    example: 2023
+                  bloqueioMec:
+                    type: integer
+                    description: Código de bloqueio no MEC.
+                    example: 0
+                  permiteContratacao:
+                    type: string
+                    description: Indica se permite contratação.
+                    example: "S"
+                  recebeInformacao:
+                    type: string
+                    description: Indica se recebe informação.
+                    example: ""
+                  recebeSms:
+                    type: string
+                    description: Indica se recebe SMS.
+                    example: "A"
+                  localExtrato:
+                    type: integer
+                    description: Local do extrato.
+                    example: 3
+                  prouni:
+                    type: string
+                    description: Indica se é PROUNI.
+                    example: "N"
+                  contaCorrente:
+                    type: object
+                    description: Detalhes da conta corrente.
+                    properties:
+                      agencia:
+                        type: integer
+                        example: 4736
+                      operacao:
+                        type: integer
+                        example: 13
+                      dv:
+                        type: integer
+                        example: 1
+                      nsgd:
+                        type: string
+                        nullable: true
+                        example: null
+                      contaCorrente:
+                        type: integer
+                        example: 6365
+                  quantidadeAditamentos:
+                    type: integer
+                    description: Quantidade de aditamentos.
+                    example: 1
+                  quantidadePreAditamentos:
+                    type: integer
+                    description: Quantidade de pré-aditamentos.
+                    example: 0
+                  sipesListaBanco:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        cpf:
+                          type: string
+                          example: "709.667.981-20"
+                        tipo:
+                          type: string
+                          example: "C"
+                        dataPesquisa:
+                          type: string
+                          nullable: true
+                          example: null
+                        restricao:
+                          type: string
+                          nullable: true
+                          example: "N"
+                  idSeguradora:
+                    type: integer
+                    description: ID da seguradora.
+                    example: 104
+                  indContratoNovoFies:
+                    type: boolean
+                    description: Indica se é um contrato novo FIES.
+                    example: true
+                  taxaJuros:
+                    type: integer
+                    description: Taxa de juros.
+                    example: 0
+                  existeTarifaContrato:
+                    type: boolean
+                    description: Indica se existe tarifa de contrato.
+                    example: true
+                  vrCoParticipacao:
+                    type: number
+                    format: float
+                    description: Valor da co-participação.
+                    example: 144.21
+                  valorSeguro:
+                    type: number
+                    format: float
+                    description: Valor do seguro.
+                    example: 4.6
+                  numeroProcessoSeletivo:
+                    type: integer
 
-Item de Backlog: 22771690
-Título: NOVO FIES - AGENTE OPERADOR - REPASSE DUPLICADO
-Resumo Técnico:
-Foram identificadas liberações que foram indevidamente repassadas duas vezes no repasse de fevereiro/2025 (02/2025). Essas liberações já haviam sido repassadas anteriormente, ocasionando duplicidade de repasse.
-🔎 Causa Raiz
 
-A duplicidade está relacionada à demanda anterior 22278713, na qual aditamentos revalidados pelo app causaram o sumiço da última liberação do semestre 1/2024. Como correção, liberações foram recriadas manualmente, mas não houve controle de que essas liberações já haviam sido repassadas anteriormente, gerando repasses duplicados.
-📌 Demanda Original Relacionada
-
-Item de Backlog: 22278713
-Título: NOVO FIES - ADITAMENTO REVALIDADO PELO APP SUMIU COM ÚLTIMA LIBERAÇÃO
-Problema: A revalidação de aditamentos já contratados fez com que a última liberação desaparecesse, gerando necessidade de recriação.
-Exemplos de casos:
-
-    CPF: 10361402961, 441.844.118-27
-
-    Outros CPFs:
-
-        143.231.746-67
-
-        134.280.946-70
-
-        154.806.536-60
-
-        165.237.576-76
-
-        059.015.631-40
-
-        088.401.083-00
-
-        718.450.694-47
-
-        082.379.504-70
-
-        104.018.975-08
-
-        086.786.894-55
-
-        021.235.666-67
-
-🛠️ Correção Aplicada
-
-Stored Procedure Criada: FES.FESSPZA0_COMPENSA_RPSE_INDEVIDO()
-Objetivo:
-Compensar automaticamente os repasses duplicados, criando registros de retenção para serem tratados na próxima execução do fluxo de repasse.
-
-Execução da Procedure:
-
-    Início da execução: Jair Jose dos Santos
-
-    Ambiente: TGE
-
-    Data: 21/02/2025
-
-    Quantidade de compensações criadas: 16.017
-
-📂 Evidências de Teste (Clear Case)
-
-    SIFES_RM_22771690_LIBERACOES_APURADAS.xlsx
-
-    SIFES_RM_22771690_LIBERACOES_CRIADAS.xlsx
-
-    SIFES_RM_22771690_LIBERACOES_ALTERADAS.xlsx
-
-    SIFES_RM_22771690_COMPENSACOES_CRIADAS.xlsx
-
-🔄 Plano de Retorno (Caso Necessário)
-
-Requisição de Mudança: 22777223
-Caso seja necessário rollback:
-
-    Restaurar backups das tabelas:
-
-        FES.FESTB817_RETENCAO_LIBERACAO
-
-        FES.FESTB812_CMPSO_RPSE_INDVO
-
-    A procedure não exige ação adicional para rollback.
-
-📎 Anexos Técnicos Relevantes
-
-    RETENCOES CRIADAS FESSPZA0.xlsx
-
-    LIBERACOES CRIADAS.xlsx
-
-    LIBERACOES ALTERADAS - POS EXECUCAO SPs REPASSE.xlsx
-
-    LIBERACOES APURADAS - POS EXECUCAO ROTINA FESREPASSE.xlsx
-
-    COMPENSACOES CRIADAS FESSPZA0.xlsx
-
-✅ Status Atual
-
-    Procedure executada com sucesso.
-
-    Requisição RTC 22771690 virada para "Pronto".
-
-    Evidências de execução coletadas.
-
-    Item pronto para validação de qualidade.
-
-Se desejar, posso gerar um documento formal (PDF ou Word) com esse parecer. Deseja que eu faça isso?
 
 
 
