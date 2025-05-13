@@ -9,44 +9,156 @@
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
 
     
-/v1/contrato/consulta-estudante:
+
+ emprest/transferenciaContrato/buscarEstudante:
   get:
-    summary: Busca informações do contrato FIES do estudante por CPF (via query parameters)
-    description: |
-      Este endpoint permite consultar os detalhes do contrato do Fundo de Financiamento Estudantil (FIES)
-      de um estudante específico, utilizando o seu número de Cadastro de Pessoa Física (CPF).
-      Os parâmetros são enviados na URL como query parameters.
+    summary: Busca informações do estudante para transferência de contrato.
+    description: Retorna detalhes do estudante com base no Código FIES e CPF.
     parameters:
+      - in: query
+        name: codFies
+        schema:
+          type: string
+        description: Código FIES do estudante.
+        required: true
+        example: "20242515"
       - in: query
         name: cpf
         schema:
           type: string
           pattern: '^[0-9]{11}$'
-        description: CPF do estudante a ser consultado (apenas números).
+        description: CPF do estudante (apenas números).
         required: true
         example: "70966798120"
-      - in: query
-        name: codigoFies
-        schema:
-          type: string
-        required: false
-        description: Código FIES do estudante (opcional).
-        example: "0000"
-      - in: query
-        name: agencia
-        schema:
-          type: string
-        required: false
-        description: Código da agência bancária (opcional).
-        example: "0"
-      - in: query
-        name: _
-        schema:
-          type: integer
-        required: false
-        description: Timestamp para evitar cache (gerado dinamicamente).
-        example: 1747058495351
-
+    responses:
+      '200':
+        description: Sucesso - Retorna os detalhes do estudante.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mensagem:
+                  type: string
+                codigo:
+                  type: integer
+                tipo:
+                  type: string
+                  nullable: true
+                editavel:
+                  nullable: true
+                idTransferencia:
+                  nullable: true
+                codFies:
+                  type: integer
+                cpfCandidato:
+                  type: string
+                nomeCandidato:
+                  type: string
+                tipoTransferencia:
+                  nullable: true
+                idIes:
+                  type: integer
+                nuMantenedora:
+                  type: integer
+                nuCampus:
+                  type: integer
+                nuCurso:
+                  type: integer
+                nuTurno:
+                  type: integer
+                nomeIes:
+                  type: string
+                nomeMantenedora:
+                  type: string
+                turnoDescDestino:
+                  type: string
+                uf:
+                  type: string
+                municipio:
+                  type: string
+                endereco:
+                  type: string
+                nomeCampus:
+                  type: string
+                nomeCurso:
+                  type: string
+                duracaoRegularCurso:
+                  type: integer
+                nuSemestresCursados:
+                  type: integer
+                qtSemestresDilatado:
+                  type: integer
+                qtSemestresSuspenso:
+                  type: integer
+                iesDestino:
+                  nullable: true
+                nuMantenedoraDestino:
+                  nullable: true
+                campusDestino:
+                  nullable: true
+                cursoDestino:
+                  nullable: true
+                turnoDestino:
+                  nullable: true
+                nomeIesDestino:
+                  nullable: true
+                nomeMantenedoraDestino:
+                  nullable: true
+                ufDestino:
+                  nullable: true
+                municipioDestino:
+                  nullable: true
+                enderecoDestino:
+                  nullable: true
+                nomeCampusDestino:
+                  nullable: true
+                nomeCursoDestino:
+                  nullable: true
+                transferenciasRealizadas:
+                  type: array
+                  items:
+                    type: object # Você pode definir a estrutura dos itens se souber
+                icCondicaoFuncionamento:
+                  type: string
+                icSituacaoContrato:
+                  type: string
+                icSituacaoIES:
+                  type: string
+                nuOperacaoSiapi:
+                  type: integer
+                totalSemestresContratados:
+                  type: integer
+                totalSemestresUtilizados:
+                  type: integer
+                totalSemestresDestino:
+                  nullable: true
+                habilitarSolicitacao:
+                  type: boolean
+                numeroSemestresCursar:
+                  type: integer
+                descTunoOrigem:
+                  type: string
+                semestreReferencia:
+                  type: integer
+                anoReferencia:
+                  type: integer
+                  format: int32
+                notaEnemCandidato:
+                  type: number
+                anoReferenciaNotaEnem:
+                  type: integer
+                  format: int32
+                jsonRetornoConsultaEnem:
+                  type: string
+                estudantePodeTransfCurso:
+                  type: string
+                totalSemestresDisponiveis:
+                  type: integer
+      '400':
+        description: Requisição inválida - Algum parâmetro está ausente ou incorreto.
+      '500':
+        description: Erro interno do servidor.
 
 
 
