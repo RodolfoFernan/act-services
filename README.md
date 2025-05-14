@@ -10,8 +10,26 @@
 
     
 
- 
-                  
+ /emprest/transferenciaContrato/buscarEstudante:
+  post:
+    summary: Busca informações do estudante para transferência de contrato (via objeto no corpo).
+    description: Retorna detalhes do estudante com base no código FIES e CPF fornecidos no corpo da requisição.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              codFies:
+                type: string
+                description: Código FIES do estudante.
+                example: "20242515"
+              cpf:
+                type: string
+                description: CPF do estudante (apenas números).
+                pattern: '^[0-9]{11}$'
+                example: "70966798120"
     responses:
       '200':
         description: Sucesso - Retorna os detalhes do estudante.
@@ -208,6 +226,11 @@
                 totalSemestresDisponiveis:
                   type: integer
                   example: 5
+                  
+    
+            
+                
+           
             
             
 
