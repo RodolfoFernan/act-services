@@ -10,29 +10,9 @@
 
     
 
- /emprest/transferenciaContrato/buscarEstudante:
-  post:
-    summary: Busca informações do estudante para transferência de contrato (via objeto no corpo).
-    description: Retorna detalhes do estudante com base no código FIES e CPF fornecidos no corpo da requisição.
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              codFies:
-                type: string
-                description: Código FIES do estudante.
-                example: "20242515"
-              cpf:
-                type: string
-                description: CPF do estudante (apenas números).
-                pattern: '^[0-9]{11}$'
-                example: "70966798120"
-    responses:
+responses:
       '200':
-        description: Sucesso - Retorna os detalhes do estudante.
+        description: Resposta bem-sucedida com os detalhes do contrato do estudante.
         content:
           application/json:
             schema:
@@ -40,192 +20,126 @@
               properties:
                 mensagem:
                   type: string
+                  description: Mensagem informativa (geralmente vazia em caso de sucesso).
+                  nullable: true
                   example: ""
                 codigo:
-                  type: integer
-                  example: 0
+                  type: string
+                  description: Código de retorno (geralmente nulo em caso de sucesso).
+                  nullable: true
+                  example: null
                 tipo:
                   type: string
+                  description: Tipo da mensagem (geralmente nulo em caso de sucesso).
                   nullable: true
                   example: null
                 editavel:
-                  nullable: true
-                  example: null
-                idTransferencia:
-                  type: string
-                  nullable: true
-                  example: null
-                codFies:
-                  type: integer
-                  example: 20242515
-                cpfCandidato:
-                  type: string
-                  example: "70966798120"
-                nomeCandidato:
-                  type: string
-                  example: "LUANA GARCIA FERREIRA"
-                tipoTransferencia:
-                  type: string
-                  nullable: true
-                  example: null
-                idIes:
-                  type: integer
-                  example: 1113
-                nuMantenedora:
-                  type: integer
-                  example: 770
-                nuCampus:
-                  type: integer
-                  example: 27693
-                nuCurso:
-                  type: integer
-                  example: 73537
-                nuTurno:
-                  type: integer
-                  example: 1
-                nomeIes:
-                  type: string
-                  example: "CENTRO UNIVERSITÁRIO EURO-AMERICANO"
-                nomeMantenedora:
-                  type: string
-                  example: "Instituto Euro Americano De Educacao Ciencia Tecnologia"
-                turnoDescDestino:
-                  type: string
-                  nullable: true
-                  example: "Matutino"
-                uf:
-                  type: string
-                  example: "DF"
-                municipio:
-                  type: string
-                  example: "BRASILIA"
-                endereco:
-                  type: string
-                  example: "SCES Trecho 0 - Conjunto 5"
-                nomeCampus:
-                  type: string
-                  example: "Centro Universitário Euro-Americano - Unidade Asa Sul"
-                nomeCurso:
-                  type: string
-                  example: "ENFERMAGEM"
-                duracaoRegularCurso:
-                  type: integer
-                  example: 10
-                nuSemestresCursados:
-                  type: integer
-                  example: 1
-                qtSemestresDilatado:
-                  type: integer
-                  example: 0
-                qtSemestresSuspenso:
-                  type: integer
-                  example: 0
-                iesDestino:
-                  type: string
-                  nullable: true
-                  example: null
-                nuMantenedoraDestino:
-                  type: integer
-                  nullable: true
-                  example: null
-                campusDestino:
-                  type: integer
-                  nullable: true
-                  example: null
-                cursoDestino:
-                  type: integer
-                  nullable: true
-                  example: null
-                turnoDestino:
-                  type: integer
-                  nullable: true
-                  example: null
-                nomeIesDestino:
-                  type: string
-                  nullable: true
-                  example: null
-                nomeMantenedoraDestino:
-                  type: string
-                  nullable: true
-                  example: null
-                ufDestino:
-                  type: string
-                  nullable: true
-                  example: null
-                municipioDestino:
-                  type: string
-                  nullable: true
-                  example: null
-                enderecoDestino:
-                  type: string
-                  nullable: true
-                  example: null
-                nomeCampusDestino:
-                  type: string
-                  nullable: true
-                  example: null
-                nomeCursoDestino:
-                  type: string
-                  nullable: true
-                  example: null
-                transferenciasRealizadas:
-                  type: array
-                  items:
-                    type: string # Ajuste o tipo se souber a estrutura dos itens
-                  example: []
-                icCondicaoFuncionamento:
-                  type: string
-                  example: "N"
-                icSituacaoContrato:
-                  type: string
-                  example: "U"
-                icSituacaoIES:
-                  type: string
-                  example: "L"
-                nuOperacaoSiapi:
-                  type: integer
-                  example: 187
-                totalSemestresContratados:
-                  type: integer
-                  example: 7
-                totalSemestresUtilizados:
-                  type: integer
-                  example: 2
-                totalSemestresDestino:
-                  type: integer
-                  nullable: true
-                  example: null
-                habilitarSolicitacao:
                   type: boolean
-                  example: true
-                numeroSemestresCursar:
-                  type: integer
-                  example: 7
-                descTunoOrigem:
-                  type: string
+                  description: Indica se os dados são editáveis.
                   nullable: true
-                  example: "Matutino"
-                semestreReferencia:
+                  example: null
+                agencia:
                   type: integer
-                  example: 1
-                anoReferencia:
-                  type: integer
-                  example: 2025
-                notaEnemCandidato:
-                  type: number
-                  example: 495.34
-                anoReferenciaNotaEnem:
-                  type: integer
-                  example: 2020
-                jsonRetornoConsultaEnem:
-                  type: string
-                  example: "{\"nuCpf\":\"70966798120\",\"vlNotaEnemConsiderada\":\"495.34\",\"nuSemestreReferencia\":\"22020\",\"coInscricao\":6614627,\"nuAnoEnem\":\"2019\"}"
-                estudantePodeTransfCurso:
-                  type: string
-                  example: "S"
-                totalSemestresDisponiveis:
-                  type: integer
-                  example: 5
+                  description: Código da agência bancária do contrato.
+                  example: 4736
+                estudante:
+                  type: object
+                  description: Informações detalhadas do estudante.
+                  properties:
+                    mensagem:
+                      type: string
+                      nullable: true
+                      example: ""
+                      codigo:
+                        type: string
+                        nullable: true
+                        example: null
+                      tipo:
+                        type: string
+                        nullable: true
+                        example: null
+                      editavel:
+                        type: boolean
+                        nullable: true
+                        example: null
+                      cpf:
+                        type: string
+                        description: CPF do estudante.
+                        example: "70966798120"
+                      dependenteCPF:
+                        type: integer
+                        description: CPF do dependente (se houver).
+                        example: 0
+                      nome:
+                        type: string
+                        description: Nome completo do estudante.
+                        example: "LUANA GARCIA FERREIRA"
+                      dataNascimento:
+                        type: string
+                        format: date
+                        description: Data de nascimento do estudante (DD/MM/AAAA).
+                        example: "20/02/2002"
+                      ric:
+                        type: string
+                        nullable: true
+                        description: Registro de Identidade Civil (RIC).
+                        example: null
+                      nacionalidade:
+                        type: string
+                        nullable: true
+                        description: Nacionalidade do estudante.
+                        example: null
+                      identidade:
+                        type: object
+                        description: Detalhes da identidade do estudante.
+                        properties:
+                          identidade:
+                            type: string
+                            description: Número da identidade.
+                            example: "4116034"
+                          orgaoExpedidor:
+                            type: object
+                            properties:
+                              codigo:
+                                type: integer
+                                example: 10
+                              nome:
+                                type: string
+                                example: "Secretaria de Segurança Pública(SSP)"
+                              uf:
+                                type: object
+                                properties:
+                                  mensagem:
+                                    type: string
+                                    nullable: true
+                                    example: ""
+                                  codigo:
+                                    type: string
+                                    nullable: true
+                                    example: null
+                                  tipo:
+                                    type: string
+                                    nullable: true
+                                    example: null
+                                  editavel:
+                                    type: boolean
+                                    nullable: true
+                                    example: null
+                                  sigla:
+                                    type: string
+                                    example: "GO"
+                                  descricao:
+                                    type: string
+                                    example: ""
+                                  regiao:
+                                    type: string
+                                    nullable: true
+                                    example: null
+                              dataExpedicaoIdentidade:
+                                type: string
+                                format: date
+                                example: "16/03/2017"
+  
                   
     
             
