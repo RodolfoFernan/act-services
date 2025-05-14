@@ -10,45 +10,47 @@
 
     
 
-emprest/transferenciaContrato/cancelarSolicitacaoEncerramento:
-  get:
-    summary: Cancela uma solicitação de encerramento de transferência de contrato.
-    description: Cancela uma solicitação de encerramento de transferência com base no código FIES e ID da solicitação.
-    parameters:
-      - in: query
-        name: codFies
-        schema:
-          type: string
-        description: Código FIES do estudante.
-        required: true
-        example: "20242515"
-      - in: query
-        name: idSolicitacao
-        schema:
-          type: integer
-        description: ID da solicitação de encerramento.
-        required: true
-        example: 57984
-    responses:
-      '200':
-        description: Operação realizada com sucesso.
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                mensagem:
-                  type: string
-                  example: "Operação realizada com sucesso."
-                codigo:
-                  type: integer
-                  example: 0
-                tipo:
-                  type: string
-                  example: "alert-success"
-                editavel:
-                  nullable: true
-                  example: null
+                transferenciasRealizadas:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      idTransferencia:
+                        type: integer
+                        example: 58024
+                      dataSolicitacao:
+                        type: integer
+                        example: 1747228434000
+                      tipoTransferencia:
+                        type: integer
+                        example: 2
+                      mensagem:
+                        type: string
+                        nullable: true
+                        example: ""
+                      codigo:
+                        type: string
+                        nullable: true
+                        example: null
+                      tipo:
+                        type: string
+                        nullable: true
+                        example: null
+                      editavel:
+                        nullable: true
+                        example: null
+                      status:
+                        type: integer
+                        example: 10
+                      habilitarCancelarEstudante:
+                        type: boolean
+                        example: false
+                      tipoDesc:
+                        type: string
+                        example: "IES"
+                      statusDesc:
+                        type: string
+                        example: "Cancelado"
   
                   
     
