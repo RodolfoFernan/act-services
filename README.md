@@ -10,26 +10,8 @@
 
     
 
- emprest/transferenciaContrato/buscarEstudante:
-  get:
-    summary: Busca informações do estudante para transferência de contrato.
-    description: Retorna detalhes do estudante com base no Código FIES e CPF.
-    parameters:
-      - in: query
-        name: codFies
-        schema:
-          type: string
-        description: Código FIES do estudante.
-        required: true
-        example: "20242515"
-      - in: query
-        name: cpf
-        schema:
-          type: string
-          pattern: '^[0-9]{11}$'
-        description: CPF do estudante (apenas números).
-        required: true
-        example: "70966798120"
+ 
+                  
     responses:
       '200':
         description: Sucesso - Retorna os detalhes do estudante.
@@ -40,125 +22,194 @@
               properties:
                 mensagem:
                   type: string
+                  example: ""
                 codigo:
                   type: integer
+                  example: 0
                 tipo:
                   type: string
                   nullable: true
+                  example: null
                 editavel:
                   nullable: true
+                  example: null
                 idTransferencia:
+                  type: string
                   nullable: true
+                  example: null
                 codFies:
                   type: integer
+                  example: 20242515
                 cpfCandidato:
                   type: string
+                  example: "70966798120"
                 nomeCandidato:
                   type: string
+                  example: "LUANA GARCIA FERREIRA"
                 tipoTransferencia:
+                  type: string
                   nullable: true
+                  example: null
                 idIes:
                   type: integer
+                  example: 1113
                 nuMantenedora:
                   type: integer
+                  example: 770
                 nuCampus:
                   type: integer
+                  example: 27693
                 nuCurso:
                   type: integer
+                  example: 73537
                 nuTurno:
                   type: integer
+                  example: 1
                 nomeIes:
                   type: string
+                  example: "CENTRO UNIVERSITÁRIO EURO-AMERICANO"
                 nomeMantenedora:
                   type: string
+                  example: "Instituto Euro Americano De Educacao Ciencia Tecnologia"
                 turnoDescDestino:
                   type: string
+                  nullable: true
+                  example: "Matutino"
                 uf:
                   type: string
+                  example: "DF"
                 municipio:
                   type: string
+                  example: "BRASILIA"
                 endereco:
                   type: string
+                  example: "SCES Trecho 0 - Conjunto 5"
                 nomeCampus:
                   type: string
+                  example: "Centro Universitário Euro-Americano - Unidade Asa Sul"
                 nomeCurso:
                   type: string
+                  example: "ENFERMAGEM"
                 duracaoRegularCurso:
                   type: integer
+                  example: 10
                 nuSemestresCursados:
                   type: integer
+                  example: 1
                 qtSemestresDilatado:
                   type: integer
+                  example: 0
                 qtSemestresSuspenso:
                   type: integer
+                  example: 0
                 iesDestino:
+                  type: string
                   nullable: true
+                  example: null
                 nuMantenedoraDestino:
+                  type: integer
                   nullable: true
+                  example: null
                 campusDestino:
+                  type: integer
                   nullable: true
+                  example: null
                 cursoDestino:
+                  type: integer
                   nullable: true
+                  example: null
                 turnoDestino:
+                  type: integer
                   nullable: true
+                  example: null
                 nomeIesDestino:
+                  type: string
                   nullable: true
+                  example: null
                 nomeMantenedoraDestino:
+                  type: string
                   nullable: true
+                  example: null
                 ufDestino:
+                  type: string
                   nullable: true
+                  example: null
                 municipioDestino:
+                  type: string
                   nullable: true
+                  example: null
                 enderecoDestino:
+                  type: string
                   nullable: true
+                  example: null
                 nomeCampusDestino:
+                  type: string
                   nullable: true
+                  example: null
                 nomeCursoDestino:
+                  type: string
                   nullable: true
+                  example: null
                 transferenciasRealizadas:
                   type: array
                   items:
-                    type: object # Você pode definir a estrutura dos itens se souber
+                    type: string # Ajuste o tipo se souber a estrutura dos itens
+                  example: []
                 icCondicaoFuncionamento:
                   type: string
+                  example: "N"
                 icSituacaoContrato:
                   type: string
+                  example: "U"
                 icSituacaoIES:
                   type: string
+                  example: "L"
                 nuOperacaoSiapi:
                   type: integer
+                  example: 187
                 totalSemestresContratados:
                   type: integer
+                  example: 7
                 totalSemestresUtilizados:
                   type: integer
+                  example: 2
                 totalSemestresDestino:
+                  type: integer
                   nullable: true
+                  example: null
                 habilitarSolicitacao:
                   type: boolean
+                  example: true
                 numeroSemestresCursar:
                   type: integer
+                  example: 7
                 descTunoOrigem:
                   type: string
+                  nullable: true
+                  example: "Matutino"
                 semestreReferencia:
                   type: integer
+                  example: 1
                 anoReferencia:
                   type: integer
-                  format: int32
+                  example: 2025
                 notaEnemCandidato:
                   type: number
+                  example: 495.34
                 anoReferenciaNotaEnem:
                   type: integer
-                  format: int32
+                  example: 2020
                 jsonRetornoConsultaEnem:
                   type: string
+                  example: "{\"nuCpf\":\"70966798120\",\"vlNotaEnemConsiderada\":\"495.34\",\"nuSemestreReferencia\":\"22020\",\"coInscricao\":6614627,\"nuAnoEnem\":\"2019\"}"
                 estudantePodeTransfCurso:
                   type: string
+                  example: "S"
                 totalSemestresDisponiveis:
                   type: integer
-      '400':
-        description: Requisição inválida - Algum parâmetro está ausente ou incorreto.
-      '500':
-        description: Erro interno do servidor.
+                  example: 5
+            
+            
 
 
 
