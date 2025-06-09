@@ -7,6 +7,383 @@
 
 <h2>1. Estrutura dos Microsserviços</h2>
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
+===================================================================================================================
+Excelente! Este é um trecho de código PL/SQL (Oracle), provavelmente parte de uma Stored Procedure ou um bloco anônimo, cujo objetivo principal é finalizar retenções de liberações de contrato baseadas em diversas condições e motivos. É um processo de saneamento ou reconciliação de dados, executado em lotes.
+
+Vamos analisar cada bloco FOR...LOOP e suas regras.
+Análise e Regras de Negócio
+
+Este código opera sobre duas tabelas principais:
+
+    FES.FESTB712_LIBERACAO_CONTRATO (L): Tabela de liberações de contrato.
+    FES.FESTB817_RETENCAO_LIBERACAO (R): Tabela de retenções associadas às liberações.
+
+Ele também faz LEFT OUTER JOIN com outras tabelas para obter informações contextuais:
+
+    FES.FESTB038_ADTMO_CONTRATO (A): Aditamentos de contrato.
+    FES.FESTB010_CANDIDATO (CA / C): Dados do candidato.
+    FES.FESTB036_CONTRATO_FIES (F): Contratos FIES.
+    FES.FESTB057_OCRRA_CONTRATO (O / OC): Ocorrências de contrato.
+    FES.FESTB759_PROCESSO_ADITAMENTO (T759): Processos de aditamento.
+
+Bloco 1: Atualização de Liberações e Retenções por Suspensão
+
+Este bloco processa liberações com uma condição específica (IC_SITUACAO_LIBERACAO = 'NE') e um critério de data em relação à vigência de alguma "ocorrência" (provavelmente de suspensão, embora a origem O não esteja na FROM clause explícita do SELECT do FOR loop inicial - é um erro na cópia ou um contexto externo).
+SQL
+
+-- Primeiro LOOP (incompleto na parte SELECT do FOR IN - assume-se que carrega x.IC_SITUACAO_LIBERACAO, DT_LIBERACAO, DT_INICIO_VIGENCIA, DT_FIM_VIGENCIA, NU_SQNCL_LIBERACAO_CONTRATO)
+-- O trecho fornecido para o primeiro LOOP começa de L.IC_SITUACAO_LIBERACAO = 'NE', mas a query do FOR IN não está completa.
+-- Assumindo que 'O' se refere a FES.FESTB057_OCRRA_CONTRATO (Ocorrências de Contrato)
+
+-- Condição de entrada no loop:
+-- (L.IC_SITUACAO_LIBERACAO = 'NE' AND L.DT_LIBERACAO > O.DT_INICIO_VIGENCIA AND L.DT_LIBERACAO < O.DT_FIM_VIGENCIA)
+
+Regras e Ações:
+
+    Condição de Reclassificação da Liberação:
+        IF x.IC_SITUACAO_LIBERACAO = 'NR' AND x.DT_LIBERACAO > x.DT_INICIO_VIGENCIA AND x.DT_LIBERACAO < x.DT_FIM_VIGENCIA THEN: Se a liberação tem status 'NR' (provavelmente "Não Repassada" ou "Não Registrada") E a data da liberação está dentro de um período de vigência (entre DT_INICIO_VIGENCIA e DT_FIM_VIGENCIA), ela será atualizada.
+        Ação: UPDATE FES.FESTB712_LIBERACAO_CONTRATO SET IC_SITUACAO_LIBERACAO = 'S', DT_ATUALIZACAO = SYSDATE
+        Porquê: Isso sugere que liberações que estavam com um status de "não repassada" (NR) mas que agora se enquadram em um período de vigência válido (provavelmente após o término de uma suspensão ou correção de dados), são reclassificadas para 'S' (provavelmente "Sucesso", "Liberada" ou "Repassada"), marcando-as como aptas ou já processadas.
+
+    Finalização de Retenção por Suspensão:
+        Ação: UPDATE FES.FESTB817_RETENCAO_LIBERACAO SET DT_FIM_RETENCAO = SYSDATE WHERE NU_SQNCL_LIBERACAO_CONTRATO = x.NU_SQNCL_LIBERACAO_CONTRATO AND NU_MOTIVO_RETENCAO_LIBERACAO = 3.
+        Porquê: Isso encerra retenções do tipo 3 (Suspensão). Indica que se uma liberação tinha sido retida devido a uma suspensão, e a condição que levou à suspensão foi resolvida (ou a suspensão terminou), a retenção é finalizada para que a liberação possa prosseguir no próximo repasse. O DT_FIM_RETENCAO IS NULL é a condição implícita para "retenções ativas".
+
+Bloco 2: Finalização de Retenções por Falha na Vinculação (Motivo 4)
+SQL
+
+-- Cursor com as liberacoes que possuem retencao por falha na vinculacao entre tabelas e
+-- que deverao ser encaminhadas no proximo repasse.
+FOR x IN
+(
+    SELECT L.NU_SQNCL_LIBERACAO_CONTRATO
+    FROM FES.FESTB712_LIBERACAO_CONTRATO L
+        INNER JOIN FES.FESTB817_RETENCAO_LIBERACAO R
+            ON L.NU_SQNCL_LIBERACAO_CONTRATO = R.NU_SQNCL_LIBERACAO_CONTRATO
+            AND R.NU_MOTIVO_RETENCAO_LIBERACAO = 4
+            AND R.DT_FIM_RETENCAO IS NULL
+    WHERE L.NU_TIPO_TRANSACAO IS NOT NULL
+)
+LOOP
+    -- FINALIZA A RETENCAO DO TIPO FALHA NA VINCULACAO ENTRE TABELAS
+    SQL_QUERY := 'UPDATE FES.FESTB817_RETENCAO_LIBERACAO SET DT_FIM_RETENCAO = ''' ||
+                 TO_CHAR(SYSDATE,'DD/MM/YYYY') || ''' WHERE NU_SQNCL_LIBERACAO_CONTRATO = ' ||
+                 x.NU_SQNCL_LIBERACAO_CONTRATO || ' AND NU_MOTIVO_RETENCAO_LIBERACAO = 4';
+    EXECUTE IMMEDIATE SQL_QUERY;
+END LOOP;
+
+Regras e Ações:
+
+    Identificação: Busca liberações (FESTB712_LIBERACAO_CONTRATO) que têm uma retenção ativa (DT_FIM_RETENCAO IS NULL) com o NU_MOTIVO_RETENCAO_LIBERACAO = 4 ("Falha na vinculação entre tabelas").
+    WHERE L.NU_TIPO_TRANSACAO IS NOT NULL: Adicionalmente, verifica se o tipo de transação da liberação não é nulo.
+    Ação: UPDATE FES.FESTB817_RETENCAO_LIBERACAO SET DT_FIM_RETENCAO = SYSDATE ... WHERE NU_MOTIVO_RETENCAO_LIBERACAO = 4.
+    Porquê: Se uma liberação estava retida por um problema de "vinculação entre tabelas" (ou seja, um erro de relacionamento de dados), e presume-se que essa falha foi corrigida (ou a regra de negócio determina que essa retenção deve ser finalizada para tentar o próximo repasse), a retenção é finalizada. Isso permite que essas liberações sejam processadas em um ciclo subsequente.
+
+Bloco 3: Finalização de Retenções por Ausência de Aditamento Válido (Motivo 7) - Parte 1
+SQL
+
+-- Cursor com as liberacoes que possuem retencao por AUSENCIA DE ADITAMENTO VALIDO e devera ser finalizada.
+FOR x IN
+(
+    SELECT L.NU_SQNCL_LIBERACAO_CONTRATO
+    FROM FES.FESTB712_LIBERACAO_CONTRATO L
+        INNER JOIN FES.FESTB817_RETENCAO_LIBERACAO R ON L.NU_SQNCL_LIBERACAO_CONTRATO = R.NU_SQNCL_LIBERACAO_CONTRATO
+            AND R.NU_MOTIVO_RETENCAO_LIBERACAO = 7
+            AND R.DT_FIM_RETENCAO IS NULL
+        LEFT OUTER JOIN FES.FESTB038_ADTMO_CONTRATO A ON L.NU_SEQ_CANDIDATO = A.NU_CANDIDATO_FK36
+            AND A.NU_STATUS_ADITAMENTO > 3 AND A.DT_ADITAMENTO IS NOT NULL
+            AND L.AA_REFERENCIA_LIBERACAO = A.AA_ADITAMENTO
+            AND ( CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END ) = A.NU_SEM_ADITAMENTO
+        LEFT OUTER JOIN FES.FESTB010_CANDIDATO CA ON L.NU_SEQ_CANDIDATO = CA.NU_SEQ_CANDIDATO
+            AND L.AA_REFERENCIA_LIBERACAO = TO_CHAR(CA.DT_ADMISSAO_CANDIDATO,'YYYY')
+            AND ( CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END ) = ( CASE WHEN TO_CHAR(CA.DT_ADMISSAO_CANDIDATO,'MM') < 7 THEN 1 ELSE 2 END )
+        LEFT OUTER JOIN FES.FESTB036_CONTRATO_FIES F ON L.NU_SEQ_CANDIDATO = F.NU_CANDIDATO_FK11
+            AND F.NU_STATUS_CONTRATO > 3 AND F.DT_ASSINATURA IS NOT NULL
+    WHERE
+        (
+            A.NU_CANDIDATO_FK36 IS NOT NULL -- Tem aditamento válido
+            OR
+                (
+                    CA.NU_SEQ_CANDIDATO IS NOT NULL -- É um candidato válido
+                    AND F.NU_CANDIDATO_FK11 IS NOT NULL -- E tem um contrato FIES válido
+                )
+        )
+)
+LOOP
+    -- FINALIZA A RETENCAO DO TIPO AUSENCIA DE ADITAMENTO VALIDO
+    SQL_QUERY := 'UPDATE FES.FESTB817_RETENCAO_LIBERACAO SET DT_FIM_RETENCAO = ''' ||
+                 TO_CHAR(SYSDATE,'DD/MM/YYYY') || ''' WHERE NU_SQNCL_LIBERACAO_CONTRATO = ' ||
+                 x.NU_SQNCL_LIBERACAO_CONTRATO || ' AND NU_MOTIVO_RETENCAO_LIBERACAO = 7';
+    EXECUTE IMMEDIATE SQL_QUERY;
+END LOOP;
+
+Regras e Ações:
+
+    Identificação: Seleciona liberações com retenção ativa do NU_MOTIVO_RETENCAO_LIBERACAO = 7 ("Ausência de Aditamento Válido").
+    Critério de Finalização: Uma retenção por "ausência de aditamento válido" é finalizada SE a liberação agora está associada a:
+        Um aditamento válido (status > 3 e DT_ADITAMENTO IS NOT NULL) que corresponde ao candidato, ano e semestre da liberação;
+        OU a um candidato válido COM um contrato FIES válido (status > 3 e DT_ASSINATURA IS NOT NULL) que corresponde ao candidato e à data de admissão/semestre.
+    Ação: UPDATE FES.FESTB817_RETENCAO_LIBERACAO SET DT_FIM_RETENCAO = SYSDATE ... WHERE NU_MOTIVO_RETENCAO_LIBERACAO = 7.
+    Porquê: O sistema retém liberações quando não há um aditamento ou contrato válido para elas. Se, em uma execução posterior, a liberação agora possui um aditamento ou contrato válido associado (indicando que a situação foi regularizada), a retenção é finalizada para que a liberação possa ser processada.
+
+Bloco 4: Finalização de Retenções por Ausência de Aditamento Válido (Motivo 7) - Parte 2
+SQL
+
+-- Cursor com as liberacoes que possuem retencao por AUSENCIA DE ADITAMENTO VALIDO COM IC_SITUACAO_LIBERACAO <> NR e R
+-- e devem ser finalizadas
+FOR X IN
+(
+    SELECT L.NU_SQNCL_LIBERACAO_CONTRATO
+    FROM FES.FESTB712_LIBERACAO_CONTRATO L
+        INNER JOIN FES.FESTB817_RETENCAO_LIBERACAO R
+            ON L.NU_SQNCL_LIBERACAO_CONTRATO = R.NU_SQNCL_LIBERACAO_CONTRATO
+            AND R.NU_MOTIVO_RETENCAO_LIBERACAO = 7
+            AND R.DT_FIM_RETENCAO IS NULL
+    WHERE L.IC_SITUACAO_LIBERACAO NOT IN ('NR', 'R')
+)
+LOOP
+    -- FINALIZA A RETENCAO DO TIPO AUSENCIA DE ADITAMENTO VALIDO
+    SQL_QUERY := 'UPDATE FES.FESTB817_RETENCAO_LIBERACAO SET DT_FIM_RETENCAO = ''' ||
+                 TO_CHAR(SYSDATE,'DD/MM/YYYY') || ''' WHERE NU_SQNCL_LIBERACAO_CONTRATO = ' ||
+                 x.NU_SQNCL_LIBERACAO_CONTRATO || ' AND NU_MOTIVO_RETENCAO_LIBERACAO = 7';
+    EXECUTE IMMEDIATE SQL_QUERY;
+END LOOP;
+
+Regras e Ações:
+
+    Identificação: Seleciona liberações com retenção ativa do NU_MOTIVO_RETENCAO_LIBERACAO = 7.
+    Critério de Finalização: A liberação deve ter uma situação diferente de 'NR' (Não Repassada) e 'R' (Repassada).
+    Ação: Finaliza a retenção do tipo 7.
+    Porquê: Este bloco é uma condição adicional para finalizar retenções do tipo 7. Se a liberação já avançou para uma situação diferente de 'NR' ou 'R' (por exemplo, foi estornada, ou está em outro estado), mesmo que a retenção por "ausência de aditamento válido" ainda estivesse ativa, ela deve ser finalizada, pois a liberação já seguiu outro fluxo ou foi resolvida de outra forma.
+
+Bloco 5: Finalização de Retenções por Análise de Liberações a Estornar (Motivo 5) - Parte 1
+SQL
+
+-- Cursor com as liberacoes que possuem retencao por ANALISE DE LIBERACOES A ESTORNAR COM IC_SITUACAO_LIBERACAO <> NE
+-- e devem ser finalizadas
+FOR X IN
+(
+    SELECT L.NU_SQNCL_LIBERACAO_CONTRATO
+    FROM FES.FESTB712_LIBERACAO_CONTRATO L
+        INNER JOIN FES.FESTB817_RETENCAO_LIBERACAO R
+            ON L.NU_SQNCL_LIBERACAO_CONTRATO = R.NU_SQNCL_LIBERACAO_CONTRATO
+            AND R.NU_MOTIVO_RETENCAO_LIBERACAO = 5
+            AND R.DT_FIM_RETENCAO IS NULL
+    WHERE L.IC_SITUACAO_LIBERACAO <> 'NE'
+)
+LOOP
+    -- FINALIZA A RETENCAO DO TIPO ANALISE DE LIBERACOES A ESTORNAR
+    SQL_QUERY := 'UPDATE FES.FESTB817_RETENCAO_LIBERACAO SET DT_FIM_RETENCAO = ''' ||
+                 TO_CHAR(SYSDATE,'DD/MM/YYYY') || ''' WHERE NU_SQNCL_LIBERACAO_CONTRATO = ' ||
+                 x.NU_SQNCL_LIBERACAO_CONTRATO || ' AND NU_MOTIVO_RETENCAO_LIBERACAO = 5';
+    EXECUTE IMMEDIATE SQL_QUERY;
+END LOOP;
+
+Regras e Ações:
+
+    Identificação: Seleciona liberações com retenção ativa do NU_MOTIVO_RETENCAO_LIBERACAO = 5 ("Análise de Liberações a Estornar").
+    Critério de Finalização: A liberação deve ter uma situação diferente de 'NE' (provavelmente "Não Efetivada" ou "Não Estornada").
+    Ação: Finaliza a retenção do tipo 5.
+    Porquê: Se uma liberação está retida para "análise de estorno", mas sua situação atual (IC_SITUACAO_LIBERACAO) já mudou para algo diferente de 'NE' (ou seja, já foi estornada ou processada de outra forma), essa retenção de análise não é mais necessária e é finalizada.
+
+Bloco 6: Finalização de Retenções por Análise de Liberações a Estornar (Motivo 5) - Parte 2
+SQL
+
+-- Cursor com as liberacoes que possuem retencao por ANALISE DE LIBERACOES A ESTORNAR e deverao ser finalizadas.
+FOR x IN
+(
+    SELECT L.NU_SQNCL_LIBERACAO_CONTRATO
+    FROM FES.FESTB712_LIBERACAO_CONTRATO L
+        INNER JOIN FES.FESTB817_RETENCAO_LIBERACAO R
+            ON L.NU_SQNCL_LIBERACAO_CONTRATO = R.NU_SQNCL_LIBERACAO_CONTRATO
+            AND R.NU_MOTIVO_RETENCAO_LIBERACAO = 5
+            AND R.DT_FIM_RETENCAO IS NULL
+        -- JOINS complexos para verificar validade de aditamento, candidato, contrato e ocorrências de contrato
+        LEFT OUTER JOIN FES.FESTB038_ADTMO_CONTRATO A ...
+        LEFT OUTER JOIN FES.FESTB010_CANDIDATO C ...
+        LEFT OUTER JOIN FES.FESTB036_CONTRATO_FIES F ...
+        LEFT OUTER JOIN FES.FESTB057_OCRRA_CONTRATO O ... (tipo 'S' - Suspensão)
+        LEFT OUTER JOIN FES.FESTB057_OCRRA_CONTRATO OC ... (tipo 'E' - Encerramento?)
+    WHERE L.IC_SITUACAO_LIBERACAO = 'NE' -- Requisito específico para este bloco
+    AND
+        (
+            ( A.NU_CANDIDATO_FK36 IS NULL AND C.NU_SEQ_CANDIDATO IS NULL ) -- Não tem aditamento ou candidato válido
+            OR ( C.NU_SEQ_CANDIDATO IS NOT NULL AND F.NU_CANDIDATO_FK11 IS NULL ) -- Tem candidato, mas não tem contrato FIES
+            OR O.NU_CANDIDATO_FK36 IS NOT NULL -- Possui ocorrência de Suspensão (O)
+            OR OC.NU_CANDIDATO_FK36 IS NOT NULL -- Possui ocorrência de Encerramento/Outra (OC)
+        )
+)
+LOOP
+    -- FINALIZA A RETENCAO DO TIPO ANALISE DE LIBERACOES A ESTORNAR
+    SQL_QUERY := 'UPDATE FES.FESTB817_RETENCAO_LIBERACAO SET DT_FIM_RETENCAO = ''' ||
+                 TO_CHAR(SYSDATE,'DD/MM/YYYY') || ''' WHERE NU_SQNCL_LIBERACAO_CONTRATO = ' ||
+                 x.NU_SQNCL_LIBERACAO_CONTRATO || ' AND NU_MOTIVO_RETENCAO_LIBERACAO = 5';
+    EXECUTE IMMEDIATE SQL_QUERY;
+END LOOP;
+
+Regras e Ações:
+
+    Identificação: Seleciona liberações com retenção ativa do NU_MOTIVO_RETENCAO_LIBERACAO = 5.
+    Critério de Finalização: A liberação deve estar em situação 'NE' E satisfazer uma das seguintes condições (que justificam o estorno):
+        Não ter um aditamento válido E não ter um candidato válido.
+        Ter um candidato válido MAS não ter um contrato FIES válido.
+        Ter uma ocorrência de suspensão (O) associada.
+        Ter uma ocorrência de encerramento/outra (OC) associada.
+        As datas das ocorrências também são validadas para o semestre e ano de referência.
+    Ação: Finaliza a retenção do tipo 5.
+    Porquê: Este é um bloco de saneamento de dados robusto. Se uma liberação estava marcada para "análise de estorno" (NU_MOTIVO_RETENCAO_LIBERACAO = 5) e ainda está na situação 'NE', mas a investigação revela que ela deveria ter sido estornada ou não deveria ser repassada devido a problemas de dados (falta de aditamento/candidato/contrato válido) ou ocorrências no contrato (suspensão/encerramento), então essa retenção é finalizada. Isso indica que a "análise" foi concluída e a liberação está em um estado que justifica o não-repasse ou a necessidade de estorno.
+
+Bloco 7: Finalização de Retenções por Divergência entre Repasse e Aditamento (Motivo 9)
+SQL
+
+-- Cursor com as liberacoes que possuem retencao por DIVERGENCIA ENTRE REPASSE E ADITAMENTO e devera ser finalizada.
+FOR x IN
+(
+    SELECT L.NU_SQNCL_LIBERACAO_CONTRATO
+    FROM FES.FESTB712_LIBERACAO_CONTRATO L
+        INNER JOIN ( -- Subquery que calcula o total de repasse e verifica a divergência com o aditamento
+            SELECT NU_CANDIDATO_FK36, AA_ADITAMENTO, NU_SEM_ADITAMENTO
+            FROM FES.FESTB712_LIBERACAO_CONTRATO INNER JOIN FES.FESTB038_ADTMO_CONTRATO ON ...
+            WHERE NU_SEQ_CANDIDATO > 20000000 AND MM_REFERENCIA_LIBERACAO > 0
+            GROUP BY ... VR_ADITAMENTO
+            HAVING ( ( SUM(VR_REPASSE) - VR_ADITAMENTO ) BETWEEN 0 AND 1 OR ( VR_ADITAMENTO - SUM(VR_REPASSE) ) BETWEEN 0 AND 1 ) -- Diferença de até 1 (centavo/unidade mínima)
+            AND COUNT(VR_REPASSE) = 6 -- Existem exatamente 6 repasses
+        ) D ON L.NU_SEQ_CANDIDATO = D.NU_CANDIDATO_FK36
+            AND L.AA_REFERENCIA_LIBERACAO = D.AA_ADITAMENTO
+            AND CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END = D.NU_SEM_ADITAMENTO
+    WHERE EXISTS ( -- Garante que a liberação tem uma retenção ativa do motivo 9
+        SELECT 1
+        FROM FES.FESTB817_RETENCAO_LIBERACAO R
+        WHERE L.NU_SQNCL_LIBERACAO_CONTRATO = R.NU_SQNCL_LIBERACAO_CONTRATO
+        AND R.NU_MOTIVO_RETENCAO_LIBERACAO = 9
+        AND R.DT_FIM_RETENCAO IS NULL
+    )
+)
+LOOP
+    -- FINALIZA A RETENCAO DO TIPO DIVERGENCIA ENTRE REPASSE E ADITAMENTO
+    SQL_QUERY := 'UPDATE FES.FESTB817_RETENCAO_LIBERACAO SET DT_FIM_RETENCAO = ''' ||
+                 TO_CHAR(SYSDATE,'DD/MM/YYYY') || ''' WHERE NU_SQNCL_LIBERACAO_CONTRATO = ' ||
+                 x.NU_SQNCL_LIBERACAO_CONTRATO || ' AND NU_MOTIVO_RETENCAO_LIBERACAO = 9';
+    EXECUTE IMMEDIATE SQL_QUERY;
+END LOOP;
+
+Regras e Ações:
+
+    Identificação: Seleciona liberações com retenção ativa do NU_MOTIVO_RETENCAO_LIBERACAO = 9 ("Divergência entre Repasse e Aditamento").
+    Critério de Finalização (Subquery D): A retenção é finalizada se houver uma correspondência entre o valor total repassado (SUM(VR_REPASSE)) e o valor do aditamento (VR_ADITAMENTO) para o mesmo candidato, ano e semestre.
+        A divergência é considerada resolvida se a diferença entre o total repassado e o valor do aditamento for entre 0 e 1 (provavelmente tolerância para arredondamento de centavos).
+        Além disso, o COUNT(VR_REPASSE) = 6 indica que se espera que existam exatamente 6 liberações (parcelas) para aquele semestre.
+    Ação: Finaliza a retenção do tipo 9.
+    Porquê: Este bloco corrige inconsistências financeiras. Se um aditamento estava retido porque o total das liberações não batia com o valor do aditamento, e agora, após alguma correção ou reprocessamento, os valores se alinham (dentro da tolerância), a retenção é finalizada. Isso permite que o aditamento seja considerado regularizado.
+
+Bloco 8: Finalização de Retenções por Divergência entre Repasse e Contratação (Motivo 9)
+SQL
+
+-- Cursor com as liberacoes que possuem retencao por DIVERGENCIA ENTRE REPASSE E CONTRATACAO e devera ser finalizada.
+FOR X IN
+(
+    SELECT L.NU_SQNCL_LIBERACAO_CONTRATO
+    FROM FES.FESTB712_LIBERACAO_CONTRATO L
+        INNER JOIN ( -- Subquery que calcula o total de repasse e verifica a divergência com o contrato
+            SELECT A.NU_CANDIDATO_FK11, TO_CHAR(C.DT_ADMISSAO_CANDIDATO, 'YYYY') AS ANO,
+                   ( CASE WHEN TO_CHAR(C.DT_ADMISSAO_CANDIDATO,'MM') < 7 THEN 1 ELSE 2 END ) AS SEMESTRE,
+                   A.VR_CONTRATO, SUM(L.VR_REPASSE)
+            FROM FES.FESTB712_LIBERACAO_CONTRATO L
+                INNER JOIN FES.FESTB036_CONTRATO_FIES A ON L.NU_SEQ_CANDIDATO = A.NU_CANDIDATO_FK11 AND A.NU_STATUS_CONTRATO > 3
+                INNER JOIN FES.FESTB010_CANDIDATO C ON C.NU_SEQ_CANDIDATO = L.NU_SEQ_CANDIDATO AND L.AA_REFERENCIA_LIBERACAO = TO_CHAR(C.DT_ADMISSAO_CANDIDATO, 'YYYY')
+                    AND ( CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END ) = ( CASE WHEN TO_CHAR(C.DT_ADMISSAO_CANDIDATO,'MM') < 7 THEN 1 ELSE 2 END )
+            WHERE L.NU_SEQ_CANDIDATO > 20000000 AND L.MM_REFERENCIA_LIBERACAO > 0
+            GROUP BY ... VR_CONTRATO
+            HAVING ( ( SUM(VR_REPASSE) - VR_CONTRATO ) BETWEEN 0 AND 1 OR ( VR_CONTRATO - SUM(VR_REPASSE) ) BETWEEN 0 AND 1 ) -- Diferença de até 1
+            AND COUNT(L.VR_REPASSE) = 6 -- Existem exatamente 6 repasses
+        ) D ON L.NU_SEQ_CANDIDATO = D.NU_CANDIDATO_FK11
+            AND L.AA_REFERENCIA_LIBERACAO = D.ANO
+            AND CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END = D.SEMESTRE
+        LEFT OUTER JOIN FES.FESTB711_RLTRO_CTRTO_ANLTO A ON L.NU_SQNCL_LIBERACAO_CONTRATO = A.NU_SQNCL_LIBERACAO_CONTRATO AND L.NU_SEQ_CANDIDATO = A.NU_SEQ_CANDIDATO
+        LEFT OUTER JOIN FES.FESTB812_CMPSO_RPSE_INDVO R ON R.NU_SQNCL_RLTRO_CTRTO_ANALITICO = A.NU_SQNCL_RLTRO_CTRTO_ANALITICO AND R.NU_TIPO_ACERTO = 7 AND R.IC_COMPENSADO = 'N' AND A.VR_REPASSE > L.VR_REPASSE
+    WHERE EXISTS ( -- Garante que a liberação tem uma retenção ativa do motivo 9
+        SELECT 1
+        FROM FES.FESTB817_RETENCAO_LIBERACAO R
+        WHERE L.NU_SQNCL_LIBERACAO_CONTRATO = R.NU_SQNCL_LIBERACAO_CONTRATO
+        AND R.NU_MOTIVO_RETENCAO_LIBERACAO = 9
+        AND R.DT_FIM_RETENCAO IS NULL
+    )
+    AND ( A.NU_SQNCL_LIBERACAO_CONTRATO IS NULL OR R.NU_SQNCL_RLTRO_CTRTO_ANALITICO IS NULL ) -- Condições adicionais
+)
+LOOP
+    -- FINALIZA A RETENCAO DO TIPO DIVERGENCIA ENTRE REPASSE E CONTRATACAO
+    SQL_QUERY := 'UPDATE FES.FESTB817_RETENCAO_LIBERACAO SET DT_FIM_RETENCAO = ''' ||
+                 TO_CHAR(SYSDATE,'DD/MM/YYYY') || ''' WHERE NU_SQNCL_LIBERACAO_CONTRATO = ' ||
+                 X.NU_SQNCL_LIBERACAO_CONTRATO || ' AND NU_MOTIVO_RETENCAO_LIBERACAO = 9';
+    EXECUTE IMMEDIATE SQL_QUERY;
+END LOOP;
+
+Regras e Ações:
+
+    Identificação: Seleciona liberações com retenção ativa do NU_MOTIVO_RETENCAO_LIBERACAO = 9 ("Divergência entre Repasse e Contratação"). É o mesmo motivo da seção anterior, mas com uma lógica de validação diferente na FROM e WHERE clause.
+    Critério de Finalização (Subquery D): Similar ao bloco anterior, a retenção é finalizada se houver uma correspondência entre o SUM(VR_REPASSE) e o VR_CONTRATO.
+        Novamente, a diferença tolerada é entre 0 e 1, e o COUNT(L.VR_REPASSE) = 6 é esperado.
+        Condições Adicionais (WHERE): A liberação não deve ter um registro correspondente no relatório analítico (FESTB711_RLTRO_CTRTO_ANLTO) OU não ter um registro de compensação individual (FESTB812_CMPSO_RPSE_INDVO) não compensado e com valor de repasse maior. Isso sugere que, se o repasse já foi compensado ou não tem mais divergência de valores, a retenção deve ser finalizada.
+    Ação: Finaliza a retenção do tipo 9.
+    Porquê: Similar ao bloco de "divergência entre repasse e aditamento", este bloco resolve inconsistências, mas focando na divergência entre o repasse e o valor do contrato FIES inicial. Se a soma dos repasses agora bate com o valor do contrato e outras condições de compensação/relatório são atendidas, a retenção é encerrada, indicando que a situação está regularizada.
+
+Bloco 9: Finalização de Retenções por Ausência de Finalização no Processo de Aditamento (Motivo 10)
+SQL
+
+-- CURSOR PARA SELECIONAR LIBERACOES A TEREM RETENCAO POR AUSENCIA DE FINALIZACAO NO PROCESSO DE ADITAMENTO FINALIZADAS
+FOR X IN
+(
+    SELECT T712.NU_SQNCL_LIBERACAO_CONTRATO
+    FROM FES.FESTB712_LIBERACAO_CONTRATO T712
+        INNER JOIN FES.FESTB038_ADTMO_CONTRATO T38 ON T38.NU_CANDIDATO_FK36 = T712.NU_SEQ_CANDIDATO
+            AND T38.AA_ADITAMENTO = T712.AA_REFERENCIA_LIBERACAO
+            AND T38.NU_SEM_ADITAMENTO = CASE WHEN T712.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END
+            AND T38.NU_STATUS_ADITAMENTO IN (4, 5) -- Aditamento em status "Finalizado" ou similar
+        INNER JOIN FES.FESTB759_PROCESSO_ADITAMENTO T759 ON T759.NU_CANDIDATO = T38.NU_CANDIDATO_FK36
+            AND T759.AA_REFERENCIA = T38.AA_ADITAMENTO
+            AND T759.NU_SEMESTRE_REFERENCIA = T38.NU_SEM_ADITAMENTO
+            AND T759.NU_SITUACAO_PROCESSO = 9 -- Processo de aditamento em situação '9' (Finalizado/Concluído)
+    WHERE T712.NU_SEQ_CANDIDATO > 20000000
+    AND T712.IC_SITUACAO_LIBERACAO = 'NR' -- Liberação em status 'NR' (Não Repassada/Não Registrada)
+    AND EXISTS (
+        SELECT 1
+        FROM FES.FESTB817_RETENCAO_LIBERACAO T817
+        WHERE T817.NU_SQNCL_LIBERACAO_CONTRATO = T712.NU_SQNCL_LIBERACAO_CONTRATO
+        AND T817.NU_MOTIVO_RETENCAO_LIBERACAO = 10 -- Retenção ativa do motivo 10
+        AND T817.DT_FIM_RETENCAO IS NULL
+    )
+)
+LOOP
+    --FINALIZA RETENCAO POR AUSENCIA DE FINALIZACAO NO PROCESSO DE ADITAMENTO
+    SQL_QUERY := 'UPDATE FES.FESTB817_RETENCAO_LIBERACAO SET DT_FIM_RETENCAO = ''' ||
+                 TO_CHAR(SYSDATE,'DD/MM/YYYY') || ''' WHERE NU_SQNCL_LIBERACAO_CONTRATO = ' ||
+                 X.NU_SQNCL_LIBERACAO_CONTRATO || ' AND NU_MOTIVO_RETENCAO_LIBERACAO = 10';
+    EXECUTE IMMEDIATE SQL_QUERY;
+END LOOP;
+
+Regras e Ações:
+
+    Identificação: Seleciona liberações com retenção ativa do NU_MOTIVO_RETENCAO_LIBERACAO = 10 ("Ausência de Finalização no Processo de Aditamento").
+    Critério de Finalização: A retenção é finalizada se:
+        A liberação está em situação NR (Não Repassada).
+        Existe um aditamento (FESTB038_ADTMO_CONTRATO) com status 4 ou 5 (provavelmente "Finalizado" ou "Concluído") para o candidato, ano e semestre correspondentes.
+        Existe um processo de aditamento (FESTB759_PROCESSO_ADITAMENTO) com situação 9 (também "Finalizado" ou "Concluído") para o mesmo candidato, ano e semestre.
+    Ação: Finaliza a retenção do tipo 10.
+    Porquê: Se uma liberação foi retida porque o processo de aditamento correspondente não estava finalizado, mas agora tanto o aditamento quanto seu processo estão em status de conclusão, a retenção é liberada. Isso permite que as liberações, que estavam esperando a regularização do aditamento, prossigam.
+
+Visão Geral e Justificativa (Porquê)
+
+Este script PL/SQL é um processo de saneamento e reconciliação de dados que roda periodicamente (provavelmente um batch noturno ou programado).
+
+    O que faz: Ele percorre diversas liberações que estão com retenções ativas por diferentes motivos (suspensão, falhas de vínculo, ausência de aditamento válido, divergências de valores). Para cada tipo de retenção, ele aplica um conjunto específico de regras de negócio para verificar se a condição que causou a retenção foi resolvida ou se a retenção não é mais aplicável. Se as condições forem atendidas, ele finaliza a retenção (preenchendo DT_FIM_RETENCAO com a data atual). Em um caso específico (primeiro bloco), ele também pode atualizar o status da liberação (IC_SITUACAO_LIBERACAO).
+    Porquê:
+        Integridade e Consistência dos Dados: Garante que as retenções reflitam o estado atual e correto das liberações e contratos, evitando que liberações fiquem "travadas" desnecessariamente.
+        Liberação para Repasse: Ao finalizar as retenções, libera as parcelas de repasse que agora estão em conformidade com as regras para serem incluídas nos próximos ciclos de processamento financeiro.
+        Automação de Resolução de Pendências: Automatiza a resolução de cenários onde as liberações foram retidas, mas a causa raiz do problema foi corrigida em outro processo.
+        Eficiência: Ao remover retenções desnecessárias, otimiza os próximos passos dos processos financeiros.
+        Auditoria: O preenchimento da DT_FIM_RETENCAO e DT_ATUALIZACAO fornece um histórico claro de quando e por que uma retenção foi encerrada ou uma situação de liberação foi alterada.
+
+Este é um script de manutenção essencial para um sistema financeiro de grande porte, garantindo que o fluxo de repasses permaneça saudável e as pendências sejam resolvidas automaticamente quando suas condições de retenção não se aplicam mais.
 ---------
 CREATE OR REPLACE PROCEDURE FES.FESSPZ55_CRISE2019_TRATA_SUSP
 --F620600  18/06/2021 20:11:44
