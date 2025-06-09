@@ -7,6 +7,254 @@
 
 <h2>1. Estrutura dos Microsserviços</h2>
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
+CREATE OR REPLACE PROCEDURE FES.FESSPZ37_CRISE19_FIM_RETENCAO
+--F620600  02/10/2020 15:18:42
+--C077033 25/08/2020 19:14:00
+
+AS
+	SQL_QUERY VARCHAR2(30000) := NULL;
+BEGIN
+
+    DBMS_OUTPUT.PUT_LINE(' ************* INICIO DA FESSPZ37_CRISE19_FIM_RETENCAO - ENCERRA RETENCOES DE LIBERACOES ANTERIORES A TRANSFEERENCIA E A SUSPENSAO ************* ');
+
+    SQL_QUERY := 'ALTER SESSION SET NLS_DATE_FORMAT = ''DD/MM/YYYY''';
+    DBMS_OUTPUT.PUT_LINE(' ************* ' || SQL_QUERY);
+    EXECUTE IMMEDIATE SQL_QUERY;
+
+    SQL_QUERY := 'ALTER SESSION SET NLS_TIMESTAMP_FORMAT = ''DD/MM/YYYY''';
+    DBMS_OUTPUT.PUT_LINE(' ************* ' || SQL_QUERY);
+    EXECUTE IMMEDIATE SQL_QUERY;
+
+    -- Cursor com as liberacoes que possuem retencao por transferencia e
+    -- que deverao ser encaminhadas no proximo repasse.
+	FOR x IN
+	        (
+             WITH PRIMEIRA_TRANSF AS
+			                     (
+            		              SELECT NU_CANDIDATO_FK10, MIN(NU_SEQ_TRANSFERENCIA) AS NU_SEQ_TRANSFERENCIA
+            		              FROM FES.FESTB049_TRANSFERENCIA
+								  WHERE NU_CANDIDATO_FK10 > 20000000
+								  AND NU_STATUS_TRANSFERENCIA = 5
+            		              GROUP BY NU_CANDIDATO_FK10
+								 ),
+                 TRANSF_SEM_ANT AS
+				                 (
+            		              SELECT T.NU_CANDIDATO_FK10, T.NU_SEQ_TRANSFERENCIA, T.AA_REFERENCIA, T.NU_SEM_REFERENCIA, T.DT_INCLUSAO,
+            			          CASE WHEN T.NU_SEM_REFERENCIA = 1 THEN T.AA_REFERENCIA -1 ELSE T.AA_REFERENCIA END AA_REF_ANTERIOR,
+            			          CASE WHEN T.NU_SEM_REFERENCIA = 1 THEN 2 ELSE 1 END NU_SEM_ANTERIOR
+            		              FROM FES.FESTB049_TRANSFERENCIA T
+            				          INNER JOIN PRIMEIRA_TRANSF TRANSF
+									            ON T.NU_CANDIDATO_FK10 = TRANSF.NU_CANDIDATO_FK10
+            					                AND T.NU_SEQ_TRANSFERENCIA = TRANSF.NU_SEQ_TRANSFERENCIA
+            	                 ),            	
+                 TRANSF_VALIDA AS
+				                 (
+            		              SELECT T.NU_CANDIDATO_FK10, T.AA_REFERENCIA, T.NU_SEM_REFERENCIA,
+            			          CASE WHEN T.NU_SEM_REFERENCIA = 1 THEN TO_DATE(T.AA_REFERENCIA || '0101','YYYYMMDD') ELSE TO_DATE(T.AA_REFERENCIA || '0701','YYYYMMDD') END DT_REF
+            		              FROM TRANSF_SEM_ANT T
+                                      LEFT OUTER JOIN FES.FESTB038_ADTMO_CONTRATO A
+									                 ON T.NU_CANDIDATO_FK10 = A.NU_CANDIDATO_FK36
+													 AND A.NU_STATUS_ADITAMENTO IN (4, 5)
+            					                     AND T.AA_REF_ANTERIOR = A.AA_ADITAMENTO
+            					                     AND T.NU_SEM_ANTERIOR = A.NU_SEM_ADITAMENTO
+            					                     AND T.DT_INCLUSAO > A.DT_ADITAMENTO	-- DATA DO REGISTRO DA TRANSFERENCIA POSTERIOR AO REGISTRO DO ADITAMENTO DO SEMESTRE ANTERIOR
+                                      LEFT OUTER JOIN FES.FESTB010_CANDIDATO C
+									                 ON T.NU_CANDIDATO_FK10 = C.NU_SEQ_CANDIDATO
+            					                     AND T.AA_REF_ANTERIOR = TO_CHAR(C.DT_ADMISSAO_CANDIDATO,'YYYY')
+            					                     AND T.NU_SEM_ANTERIOR = (CASE WHEN TO_CHAR(C.DT_ADMISSAO_CANDIDATO,'MM') < 7 THEN 1 ELSE 2 END)
+            					                     AND T.DT_INCLUSAO > C.DT_ADMISSAO_CANDIDATO
+                                      LEFT OUTER JOIN FES.FESTB057_OCRRA_CONTRATO O
+                                                     ON T.NU_CANDIDATO_FK10 = O.NU_CANDIDATO_FK36
+													 AND O.NU_STATUS_OCORRENCIA = 11
+            					                     AND T.AA_REF_ANTERIOR = O.AA_REFERENCIA
+            					                     AND T.NU_SEM_ANTERIOR = O.NU_SEMESTRE_REFERENCIA
+            					                     AND T.DT_INCLUSAO > O.DT_INCLUSAO
+                                                     AND O.IC_TIPO_OCORRENCIA = 'S'
+                                  WHERE
+                                       A.NU_CANDIDATO_FK36 IS NOT NULL OR C.NU_SEQ_CANDIDATO IS NOT NULL OR O.NU_CANDIDATO_FK36 IS NOT NULL
+            		             ),
+                 TRANSF_STATUS_INVALIDO AS
+				                 (
+							      SELECT DISTINCT (NU_CANDIDATO_FK10)
+							      FROM FES.FESTB049_TRANSFERENCIA
+							      WHERE NU_CANDIDATO_FK10 > 20000000
+							      AND NU_CANDIDATO_FK10 NOT IN (SELECT NU_CANDIDATO_FK10
+		        			                                    FROM FES.FESTB049_TRANSFERENCIA
+			    			                                    WHERE NU_CANDIDATO_FK10 > 20000000
+		        			                                    AND NU_STATUS_TRANSFERENCIA = 5)
+		        		         ),
+		         TRANSF_MSM_IES AS
+				                 (
+                                  SELECT DISTINCT NU_CANDIDATO_FK10
+                                  FROM FES.FESTB049_TRANSFERENCIA
+                                  WHERE NU_CANDIDATO_FK10 > 20000000
+                                  AND NU_STATUS_TRANSFERENCIA = 5
+                                  AND NU_CANDIDATO_FK10 NOT IN ( SELECT T.NU_CANDIDATO_FK10
+                                                                 FROM FES.FESTB049_TRANSFERENCIA T
+                                                                    INNER JOIN FES.FESTB154_CAMPUS_INEP C
+                                                                              ON T.NU_CAMPUS_ORIGEM_FK161 = C.NU_CAMPUS
+                                                                    INNER JOIN FES.FESTB154_CAMPUS_INEP I
+                                                                              ON T.NU_CAMPUS_DESTINO_FK161 = I.NU_CAMPUS
+                                                                 WHERE T.NU_CANDIDATO_FK10 > 20000000
+																 AND T.NU_STATUS_TRANSFERENCIA = 5
+                                                                 AND C.NU_IES_FK155 <> I.NU_IES_FK155 )
+                                 )
+             SELECT
+                   L.NU_SQNCL_LIBERACAO_CONTRATO
+             FROM FES.FESTB712_LIBERACAO_CONTRATO L
+                 INNER JOIN FES.FESTB817_RETENCAO_LIBERACAO R
+                   		   ON L.NU_SQNCL_LIBERACAO_CONTRATO = R.NU_SQNCL_LIBERACAO_CONTRATO
+                   		   AND R.NU_MOTIVO_RETENCAO_LIBERACAO = 2 -- PROBLEMA DE TRANSFERENCIA
+                   		   AND R.DT_FIM_RETENCAO IS NULL
+             WHERE L.IC_SITUACAO_LIBERACAO IN ('NR', 'NE')
+             AND (    EXISTS (SELECT 1 FROM TRANSF_VALIDA T
+              		    	   WHERE T.NU_CANDIDATO_FK10 = L.NU_SEQ_CANDIDATO
+                  			   AND L.DT_LIBERACAO < T.DT_REF)
+                   OR EXISTS (SELECT 1 FROM TRANSF_STATUS_INVALIDO TSI
+                  				WHERE TSI.NU_CANDIDATO_FK10 = L.NU_SEQ_CANDIDATO)
+                   OR EXISTS (SELECT 1 FROM TRANSF_MSM_IES TMI
+                  			    WHERE TMI.NU_CANDIDATO_FK10 = L.NU_SEQ_CANDIDATO)
+                 )
+			AND EXISTS (SELECT 1 FROM FES.FESTB038_ADTMO_CONTRATO AC
+             			 WHERE L.NU_SEQ_CANDIDATO = AC.NU_CANDIDATO_FK36
+             			 AND AC.NU_STATUS_ADITAMENTO > 3
+             			 AND AC.DT_ADITAMENTO IS NOT NULL
+             			 AND L.AA_REFERENCIA_LIBERACAO = AC.AA_ADITAMENTO
+             			 AND (CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END) = AC.NU_SEM_ADITAMENTO
+						)
+            )
+	LOOP
+        -- FINALIZA A RETENCAO DO TIPO TRANSFERENCIA
+        SQL_QUERY := 'UPDATE FES.FESTB817_RETENCAO_LIBERACAO SET DT_FIM_RETENCAO = ''' ||
+                        TO_CHAR(SYSDATE,'DD/MM/YYYY') || ''' WHERE NU_SQNCL_LIBERACAO_CONTRATO = ' ||
+                        x.NU_SQNCL_LIBERACAO_CONTRATO || ' AND NU_MOTIVO_RETENCAO_LIBERACAO = 2';
+        --DBMS_OUTPUT.PUT_LINE(SQL_QUERY);
+        EXECUTE IMMEDIATE SQL_QUERY;
+	END LOOP;	
+    COMMIT; -- COMMIT NO FINAL DA ATUALIZACAO
+
+    -- Cursor com as liberacoes que possuem retencao por suspensao e
+    -- que deverao ser encaminhadas no proximo repasse.
+	FOR x IN
+	        (
+             WITH SUSPENSAO AS
+			               (
+                            SELECT O.NU_CANDIDATO_FK36, O.DT_INICIO_VIGENCIA,
+                      	    CASE WHEN O.NU_SEMESTRE_REFERENCIA = 1 THEN TO_DATE(O.AA_REFERENCIA || '0101','YYYYMMDD') ELSE TO_DATE(O.AA_REFERENCIA || '0701','YYYYMMDD') END AS DT_INICIO_REF,
+                      	    CASE WHEN O.NU_SEMESTRE_REFERENCIA = 1 THEN TO_DATE(O.AA_REFERENCIA || '0630','YYYYMMDD') ELSE TO_DATE(O.AA_REFERENCIA || '1231','YYYYMMDD') END AS DT_TERMINO_REF,
+                            CASE WHEN O.NU_SEMESTRE_REFERENCIA = 1 THEN O.AA_REFERENCIA -1 ELSE O.AA_REFERENCIA END AS AA_REF_ANTERIOR,
+                            CASE WHEN O.NU_SEMESTRE_REFERENCIA = 1 THEN 2 ELSE 1 END AS NU_SEM_ANTERIOR, O.DT_INCLUSAO
+                            FROM FES.FESTB057_OCRRA_CONTRATO O
+							    INNER JOIN (SELECT NU_CANDIDATO_FK36, MIN(NU_SEQ_OCORRENCIA) AS NU_SEQ_OCORRENCIA
+								            FROM FES.FESTB057_OCRRA_CONTRATO
+                      		                WHERE IC_TIPO_OCORRENCIA = 'S'
+											AND NU_STATUS_OCORRENCIA = 11
+								            GROUP BY NU_CANDIDATO_FK36) A   -- VERIFICA ITEM 3 DA REGRA CONSIDERA APENAS A PRIMEIRA SUSPENSAO.
+                      	                  ON O.NU_CANDIDATO_FK36 = A.NU_CANDIDATO_FK36
+                      		              AND O.NU_SEQ_OCORRENCIA = A.NU_SEQ_OCORRENCIA
+                            WHERE O.NU_CANDIDATO_FK36 > 20000000						
+							AND O.DT_INICIO_VIGENCIA IS NOT NULL
+						   ),
+                  SUSP_VIGENTE AS
+				           (     -- VERIFICA ITEM 2 DA REGRA - INICIO DA VIGENCIA DENTRO DO PERIODO DE VIGENCIA (SEMESTRE / ANO)
+                            SELECT NU_CANDIDATO_FK36, DT_INICIO_VIGENCIA, AA_REF_ANTERIOR, NU_SEM_ANTERIOR, DT_INCLUSAO, DT_INICIO_REF
+                            FROM SUSPENSAO
+                            WHERE DT_INICIO_VIGENCIA >= DT_INICIO_REF
+                      	    AND DT_INICIO_VIGENCIA <= DT_TERMINO_REF
+						   ),
+                  SUSP_VALIDA AS
+				           (     -- VERIFICA ITEM 1 DA REGRA - CANDIDATO POSSUI CONTRATO / ADITAMENTO NO SEMESTRE ANTERIOR A SUSPENSAO E DATA INCLUSAO DA SUSP POSTERIOR A DT ADITAMENTO / DT ADMISSAO CANDIDATO
+                		    SELECT S.NU_CANDIDATO_FK36, S.DT_INICIO_REF
+                		    FROM SUSP_VIGENTE S
+                                LEFT OUTER JOIN FES.FESTB038_ADTMO_CONTRATO A
+                			                   ON S.NU_CANDIDATO_FK36 = A.NU_CANDIDATO_FK36
+											   AND A.NU_STATUS_ADITAMENTO IN (4, 5)
+                				               AND S.AA_REF_ANTERIOR = A.AA_ADITAMENTO
+                					           AND S.NU_SEM_ANTERIOR = A.NU_SEM_ADITAMENTO
+                					           AND S.DT_INCLUSAO > A.DT_ADITAMENTO	
+                                LEFT OUTER JOIN FES.FESTB010_CANDIDATO C
+                                               ON S.NU_CANDIDATO_FK36 = C.NU_SEQ_CANDIDATO
+                				               AND S.AA_REF_ANTERIOR = TO_CHAR(C.DT_ADMISSAO_CANDIDATO,'YYYY')
+                					           AND S.NU_SEM_ANTERIOR = (CASE WHEN TO_CHAR(C.DT_ADMISSAO_CANDIDATO,'MM') < 7 THEN 1 ELSE 2 END)
+                					           AND S.DT_INCLUSAO > C.DT_ADMISSAO_CANDIDATO
+                            WHERE A.NU_CANDIDATO_FK36 IS NOT NULL
+							OR C.NU_SEQ_CANDIDATO IS NOT NULL
+                		   ),
+                  SUSP_STATUS_INVALIDO AS
+				           (
+                            SELECT DISTINCT NU_CANDIDATO_FK36
+                            FROM FES.FESTB057_OCRRA_CONTRATO
+                            WHERE NU_CANDIDATO_FK36 > 20000000
+                            AND IC_TIPO_OCORRENCIA = 'S'
+                            AND NU_CANDIDATO_FK36 NOT IN (SELECT DISTINCT NU_CANDIDATO_FK36
+		  			                                      FROM FES.FESTB057_OCRRA_CONTRATO
+			                                              WHERE NU_CANDIDATO_FK36 > 20000000
+			                                              AND IC_TIPO_OCORRENCIA = 'S'
+		                                                  AND NU_STATUS_OCORRENCIA = 11)
+		                   )
+             SELECT      -- VERIFICA ITEM 5 DA REGRA - lIBERACAO C/ SITUACAO "NR" E RETENCAO TIPO 3 - SUSPENSAO
+              	   L.NU_SQNCL_LIBERACAO_CONTRATO
+             FROM FES.FESTB712_LIBERACAO_CONTRATO L
+                 INNER JOIN FES.FESTB817_RETENCAO_LIBERACAO R
+                           ON L.NU_SQNCL_LIBERACAO_CONTRATO = R.NU_SQNCL_LIBERACAO_CONTRATO
+                		   AND R.NU_MOTIVO_RETENCAO_LIBERACAO = 3 -- PROBLEMA DE SUSPENSAO
+                		   AND R.DT_FIM_RETENCAO IS NULL
+             WHERE L.IC_SITUACAO_LIBERACAO IN ('NR', 'NE')
+             AND (    EXISTS (SELECT 1 FROM SUSP_VALIDA S
+              					  WHERE S.NU_CANDIDATO_FK36 = L.NU_SEQ_CANDIDATO
+                                  AND L.DT_LIBERACAO < S.DT_INICIO_REF)  -- VERIFICA ITEM 4 DA REGRA - DT LIBERACAO ANTERIOR AO SEMESTRE/ANO DA PRIMEIRA SUSPENSAO
+                   OR EXISTS (SELECT 1 FROM SUSP_STATUS_INVALIDO SSI
+              					         WHERE SSI.NU_CANDIDATO_FK36 = L.NU_SEQ_CANDIDATO)
+              	 )
+            )
+	LOOP
+        -- FINALIZA A RETENCAO DO TIPO SUSPENSAO
+        SQL_QUERY := 'UPDATE FES.FESTB817_RETENCAO_LIBERACAO SET DT_FIM_RETENCAO = ''' ||
+                        TO_CHAR(SYSDATE,'DD/MM/YYYY') || ''' WHERE NU_SQNCL_LIBERACAO_CONTRATO = ' ||
+                        x.NU_SQNCL_LIBERACAO_CONTRATO || ' AND NU_MOTIVO_RETENCAO_LIBERACAO = 3';
+        --DBMS_OUTPUT.PUT_LINE(SQL_QUERY);
+        EXECUTE IMMEDIATE SQL_QUERY;
+	END LOOP;	
+    COMMIT; -- COMMIT NO FINAL DA ATUALIZACAO
+
+    DBMS_OUTPUT.PUT_LINE(' ************* FIM DA FESSPZ37_CRISE19_FIM_RETENCAO ************* ');
+
+EXCEPTION  -- Inicio do tratamento de excessao
+   WHEN OTHERS THEN  -- Trata todo tipo de excessao
+      	ROLLBACK;
+		DBMS_OUTPUT.PUT_LINE(' *** ERRO VERIFICADO: ' || SQLCODE || ' - ' || SUBSTR(SQLERRM, 1, 100));
+		DBMS_OUTPUT.PUT_LINE(' *** INSTRUCAO      : ' || SQL_QUERY);
+END;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ===================================================================================================================
 Excelente! Este é um trecho de código PL/SQL (Oracle), provavelmente parte de uma Stored Procedure ou um bloco anônimo, cujo objetivo principal é finalizar retenções de liberações de contrato baseadas em diversas condições e motivos. É um processo de saneamento ou reconciliação de dados, executado em lotes.
 
