@@ -7,249 +7,88 @@
 
 <h2>1. Estrutura dos Microsserviços</h2>
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
-Jose Rodolfo Lima da Silva precisamos que você e um analista de negocio, levante esse fluxo Javaweb e os reflexos quando vai para o repasse SP's abaixo e a rotina Java batch FES.REPASSE: 
+Perfeito! Com base nas informações que você forneceu, aqui está um resumo da motivação e das circunstâncias de criação das Stored Procedures (SPs) mencionadas, bem como o impacto delas no fluxo Javaweb e na rotina Java batch FES.REPASSE:
+
+Observação Geral: Todas as SPs mencionadas parecem estar relacionadas a correções e ajustes no processo de repasse do FIES, principalmente em cenários de crise ou situações atípicas, como a pandemia de COVID-19 (CRISE2019). O objetivo principal é garantir que os repasses sejam feitos de forma correta, considerando diversos fatores como aditamentos, transferências de alunos, suspensões, e inconsistências nos valores.
+FES.FESSPU20_VINCULA_LIBERACAO
+
+    Visão Negocial: Vincula liberações ao contrato ou aditamento.
+    Motivação/Circunstâncias: Criada para associar as liberações de crédito do FIES aos contratos ou aditamentos correspondentes. Essa vinculação é essencial para o correto processamento dos repasses.
+    Tabelas Impactadas:
+        FES.FESTB038_ADTMO_CONTRATO
+        FES.FESTB712_LIBERACAO_CONTRATO
+        FES.FESTB817_RETENCAO_LIBERACAO
+    Impacto no Fluxo Javaweb/FES.REPASSE: Essa SP é crucial para o fluxo de repasse, pois garante que cada liberação seja corretamente direcionada ao contrato ou aditamento, permitindo o cálculo correto dos valores a serem repassados.
+
+FES.FESSPZ57_CRISE2019_CORR_VLRS
+
+    Visão Negocial: Corrige valores de repasse.
+    Motivação/Circunstâncias: Criada para corrigir erros nos valores de repasse, como o problema relatado onde o formato da data estava incorreto, causando falha na atualização dos valores. Essa SP foi utilizada para corrigir problemas específicos identificados nos repasses de Maio de 2023.
+    Tabelas Impactadas:
+        FESTB812_CMPSO_RPSE_INDVO
+        FESTB712_LIBERACAO_CONTRATO
+        FESTB038_ADTMO_CONTRATO
+        FESTB711_RLTRO_CTRTO_ANLTO
+    Impacto no Fluxo Javaweb/FES.REPASSE: Garante a correção dos valores de repasse, evitando pagamentos incorretos. A correção do formato da data é crucial para o funcionamento correto da rotina.
+
+FES.FESSPZ55_CRISE2019_TRATA_SUSP
+
+    Visão Negocial: Trata suspensões (tácitas e outras) nos repasses.
+    Motivação/Circunstâncias: Criada para lidar com o impacto das suspensões (incluídas e excluídas) nos repasses. Essa SP garante que os repasses sejam ajustados corretamente em casos de suspensão, considerando critérios de validação como a inexistência de ocorrências de suspensão/encerramento, aditamentos de renovação, e contratos finalizados.
+    Tabelas Impactadas:
+        FESTB812_CMPSO_RPSE_INDVO
+        FESTB712_LIBERACAO_CONTRATO
+        FESTB010_CANDIDATO
+        FESTB711_RLTRO_CTRTO_ANLTO
+        FESTB817_RETENCAO_LIBERACAO
+        FESTB057_OCRRA_CONTRATO
+    Impacto no Fluxo Javaweb/FES.REPASSE: Essencial para o cálculo correto dos repasses em cenários de suspensão, garantindo que os valores sejam ajustados de acordo com os critérios de validação.
+
+FES.FESSPZA6_COMPENSACAO_REPASSE
+
+    Visão Negocial: Realiza a compensação de repasses.
+    Motivação/Circunstâncias: Criada para gerenciar a compensação de valores de repasse, identificando e marcando as compensações como "N" (não compensado) no ambiente TGE/EXADATA. Também lida com retenções, garantindo que as liberações ausentes sejam corretamente processadas.
+    Tabelas Impactadas:
+        FESTB812_CMPSO_RPSE_INDVO
+        FESTB712_LIBERACAO_CONTRATO
+        FESTB818_MOTIVO_RETENCAO_LBRCO
+        FESTB711_RLTRO_CTRTO_ANLTO
+        FESTB817_RETENCAO_LIBERACAO
+    Impacto no Fluxo Javaweb/FES.REPASSE: Permite o controle e a gestão das compensações de repasse, garantindo que os valores sejam ajustados corretamente.
+
+FES.FESSPZ45_CRISE2019_ALTER_LIB_2
+
+    Visão Negocial: Atualiza liberações para não apto (troca de mantenedora, suspensão, estorno e transferência).
+    Motivação/Circunstâncias: Criada para regularizar situações de repasse, como inconsistências no percentual de financiamento e ajustes na IES da liberação para estudantes com transferência. Essa SP garante que os valores das liberações correspondam aos valores contratados no aditamento e que a IES correta seja associada a cada liberação, mesmo em casos de transferência.
+    Tabelas Impactadas:
+        FESTB812_CMPSO_RPSE_INDVO
+        FESTB712_LIBERACAO_CONTRATO
+        FESTB818_MOTIVO_RETENCAO_LBRCO
+        FESTB711_RLTRO_CTRTO_ANLTO
+        FESTB817_RETENCAO_LIBERACAO
+        FESTB049_TRANSFERENCIA
+        FESTB154_CAMPUS_INEP
+        FESTB155_IES_INEP
+        FESTB038_ADTMO_CONTRATO
+        FESTB010_CANDIDATO
+    Impacto no Fluxo Javaweb/FES.REPASSE: Garante a correção das liberações em casos de inconsistências de financiamento e transferência, permitindo o repasse correto dos valores.
+
+FES.FESSPZ37_CRISE19_FIM_RETENCAO
+
+    Visão Negocial: Finaliza retenções de liberações retidas por transferência ou suspensão.
+    Motivação/Circunstâncias: Criada para definir e aplicar regras para a finalização de retenções de liberações retidas por transferência ou suspensão, permitindo o repasse de liberações consistentes.
+    Tabelas Impactadas:
+        FESTB049_TRANSFERENCIA
+        FESTB038_ADTMO_CONTRATO
+        FESTB010_CANDIDATO
+    Impacto no Fluxo Javaweb/FES.REPASSE: Permite a liberação de repasses que estavam retidos devido a transferências ou suspensões, desde que as liberações estejam consistentes com as regras definidas.
+
+FES.FESSPZ41_CRISE19_FIM_RETENC_2
+
+    Visão Negocial: Propõe uma prévia de trabalho para a apuração de maio/2020, contendo regularizações como a não retenção de contratos com transferência e ajustes nas rotinas de retenção e liberação.
+    Motivação/Circunstâncias: Criada para ajustar o processo de repasse em situações específicas, como a pandemia, garantindo que as liberações sejam processadas corretamente em casos de transferência e suspensão.
+    Impacto no Fluxo Javaweb/FES.REPASSE: Essa SP é crucial para o correto processamento dos repasses, especialmente em cenários de crise, garantindo que as liberações sejam tratadas de acordo com as regras específicas para transferência e suspensão.
 
- Avaliar quais tabelas Impactadas e parâmetros. 
- 
-
-FES.FESSPU20_VINCULA_LIBERACAO  
-Serviço Técnico Especializado 12476268 
-Visão Negocial.:  
-
-(Vincula liberações ao contrato ou aditamento) 
-TABELAS ENVOLVIDAS 
-FES.FESTB038_ADTMO_CONTRATO 
-
-FES.FESTB712_LIBERACAO_CONTRATO 
-FES.FESTB817_RETENCAO_LIBERACAO 
-
- 
- 
-
-FES.FESSPZ57_CRISE2019_CORR_VLRS 
-Item de Backlog 20972958 
-Visão Negocial.: 
-As rotinas inerentes aos acertos pertinentes à apuração do repasse de Maio de 2023 foram encaminhadas, e atendidas, para execução por intermédio da solicitação REQ000065985851 na data de 22/05/2023. 
-
- 
-
-Após execução das mesmas e análise aos logs de saída disponibilizados identificamos que a execução da FESSPZ57_CRISE2019_CORR_VLRS apresentou erro, conforme abaixo: 
-
- 
-
-UPDATE FES.FESTB712_LIBERACAO_CONTRATO SET VR_REPASSE = '7163.95', DT_ATUALIZACAO = '22/05/23' WHERE NU_SEQ_CANDIDATO = 20288376 AND AA_REFERENCIA_LIBERACAO = 2022 AND MM_REFERENCIA_LIBERACAO = 1 
-
-*** ERRO VERIFICADO: -1722 - ORA-01722: número inválido 
-
-*** INSTRUCAO : UPDATE FES.FESTB712_LIBERACAO_CONTRATO SET VR_REPASSE = '7163.95', DT_ATUALIZACAO = '22/05/23' WHERE NU_SEQ_CANDIDATO = 20288376 AND AA_REFERENCIA_LIBERACAO = 2022 AND MM_REFERENCIA_LIBERACAO = 1 
-
- 
-
-Haja vista a constatação do erro identificado ser reincidente da não configuração correta do setvar, incorrendo em um formato de data rejeitada pelo comando de Update na rotina, solicitamos que todos os Jobs fossem reexecutados na mesma ordem, observando a correção deste em questão para a contemplação da configuração do setvar esperada. 
-
- 
-
-TABELAS ENVOLVIDAS 
-FESTB812_CMPSO_RPSE_INDVO 
-
-FESTB712_LIBERACAO_CONTRATO 
-
-FESTB038_ADTMO_CONTRATO 
-
-FESTB711_RLTRO_CTRTO_ANLTO 
-
- 
-
- FES.FESSPZ55_CRISE2019_TRATA_SUSP 
-Item de Backlog 20808327 
-Visão Negocial 
-Visando à análise ao requerido, no que concerne aos impactos no repasse provenientes da inclusão e exclusão das Suspensões Tácitas indevidas, seguem algumas observações: 
-
- 
-
-1ª Etapa 
-
- 
-
-- Foram incluídas 78.591 suspensões tácitas do período 01/2022, obedecendo o público pré-selecionado, conforme registrado na tabela FESTB835_MVMTO_TACITO_CONTRATO, objeto dos resultados apresentado do relatório em tela; 
-
- 
-
-- As suspensões foram incluídas sem restrições de critérios, ou seja, sem verificação de pertinência para as mesmas, visando à reprodução do ocorrido quando da execução da funcionalidade; 
-
- 
-
-- Os resultados podem ser observados, conforme arquivo Suspensoes Tacita Incluidas 01_2022, em anexo; 
-
- 
-
-- Foram realizados os procedimentos para suspensão ( S ) dos repasses não realizados ( NR ) e estorno ( NE ) dos repasses realizados ( R ); 
-
- 
-
-- Foram totalizadas 217.542 Liberações concomitantes às Suspensões Tácitas incluídas. Desse total 91 (noventa e uma) já se encontravam suspensas (S) ou (NE), por outros expedientes. 
-
- 
-
- 
-
-2ª Etapa 
-
- 
-
-- Foi realizado procedimento de exclusão de todas as suspensões tácitas incluídas para o período de 01/2022, conforme resultado apresentado acima; 
-
- 
-
-- Foi executado o procedimento FESSPZ55_CRISE2019_TRATA_SUSP, parte inerente aos processos executados mensalmente quando da iminência da apuração do repasse em Produção. 
-
- 
-
-- Foi observado que para as Liberações do período cuja a Suspensão Tácita foi excluída o status das mesmas foi revertido. 
-
- 
-
-- Cabe salientar neste ponto que o procedimento FESSPZ55_CRISE2019_TRATA_SUSP verifica a existência de lançamentos que sustentem, ou fundamentem, o status de Suspensão ( S ) ou Estorno ( NE ) das Liberações do período. Dessa forma, ainda que para a inclusão das Suspensões Tácitas não foram observados critérios de pertinência, e consequentemente reflexo na alteração dos status da Liberações correlatas, para a adequação, conforme esse procedimento, são considerados critérios de validação: inexistência de ocorrências de suspensão ou encerramento (status 11 ou 18); Aditamento de Renovação contratado (status 4 ou 5); Contrato Finalizado (status 4 ou 5). 
-
- 
-
-- O ressaltado acima pode ser observado no arquivo Liberações status S ou NE permanentes, em anexo. 
-TABELAS ENVOLVIDAS 
-FESTB812_CMPSO_RPSE_INDVO 
-
-FESTB712_LIBERACAO_CONTRATO 
-
-FESTB010_CANDIDATO 
-
-FESTB711_RLTRO_CTRTO_ANLTO 
-
-FESTB817_RETENCAO_LIBERACAO 
-
-FESTB057_OCRRA_CONTRATO 
-
- 
-FES.FESSPZA6_COMPENSACAO_REPASSE 
-Serviço Técnico Especializado 18389570 
-Visão Negocial.: 
-Conforme evidências apresentadas, informamos que as 1145 compensações previstas na extração das tabelas de liberação do ambiente de produção foram identificadas também em extrações do ambiente TGE/EXADATA, marcadas com o status IC_COMPENSACAO "N". 
-
-Quanto às retenções previstas em Produção, identificamos que das 130 liberações, 111 receberam indicativo de retenção após a execução da FESSPZA6_COMPENSACAO_REPASSE. As demais retenções não foram encontradas com a situação a repassar quando da avaliação do extrato analítico das parcelas aptas a repassar, o que pode indicar que as liberações ausentes tenham sido geradas após a data de atualização da base. 
-
-Diante disso, homologamos a presente solução sob as perspectivas avaliadas, supracitadas 
-
-TABELAS ENVOLVIDAS 
-FESTB812_CMPSO_RPSE_INDVO 
-
-FESTB712_LIBERACAO_CONTRATO 
-FESTB818_MOTIVO_RETENCAO_LBRCO 
-
-FESTB711_RLTRO_CTRTO_ANLTO 
-
-FESTB817_RETENCAO_LIBERACAO 
-
- 
-
-Serviço Técnico Especializado 12476268 
-
-Visão Negocial.: 
-(atualiza para não apto nas situações: troca mantença, suspensão, estornado e transferência) 
-
- 
-FES.FESSPZ45_CRISE2019_ALTER_LIB_2 
-Serviço Técnico Especializado 14707163 
-Visão Negocial.: 
-À 
-CEDESBR251 
- 
-Segue proposta para regularização de situações do repasse a ser realizada em junho: 
- 
-1.   Ajuste nas liberações a repassar e repassadas – inconsistência no percentual de financiamento 
- 
-Deverá ser realizado análise de todas as liberações geradas, repassadas ou não repassadas, verificando se o valor das liberações corresponde ao valor contratado no aditamento renovação. 
-Se o valor das liberações não corresponder ao valor do aditamento renovação, então deverá ser realizado o ajuste no valor. 
- 
-Para os casos onde as liberações estejam repassadas, o valor repassado deverá ser incluído na compensação e o valor da liberação corrigida e alterada para situação “a repassar”, para que seja repassado no valor correto. 
- 
-Para os casos onde as liberações não foram repassadas, seu valor deverá ser ajustado para que corresponda ao valor do aditamento renovação. As liberações enquadradas nesse caso, que tiverem retenções por liberações a estornar, deverão ter a retenção finalizada após o ajuste no valor. 
- 
- 
-2        Ajuste na IES da liberação para estudantes com transferência 
- 
-Para contratos com transferência realizada (status 5) deverá ser verificado se a IES da liberação dos semestres anteriores a transferência é a IES de origem e se as liberações referentes ao mesmo semestre da transferência e posteriores são da IES de destino. 
- 
-Caso a IES da liberação não esteja obedecendo a regra acima, a liberação deverá ter a IES ajustada para a IES correta. No caso das liberações já repassadas, o valor deverá ser incluído na compensação e as liberações correspondentes deverão ter a IES ajustada a situação alterada para “não repassada”. 
- 
-Para os casos onde houver mais de uma transferência realizada para o estudante, a liberação estará gravada na mantenedora destino até o semestre imediatamente anterior à segunda transferência, devendo as demais estarem geradas para a nova mantenedora destino e assim por diante. 
-
-TABELAS ENVOLVIDAS 
-FESTB812_CMPSO_RPSE_INDVO 
-
-FESTB712_LIBERACAO_CONTRATO 
-FESTB818_MOTIVO_RETENCAO_LBRCO 
-
-FESTB711_RLTRO_CTRTO_ANLTO 
-
-FESTB817_RETENCAO_LIBERACAO 
-
-FESTB049_TRANSFERENCIA 
-
-FESTB154_CAMPUS_INEP 
-
-FESTB155_IES_INEP 
-
-FESTB038_ADTMO_CONTRATO 
-
-FESTB010_CANDIDATO 
-
- 
-FES.FESSPZ37_CRISE19_FIM_RETENCAO 
-Serviço Técnico Especializado 13854457 
- 
-
-Registramos aqui o andamento das análises e definição de regras construídas em conjunto pela GEFET e CEDES para finalização de retenções de liberações retidas por transferência ou suspensão. 
-2. As regras deverão ser aplicadas para possibilitar o repasse das liberações que estiverem consistentes, conforme definições e regras registradas em anexo. 
-2.1 Ressaltamos que as definições aqui registradas poderão sofrer alteração em razão da análise dos resultados em massa de testes. 
-3. Agradecemos a colaboração e ficamos à disposição. 
-
- 
-
-TABELAS ENVOLVIDAS 
- 
-
-FESTB049_TRANSFERENCIA 
-
-FESTB038_ADTMO_CONTRATO 
-
-FESTB010_CANDIDATO 
-
- 
-
-FES.FESSPZ41_CRISE19_FIM_RETENC_2 
-Serviço Técnico Especializado 14499423 
-Visão Negocial 
-
-1.       Conforme acordado, segue abaixo uma prévia da proposta de trabalho para a apuração de maio/2020, contendo as seguintes regularizações: 
- 
-• Inclusão de regra para não retenção de contratos com transferência realizada, cujas liberações estejam geradas para a mantendora correta. 
-• Ajuste na rotina de retenção para que não reter os contratos que estejam enquadrados nas exceções para retenção de suspensão e transferência. 
-• Ajuste na rotina eventual que gera liberações para contemplar as alterações nos processos de retenção de suspensão e transferência. 
- 
-2.       Para que possamos atingir o objetivo deste repasse, propomos extender o prazo da apuração de 20/05 para 31/05/2020, de maneira que haja tempo hábil para os ajustes. 
- 
-3.       Assim, seguem o esboço das regras a serem utilizadas nessa próxima etapa, para avaliação e complementação. 
- 
-3.1.   Contratos com transferência realizada 
-3.1.1.Para contratos com transferência realizada (status 5) deverá ser finalizada a retenção ou não gerada a retenção nos casos em que as liberações referentes a semestres anteriores à transferência estejam geradas para a mantenedora de origem e as liberações geradas para o mesmo semestre da transferêcia e posteriores estejam geradas para a mantenedora destino. 
-3.1.2.Para os casos onde houver mais de uma transferência realizada para o estudante, a liberação estará gravada na mantenedora destino até o semestre imediatamente anterior à segunda transferência, devendo as demais estarem geradas para a nova mantenedora destino e assim por diante. 
- 
-3.2.   Ajuste na rotina de retenção 
-3.2.1.A rotina de retenção deverá ser ajustada para incluir as regras estabelecidas para suspensão e transferência, de modo que não gerem retenções para os casos onde a retenção não é devida, evitando, assim, a necessidade de se finalizar a retenção posteriormente. 
-3.2.2.Dessa forma, deverá estar prevista nessa rotina de renteção as regras para tratamento de suspensão e transferência. 
- 
-3.3.   Ajuste na rotina eventual de liberação 
-3.3.1.A rotina eventual que gera liberações deverá ser ajustada para contemplar as regras de tratamento de suspensão e transferência. 
-3.3.2.A geração de liberações para inscrições com transferência realizada deverá obecer a regra descrita no item 3.2, ou seja, as liberações referentes a semestres anteriores à transferência devem ser geradas para a mantenedora de origem, e as liberações referentes ao semestre da transferência e posteriores deverão ser geradas para a mantenedora destino. 
-3.3.3.Para os casos onde houver mais de uma transferência realizada para o estudante, a liberação deverá ser gerada para mantenedora destino até o semestre imediatamente anterior à a segunda transferência, devendo as demais estarem geradas para a nova mantenedora destino e assim por diante. 
 
 
 
