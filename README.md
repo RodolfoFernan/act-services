@@ -8,345 +8,261 @@
 <h2>1. Estrutura dos Microsserviços</h2>
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
 Etapas do Processo e Tabelas/Campos Envolvidos na SP FES.FESSPZ37_CRISE19_FIM_RETENCAO
+Perfeito! Vamos analisar essa parte da procedure e detalhar as etapas, tabelas e colunas envolvidas.
+Análise do Bloco de Código: Alteração de Suspensão e Vigência
 
- --ALTERACAO DO TIPO DE SUSPENSAO NO SEMESTRE DE CONTRATACAO DE INTEGRAL PARA PARCIAL
-    FOR X IN
-        (
-        SELECT
-            O.NU_CANDIDATO_FK36,
-            O.AA_REFERENCIA,
-            O.NU_SEMESTRE_REFERENCIA
-        FROM FES.FESTB057_OCRRA_CONTRATO O
-                 INNER JOIN FES.FESTB010_CANDIDATO C
-                            ON C.NU_SEQ_CANDIDATO = O.NU_CANDIDATO_FK36
-                                AND TO_CHAR(C.DT_ADMISSAO_CANDIDATO,'YYYY') = O.AA_REFERENCIA
-                                AND (CASE WHEN TO_CHAR(C.DT_ADMISSAO_CANDIDATO,'MM') < 7 THEN 1 ELSE 2 END) = O.NU_SEMESTRE_REFERENCIA
-        WHERE O.NU_CANDIDATO_FK36 > 20000000
-          AND O.IC_TIPO_OCORRENCIA = 'S'
-          AND (O.IC_TIPO_SUSPENSAO = 'I' OR O.IC_TIPO_SUSPENSAO IS NULL)
-          AND O.NU_STATUS_OCORRENCIA = 11
-          AND TO_CHAR(O.DT_OCORRENCIA, 'YYYY') = O.AA_REFERENCIA
-          AND (
-                ( O.NU_SEMESTRE_REFERENCIA = 1 AND TO_CHAR(O.DT_OCORRENCIA, 'MM') < '06' )
-                OR
-                ( O.NU_SEMESTRE_REFERENCIA = 2 AND ( TO_CHAR(O.DT_OCORRENCIA, 'MM') > '06' AND TO_CHAR(O.DT_OCORRENCIA, 'MM') < '12' ) )
-            )
-        )
-        LOOP
-            UPDATE FES.FESTB057_OCRRA_CONTRATO
-            SET IC_TIPO_SUSPENSAO = 'P',
-                DT_ATUALIZACAO = SYSDATE
-            WHERE NU_CANDIDATO_FK36 = X.NU_CANDIDATO_FK36
-              AND AA_REFERENCIA = X.AA_REFERENCIA
-              AND NU_SEMESTRE_REFERENCIA = X.NU_SEMESTRE_REFERENCIA
-              AND IC_TIPO_OCORRENCIA = 'S'
-              AND NU_STATUS_OCORRENCIA = 11;
-        END LOOP;
+Este segmento do código faz parte de uma procedure maior (provavelmente FES.FESSPZ55_CRISE2019_TRATA_SUSP, como no exemplo anterior) e foca em ajustar o tipo de suspensão e a data de início de vigência para determinadas ocorrências de contrato.
+Etapa 1: Alteração do Tipo de Suspensão de Integral para Parcial
 
-    COMMIT;
+Esta etapa identifica ocorrências de suspensão que são integrais (ou nulas) e que correspondem ao semestre de contratação do candidato, alterando-as para suspensão parcial.
 
-    DBMS_OUTPUT.PUT_LINE(' ************* FIM DO PROCESSAMENTO DA ALTERACAO DO TIPO DE SUSPENSAO NO SEMESTRE DE CONTRATACAO ************* ');
+    Objetivo: Modificar o tipo de suspensão para 'P' (Parcial) em registros de ocorrência de contrato que originalmente eram 'I' (Integral) ou nulo, mas que se enquadram no semestre de admissão do candidato.
+    Lógica Principal: Um cursor FOR X IN (...) seleciona ocorrências de contrato (FES.FESTB057_OCRRA_CONTRATO) que são do tipo 'S' (Suspensão), com status 11 (ativo), e que são do semestre de contratação do candidato (FES.FESTB010_CANDIDATO), além de terem o tipo de suspensão 'I' ou nulo e a data de ocorrência dentro do semestre de referência. Para cada registro encontrado, um UPDATE é executado na tabela FES.FESTB057_OCRRA_CONTRATO.
+    Tabelas Consultadas:
+        FES.FESTB057_OCRRA_CONTRATO (aliás O)
+        FES.FESTB010_CANDIDATO (aliás C)
+    Campos Consultados:
+        De FES.FESTB057_OCRRA_CONTRATO (O):
+            NU_CANDIDATO_FK36
+            AA_REFERENCIA
+            NU_SEMESTRE_REFERENCIA
+            IC_TIPO_OCORRENCIA
+            IC_TIPO_SUSPENSAO
+            NU_STATUS_OCORRENCIA
+            DT_OCORRENCIA
+        De FES.FESTB010_CANDIDATO (C):
+            NU_SEQ_CANDIDATO
+            DT_ADMISSAO_CANDIDATO
+    Tabela Atualizada:
+        FES.FESTB057_OCRRA_CONTRATO
+    Campos Atualizados:
+        IC_TIPO_SUSPENSAO (para 'P')
+        DT_ATUALIZACAO (definido para SYSDATE)
+    Campos Usados na Cláusula WHERE da atualização:
+        NU_CANDIDATO_FK36 (do X.NU_CANDIDATO_FK36)
+        AA_REFERENCIA (do X.AA_REFERENCIA)
+        NU_SEMESTRE_REFERENCIA (do X.NU_SEMESTRE_REFERENCIA)
+        IC_TIPO_OCORRENCIA (fixo em 'S')
+        NU_STATUS_OCORRENCIA (fixo em 11)
 
+Etapa 2: Alteração da Data de Início de Vigência das Suspensões Parciais
 
-    -- ALTERACAO DA DATA INICIO_VIGENCIA DAS SUSPENSOES PARCIAIS
-    UPDATE FES.FESTB057_OCRRA_CONTRATO
-    SET DT_INICIO_VIGENCIA = LAST_DAY(DT_OCORRENCIA) + 1,
-        DT_ATUALIZACAO = SYSDATE
-    WHERE NU_CANDIDATO_FK36 > 20000000
-      AND IC_TIPO_OCORRENCIA = 'S'
-      AND IC_TIPO_SUSPENSAO = 'P'
-      AND NU_STATUS_OCORRENCIA = 11
-      AND TO_CHAR(DT_OCORRENCIA, 'YYYY') = AA_REFERENCIA
-      AND (DT_INICIO_VIGENCIA <> LAST_DAY(DT_OCORRENCIA) + 1 OR DT_INICIO_VIGENCIA IS NULL)
-      AND (
-            ( NU_SEMESTRE_REFERENCIA = 1 AND TO_CHAR(DT_OCORRENCIA, 'MM') < '06' )
-            OR
-            ( NU_SEMESTRE_REFERENCIA = 2 AND ( TO_CHAR(DT_OCORRENCIA, 'MM') > '06' AND TO_CHAR(DT_OCORRENCIA, 'MM') < '12' ) )
-        );
+Esta etapa atualiza a data de início de vigência de ocorrências de suspensão que já estão classificadas como parciais.
 
-    COMMIT;
+    Objetivo: Ajustar a DT_INICIO_VIGENCIA para o primeiro dia do mês seguinte à DT_OCORRENCIA para todas as suspensões parciais ativas que estão dentro dos semestres específicos e que ainda não possuem essa data de vigência correta ou está nula.
+    Lógica Principal: Um único comando UPDATE direto na tabela FES.FESTB057_OCRRA_CONTRATO, sem a necessidade de um cursor, pois a lógica pode ser aplicada a todos os registros que atendem às condições.
+    Tabela Atualizada:
+        FES.FESTB057_OCRRA_CONTRATO
+    Campos Atualizados:
+        DT_INICIO_VIGENCIA (definido para LAST_DAY(DT_OCORRENCIA) + 1)
+        DT_ATUALIZACAO (definido para SYSDATE)
+    Campos Usados na Cláusula WHERE:
+        NU_CANDIDATO_FK36 (maior que 20000000)
+        IC_TIPO_OCORRENCIA (fixo em 'S')
+        IC_TIPO_SUSPENSAO (fixo em 'P')
+        NU_STATUS_OCORRENCIA (fixo em 11)
+        DT_OCORRENCIA (usado para TO_CHAR(DT_OCORRENCIA, 'YYYY') = AA_REFERENCIA)
+        AA_REFERENCIA
+        NU_SEMESTRE_REFERENCIA
 
-    DBMS_OUTPUT.PUT_LINE(' ************* FIM DO PROCESSAMENTO DA ATUALIZACAO DE DATA INICIO DE VIGENCIA DA SUSPENSAO ************* ');
+Etapa 3: Confirmação e Finalização
+
+Esta etapa garante que as alterações sejam persistidas no banco de dados e sinaliza o fim do processamento do bloco.
+
+    Objetivo: Salvar as modificações realizadas e informar ao usuário que a etapa de atualização das suspensões e datas de vigência foi concluída.
+    Ações:
+        Executar COMMIT após cada bloco de UPDATE (o FOR X IN (...) e o UPDATE direto).
+        Exibir mensagens de finalização (DBMS_OUTPUT.PUT_LINE) para cada subprocesso.
 ====================================================================================================
+Vamos destrinchar este último trecho da sua procedure, focando nas suas etapas, tabelas e campos envolvidos.
+Análise do Bloco de Código: Ajuste de Datas de Suspensão e Situação de Liberação
 
---ATUALIZA DATA FIM DE VIGENCIA DA SUSPENSAO
-    UPDATE FES.FESTB057_OCRRA_CONTRATO
-    SET DT_FIM_VIGENCIA = CASE WHEN NU_SEMESTRE_REFERENCIA = 1 THEN TO_DATE('0630' || TO_CHAR(DT_OCORRENCIA, 'YYYY'), 'MMDDYYYY')
-                               WHEN NU_SEMESTRE_REFERENCIA = 2 THEN TO_DATE('1231' || TO_CHAR(DT_OCORRENCIA, 'YYYY'), 'MMDDYYYY')
-        END
-    WHERE NU_CANDIDATO_FK36 > 20000000
-      AND IC_TIPO_OCORRENCIA = 'S'
-      AND IC_TIPO_SUSPENSAO = 'P'
-      AND NU_STATUS_OCORRENCIA = 11
-      AND TO_CHAR(DT_OCORRENCIA, 'YYYY') = AA_REFERENCIA
-      AND DT_INICIO_VIGENCIA > DT_OCORRENCIA
-      AND (TO_CHAR(DT_OCORRENCIA, 'MMDD') BETWEEN '0101' AND '0531' OR TO_CHAR(DT_OCORRENCIA, 'MMDD') BETWEEN'0701' AND '1130')
-      AND (
-            (NU_SEMESTRE_REFERENCIA = 1 AND TO_CHAR(DT_FIM_VIGENCIA, 'MM') <> '06')
-            OR
-            (NU_SEMESTRE_REFERENCIA = 2 AND TO_CHAR(DT_FIM_VIGENCIA, 'MM') <> '12')
-        );
+Este segmento da sua procedure complementa os ajustes nas suspensões, primeiro atualizando a data de fim de vigência para garantir que esteja alinhada ao semestre e, em seguida, ajustando a situação das liberações com base na vigência dessas suspensões.
+Etapa 1: Atualização da Data de Fim de Vigência da Suspensão
 
-    COMMIT;
+Esta etapa garante que a data de fim de vigência de suspensões parciais ativas seja o último dia do semestre de referência.
 
-    DBMS_OUTPUT.PUT_LINE(' ************* FIM DO PROCESSAMENTO DA ATUALIZACAO DE DATA FIM DE VIGENCIA DA SUSPENSAO ************* ');
+    Objetivo: Padronizar a DT_FIM_VIGENCIA das ocorrências de suspensão parcial para o final do semestre de referência (30/06 para o 1º semestre e 31/12 para o 2º semestre) se a data atual estiver incorreta ou nula.
+    Lógica Principal: Um único comando UPDATE que verifica ocorrências de contrato (FES.FESTB057_OCRRA_CONTRATO) do tipo 'S' (Suspensão), classificadas como 'P' (Parcial), com status 11 (ativo), e cuja DT_INICIO_VIGENCIA é posterior à DT_OCORRENCIA (já ajustada na etapa anterior), além de a DT_OCORRENCIA estar dentro de períodos específicos (não em junho ou dezembro, o que sugere um ajuste para essas datas). A atualização só ocorre se a DT_FIM_VIGENCIA não corresponder ao mês final do semestre.
+    Tabelas Consultadas: Nenhuma explicitamente, o UPDATE atua sobre a tabela FES.FESTB057_OCRRA_CONTRATO e seus próprios campos.
+    Tabela Atualizada:
+        FES.FESTB057_OCRRA_CONTRATO
+    Campos Atualizados:
+        DT_FIM_VIGENCIA (definido por uma CASE expression: TO_DATE('0630' || TO_CHAR(DT_OCORRENCIA, 'YYYY'), 'MMDDYYYY') para 1º semestre ou TO_DATE('1231' || TO_CHAR(DT_OCORRENCIA, 'YYYY'), 'MMDDYYYY') para 2º semestre)
+    Campos Usados na Cláusula WHERE:
+        NU_CANDIDATO_FK36 (maior que 20000000)
+        IC_TIPO_OCORRENCIA (fixo em 'S')
+        IC_TIPO_SUSPENSAO (fixo em 'P')
+        NU_STATUS_OCORRENCIA (fixo em 11)
+        TO_CHAR(DT_OCORRENCIA, 'YYYY')
+        AA_REFERENCIA
+        DT_INICIO_VIGENCIA
+        DT_OCORRENCIA
+        NU_SEMESTRE_REFERENCIA
+        DT_FIM_VIGENCIA
+
+Etapa 2: Atualização da Situação da Liberação Conforme Vigência da Suspensão
+
+Esta etapa ajusta a situação de liberações de contrato com base nas datas de início e fim de vigência das suspensões parciais associadas.
+
+    Objetivo: Modificar o IC_SITUACAO_LIBERACAO de liberações para refletir corretamente o status de suspensão, considerando o período de vigência da ocorrência de suspensão parcial. Liberações dentro do período de suspensão se tornam 'S' (Suspenso) ou 'NE' (Não Estornado), e liberações fora do período voltam a ser 'NR' (Não Repassado) ou 'R' (Repassado).
+    Lógica Principal: Um cursor FOR X IN (...) seleciona liberações (FES.FESTB712_LIBERACAO_CONTRATO) que estão relacionadas a ocorrências de suspensão parcial (FES.FESTB057_OCRRA_CONTRATO) com vigências ajustadas. Para cada liberação, a lógica verifica se a DT_LIBERACAO cai dentro ou antes do período de vigência da suspensão e atualiza a IC_SITUACAO_LIBERACAO apropriadamente.
+    Tabelas Consultadas:
+        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
+        FES.FESTB057_OCRRA_CONTRATO (aliás O)
+    Campos Consultados:
+        De FES.FESTB712_LIBERACAO_CONTRATO (L):
+            NU_SQNCL_LIBERACAO_CONTRATO
+            IC_SITUACAO_LIBERACAO
+            DT_LIBERACAO
+            NU_SEQ_CANDIDATO
+            AA_REFERENCIA_LIBERACAO
+            MM_REFERENCIA_LIBERACAO
+        De FES.FESTB057_OCRRA_CONTRATO (O):
+            NU_CANDIDATO_FK36
+            AA_REFERENCIA
+            NU_SEMESTRE_REFERENCIA
+            IC_TIPO_OCORRENCIA
+            IC_TIPO_SUSPENSAO
+            NU_STATUS_OCORRENCIA
+            DT_OCORRENCIA
+            DT_INICIO_VIGENCIA
+            DT_FIM_VIGENCIA
+    Tabela Atualizada:
+        FES.FESTB712_LIBERACAO_CONTRATO
+    Campos Atualizados:
+        IC_SITUACAO_LIBERACAO (para 'S', 'NE', 'NR' ou 'R', dependendo das condições)
+        DT_ATUALIZACAO (definido para SYSDATE)
+    Campos Usados na Cláusula WHERE da atualização:
+        NU_SQNCL_LIBERACAO_CONTRATO (do X.NU_SQNCL_LIBERACAO_CONTRATO)
+
+Etapa 3: Confirmação e Finalização
+
+Esta etapa finaliza o processamento do bloco, confirmando as alterações no banco de dados.
+
+    Objetivo: Salvar as modificações de situação das liberações e sinalizar a conclusão desta fase de processamento.
+    Ações:
+        Executar COMMIT após o término do LOOP de atualização da situação da liberação.
+        Exibir uma mensagem de finalização (DBMS_OUTPUT.PUT_LINE).
+
+Este bloco é vital para manter a acurácia do status das liberações de contrato em relação às suspensões parciais, um componente importante na gestão de benefícios estudantis.
 
 
-    -- ATUALIZACAO DA SITUACAO_LIBERACAO, CONFORME VIGENCIA DA SUSPENSAO
-    FOR X IN
-        (
-        SELECT
-            L.NU_SQNCL_LIBERACAO_CONTRATO,
-            L.IC_SITUACAO_LIBERACAO,
-            L.DT_LIBERACAO,
-            O.DT_INICIO_VIGENCIA,
-            O.DT_FIM_VIGENCIA
-        FROM FES.FESTB712_LIBERACAO_CONTRATO L
-                 INNER JOIN FES.FESTB057_OCRRA_CONTRATO O
-                            ON L.NU_SEQ_CANDIDATO = O.NU_CANDIDATO_FK36
-                                AND O.AA_REFERENCIA = L.AA_REFERENCIA_LIBERACAO
-                                AND O.NU_SEMESTRE_REFERENCIA = CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END
-                                AND O.IC_TIPO_OCORRENCIA = 'S'
-                                AND O.IC_TIPO_SUSPENSAO = 'P'
-                                AND	O.NU_STATUS_OCORRENCIA = 11
-                                AND TO_CHAR(O.DT_OCORRENCIA, 'YYYY') = O.AA_REFERENCIA
-                                AND (
-                                       ( O.NU_SEMESTRE_REFERENCIA = 1 AND TO_CHAR(O.DT_OCORRENCIA, 'MM') < '06' AND TO_CHAR(O.DT_FIM_VIGENCIA, 'DDMM') = '3006' )
-                                       OR
-                                       ( O.NU_SEMESTRE_REFERENCIA = 2 AND ( TO_CHAR(O.DT_OCORRENCIA, 'MM') > '06' AND TO_CHAR(O.DT_OCORRENCIA, 'MM') < '12' ) AND TO_CHAR(O.DT_FIM_VIGENCIA, 'DDMM') = '3112' )
-                                   )
-                                AND O.DT_INICIO_VIGENCIA = LAST_DAY(O.DT_OCORRENCIA) + 1
-        WHERE L.IC_SITUACAO_LIBERACAO IN ('NR', 'R', 'NE', 'S')
-        )
-        LOOP
-            IF X.DT_LIBERACAO > X.DT_INICIO_VIGENCIA AND X.DT_LIBERACAO < X.DT_FIM_VIGENCIA THEN
-                IF X.IC_SITUACAO_LIBERACAO = 'NR' THEN
-                    UPDATE FES.FESTB712_LIBERACAO_CONTRATO
-                    SET IC_SITUACAO_LIBERACAO = 'S',
-                        DT_ATUALIZACAO = SYSDATE
-                    WHERE NU_SQNCL_LIBERACAO_CONTRATO = X.NU_SQNCL_LIBERACAO_CONTRATO;
-                ELSIF X.IC_SITUACAO_LIBERACAO = 'R' THEN
-                    UPDATE FES.FESTB712_LIBERACAO_CONTRATO
-                    SET IC_SITUACAO_LIBERACAO = 'NE',
-                        DT_ATUALIZACAO = SYSDATE
-                    WHERE NU_SQNCL_LIBERACAO_CONTRATO = X.NU_SQNCL_LIBERACAO_CONTRATO;
-                END IF;
-            ELSIF X.DT_LIBERACAO < X.DT_INICIO_VIGENCIA THEN
-                IF X.IC_SITUACAO_LIBERACAO = 'S' THEN
-                    UPDATE FES.FESTB712_LIBERACAO_CONTRATO
-                    SET IC_SITUACAO_LIBERACAO = 'NR',
-                        DT_ATUALIZACAO = SYSDATE
-                    WHERE NU_SQNCL_LIBERACAO_CONTRATO = X.NU_SQNCL_LIBERACAO_CONTRATO;
-                ELSIF X.IC_SITUACAO_LIBERACAO = 'NE' THEN
-                    UPDATE FES.FESTB712_LIBERACAO_CONTRATO
-                    SET IC_SITUACAO_LIBERACAO = 'R',
-                        DT_ATUALIZACAO = SYSDATE
-                    WHERE NU_SQNCL_LIBERACAO_CONTRATO = X.NU_SQNCL_LIBERACAO_CONTRATO;
-                END IF;
-            END IF;
-        END LOOP;
-
-    COMMIT;
-
-    DBMS_OUTPUT.PUT_LINE(' ************* FIM DO PROCESSAMENTO DA ATUALIZACAO DA SITUACAO_LIBERACAO,CONFORME SUSPENSAO ************* ');
+O Gemini pode cometer erros, por isso, verifique as informações
 
 =================================================================================================================
--- ALTERACAO DA DATA INICIO_VIGENCIA DOS ENCERRAMENTOS
-    FOR X IN
-        (
-        SELECT
-            O.NU_CANDIDATO_FK36,
-            O.AA_REFERENCIA,
-            O.NU_SEMESTRE_REFERENCIA,
-            O.DT_OCORRENCIA
-        FROM FES.FESTB057_OCRRA_CONTRATO O
-                 LEFT OUTER JOIN FES.FESTB038_ADTMO_CONTRATO A
-                                 ON A.NU_CANDIDATO_FK36 = O.NU_CANDIDATO_FK36
-                                     AND A.AA_ADITAMENTO = O.AA_REFERENCIA
-                                     AND A.NU_SEM_ADITAMENTO = O.NU_SEMESTRE_REFERENCIA
-                                     AND A.NU_STATUS_ADITAMENTO > 3
-                 LEFT OUTER JOIN FES.FESTB010_CANDIDATO C
-                                 ON C.NU_SEQ_CANDIDATO = O.NU_CANDIDATO_FK36
-                                     AND TO_CHAR(C.DT_ADMISSAO_CANDIDATO,'YYYY') = O.AA_REFERENCIA
-                                     AND (CASE WHEN TO_CHAR(C.DT_ADMISSAO_CANDIDATO,'MM') < 7 THEN 1 ELSE 2 END) = O.NU_SEMESTRE_REFERENCIA
-        WHERE O.NU_CANDIDATO_FK36 > 20000000
-          AND IC_TIPO_OCORRENCIA = 'E'
-          AND NU_STATUS_OCORRENCIA = 11
-          AND TO_CHAR(DT_OCORRENCIA, 'YYYY') = AA_REFERENCIA
-          AND (DT_INICIO_VIGENCIA <> LAST_DAY(DT_OCORRENCIA) + 1 OR DT_INICIO_VIGENCIA IS NULL)
-          AND (
-                ( NU_SEMESTRE_REFERENCIA = 1 AND TO_CHAR(DT_OCORRENCIA, 'MM') < '06' )
-                OR
-                ( NU_SEMESTRE_REFERENCIA = 2 AND ( TO_CHAR(DT_OCORRENCIA, 'MM') > '06' AND TO_CHAR(DT_OCORRENCIA, 'MM') < '12' ) )
-            )
-          AND ( A.NU_CANDIDATO_FK36 IS NOT NULL OR C.NU_SEQ_CANDIDATO IS NOT NULL )
-        )
-        LOOP
-            UPDATE FES.FESTB057_OCRRA_CONTRATO
-            SET DT_INICIO_VIGENCIA = LAST_DAY(X.DT_OCORRENCIA) + 1,
-                DT_ATUALIZACAO = SYSDATE
-            WHERE NU_CANDIDATO_FK36 = X.NU_CANDIDATO_FK36
-              AND AA_REFERENCIA = X.AA_REFERENCIA
-              AND NU_SEMESTRE_REFERENCIA = X.NU_SEMESTRE_REFERENCIA
-              AND IC_TIPO_OCORRENCIA = 'E'
-              AND NU_STATUS_OCORRENCIA = 11;
-        END LOOP;
-    COMMIT;
+Análise dos Blocos de Código: Ajustes Finais de Encerramento e Tratamento de Erros
 
-    DBMS_OUTPUT.PUT_LINE(' ************* FIM DO PROCESSAMENTO DA ATUALIZACAO DE DATA INICIO DE VIGENCIA DO ENCERRAMENTO ************* ');
+Este segmento final da procedure conclui as operações de ajuste, focando nas datas de vigência de encerramentos, na situação das liberações relacionadas a esses encerramentos, e na adequação de situações de liberações que não possuem lançamentos pertinentes. Ele também inclui o bloco de tratamento de exceções.
+Etapa 1: Alteração da Data de Início de Vigência dos Encerramentos
 
+Esta etapa garante que a data de início de vigência para ocorrências de contrato do tipo 'E' (Encerramento) esteja padronizada para o primeiro dia do mês seguinte à DT_OCORRENCIA.
 
+    Objetivo: Padronizar a DT_INICIO_VIGENCIA para ocorrências de encerramento (IC_TIPO_OCORRENCIA = 'E') ativas (NU_STATUS_OCORRENCIA = 11), onde a data de ocorrência está dentro do ano e semestre de referência, e a DT_INICIO_VIGENCIA ainda não está corretamente definida (ou é nula). A lógica também exige que haja um aditamento com status superior a 3 ou um candidato com data de admissão no mesmo semestre.
+    Lógica Principal: Um cursor FOR X IN (...) seleciona ocorrências de encerramento que atendem às condições de ano e semestre, que têm a DT_INICIO_VIGENCIA desatualizada e que possuem um aditamento (FES.FESTB038_ADTMO_CONTRATO) ou um registro de candidato (FES.FESTB010_CANDIDATO) associado. Para cada ocorrência, o UPDATE define a DT_INICIO_VIGENCIA para o primeiro dia do mês subsequente à DT_OCORRENCIA.
+    Tabelas Consultadas:
+        FES.FESTB057_OCRRA_CONTRATO (aliás O)
+        FES.FESTB038_ADTMO_CONTRATO (aliás A, LEFT OUTER JOIN)
+        FES.FESTB010_CANDIDATO (aliás C, LEFT OUTER JOIN)
+    Campos Consultados:
+        De FES.FESTB057_OCRRA_CONTRATO (O):
+            NU_CANDIDATO_FK36
+            AA_REFERENCIA
+            NU_SEMESTRE_REFERENCIA
+            DT_OCORRENCIA
+            IC_TIPO_OCORRENCIA
+            NU_STATUS_OCORRENCIA
+            DT_INICIO_VIGENCIA
+        De FES.FESTB038_ADTMO_CONTRATO (A):
+            NU_CANDIDATO_FK36
+            AA_ADITAMENTO
+            NU_SEM_ADITAMENTO
+            NU_STATUS_ADITAMENTO
+        De FES.FESTB010_CANDIDATO (C):
+            NU_SEQ_CANDIDATO
+            DT_ADMISSAO_CANDIDATO
+    Tabela Atualizada:
+        FES.FESTB057_OCRRA_CONTRATO
+    Campos Atualizados:
+        DT_INICIO_VIGENCIA (para LAST_DAY(X.DT_OCORRENCIA) + 1)
+        DT_ATUALIZACAO (para SYSDATE)
 
-    -- ATUALIZACAO DA SITUACAO_LIBERACAO, CONFORME VIGENCIA DO ENCERRAMENTO
-    FOR X IN
-        (
-        SELECT
-            L.NU_SQNCL_LIBERACAO_CONTRATO,
-            L.DT_LIBERACAO,
-            L.IC_SITUACAO_LIBERACAO,
-            O.DT_INICIO_VIGENCIA
-        FROM FES.FESTB712_LIBERACAO_CONTRATO L
-                 INNER JOIN FES.FESTB057_OCRRA_CONTRATO O
-                            ON L.NU_SEQ_CANDIDATO = O.NU_CANDIDATO_FK36
-                                AND O.AA_REFERENCIA = L.AA_REFERENCIA_LIBERACAO
-                                AND O.NU_SEMESTRE_REFERENCIA = CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END
-                                AND O.IC_TIPO_OCORRENCIA = 'E'
-                                AND	O.NU_STATUS_OCORRENCIA = 11
-                                AND TO_CHAR(O.DT_OCORRENCIA, 'YYYY') = O.AA_REFERENCIA
-                                AND (
-                                       ( O.NU_SEMESTRE_REFERENCIA = 1 AND TO_CHAR(O.DT_OCORRENCIA, 'MM') < '06' )
-                                       OR
-                                       ( O.NU_SEMESTRE_REFERENCIA = 2 AND TO_CHAR(O.DT_OCORRENCIA, 'MM') > '06' AND TO_CHAR(O.DT_OCORRENCIA, 'MM') < '12' )
-                                   )
-                                AND O.DT_INICIO_VIGENCIA = LAST_DAY(O.DT_OCORRENCIA) + 1
-        WHERE L.IC_SITUACAO_LIBERACAO IN ('NR', 'R', 'NE', 'S')
-        ORDER BY L.NU_SEQ_CANDIDATO, L.AA_REFERENCIA_LIBERACAO, L.MM_REFERENCIA_LIBERACAO
-        )
-        LOOP
-            IF X.DT_LIBERACAO > X.DT_INICIO_VIGENCIA THEN
-                IF X.IC_SITUACAO_LIBERACAO = 'NR' THEN
-                    UPDATE FES.FESTB712_LIBERACAO_CONTRATO
-                    SET IC_SITUACAO_LIBERACAO = 'S',
-                        DT_ATUALIZACAO = SYSDATE
-                    WHERE NU_SQNCL_LIBERACAO_CONTRATO = X.NU_SQNCL_LIBERACAO_CONTRATO;
-                ELSIF X.IC_SITUACAO_LIBERACAO = 'R' THEN
-                    UPDATE FES.FESTB712_LIBERACAO_CONTRATO
-                    SET IC_SITUACAO_LIBERACAO = 'NE',
-                        DT_ATUALIZACAO = SYSDATE
-                    WHERE NU_SQNCL_LIBERACAO_CONTRATO = X.NU_SQNCL_LIBERACAO_CONTRATO;
-                END IF;
-            ELSIF X.DT_LIBERACAO < X.DT_INICIO_VIGENCIA THEN
-                IF X.IC_SITUACAO_LIBERACAO = 'S' THEN
-                    UPDATE FES.FESTB712_LIBERACAO_CONTRATO
-                    SET IC_SITUACAO_LIBERACAO = 'NR',
-                        DT_ATUALIZACAO = SYSDATE
-                    WHERE NU_SQNCL_LIBERACAO_CONTRATO = X.NU_SQNCL_LIBERACAO_CONTRATO;
-                ELSIF X.IC_SITUACAO_LIBERACAO = 'NE' THEN
-                    UPDATE FES.FESTB712_LIBERACAO_CONTRATO
-                    SET IC_SITUACAO_LIBERACAO = 'R',
-                        DT_ATUALIZACAO = SYSDATE
-                    WHERE NU_SQNCL_LIBERACAO_CONTRATO = X.NU_SQNCL_LIBERACAO_CONTRATO;
-                END IF;
-            END IF;
-        END LOOP;
-    COMMIT;
+Etapa 2: Atualização da Situação da Liberação Conforme Vigência do Encerramento
 
-    DBMS_OUTPUT.PUT_LINE(' ************* FIM DO PROCESSAMENTO DA ATUALIZACAO DA SITUACAO_LIBERACAO, CONFORME ENCERRAMENTO ************* ');
+Esta etapa ajusta a situação das liberações de contrato com base nas datas de início de vigência dos encerramentos associados.
 
+    Objetivo: Alterar o IC_SITUACAO_LIBERACAO de liberações de contrato para refletir o status de encerramento, especificamente quando a data de liberação (DT_LIBERACAO) é posterior ou anterior à DT_INICIO_VIGENCIA de um encerramento.
+    Lógica Principal: Um cursor FOR X IN (...) seleciona liberações (FES.FESTB712_LIBERACAO_CONTRATO) que correspondem a ocorrências de encerramento (FES.FESTB057_OCRRA_CONTRATO) com status 11 (ativo) e data de ocorrência dentro do ano/semestre de referência, e cuja DT_INICIO_VIGENCIA já foi ajustada (primeiro dia do mês seguinte à ocorrência).
+        Se a DT_LIBERACAO for posterior à DT_INICIO_VIGENCIA:
+            Se a situação atual for 'NR' (Não Repassado), muda para 'S' (Suspenso).
+            Se for 'R' (Repassado), muda para 'NE' (Não Estornado).
+        Se a DT_LIBERACAO for anterior à DT_INICIO_VIGENCIA:
+            Se a situação atual for 'S' (Suspenso), muda para 'NR' (Não Repassado).
+            Se for 'NE' (Não Estornado), muda para 'R' (Repassado).
+    Tabelas Consultadas:
+        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
+        FES.FESTB057_OCRRA_CONTRATO (aliás O)
+    Campos Consultados:
+        De FES.FESTB712_LIBERACAO_CONTRATO (L):
+            NU_SQNCL_LIBERACAO_CONTRATO
+            DT_LIBERACAO
+            IC_SITUACAO_LIBERACAO
+            NU_SEQ_CANDIDATO
+            AA_REFERENCIA_LIBERACAO
+            MM_REFERENCIA_LIBERACAO
+        De FES.FESTB057_OCRRA_CONTRATO (O):
+            NU_CANDIDATO_FK36
+            AA_REFERENCIA
+            NU_SEMESTRE_REFERENCIA
+            IC_TIPO_OCORRENCIA
+            NU_STATUS_OCORRENCIA
+            DT_OCORRENCIA
+            DT_INICIO_VIGENCIA
+    Tabela Atualizada:
+        FES.FESTB712_LIBERACAO_CONTRATO
+    Campos Atualizados:
+        IC_SITUACAO_LIBERACAO (alterado para 'S', 'NE', 'NR' ou 'R')
+        DT_ATUALIZACAO (para SYSDATE)
 
-    -- ADEQUACAO DA SITUACAO DAS LIBERACOES NE QUE NÃO POSSUEM LANCAMENTOS PERTINENTES
-    FOR X IN
-        (
-        SELECT
-            L.NU_SQNCL_LIBERACAO_CONTRATO
-        FROM FES.FESTB712_LIBERACAO_CONTRATO L
-                 LEFT OUTER JOIN FES.FESTB038_ADTMO_CONTRATO A
-                                 ON A.NU_CANDIDATO_FK36 = L.NU_SEQ_CANDIDATO
-                                     AND A.AA_ADITAMENTO = L.AA_REFERENCIA_LIBERACAO
-                                     AND A.NU_SEM_ADITAMENTO = CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END
-                                     AND A.NU_STATUS_ADITAMENTO > 3
-                 LEFT OUTER JOIN FES.FESTB010_CANDIDATO C
-                                 ON C.NU_SEQ_CANDIDATO = L.NU_SEQ_CANDIDATO
-                                     AND TO_CHAR(C.DT_ADMISSAO_CANDIDATO,'YYYY') = L.AA_REFERENCIA_LIBERACAO
-                                     AND (CASE WHEN TO_CHAR(C.DT_ADMISSAO_CANDIDATO,'MM') < 7 THEN 1 ELSE 2 END) = CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END
-                 LEFT OUTER JOIN FES.FESTB036_CONTRATO_FIES F
-                                 ON F.NU_CANDIDATO_FK11 = L.NU_SEQ_CANDIDATO
-                                     AND F.NU_STATUS_CONTRATO > 3
-                 LEFT OUTER JOIN FES.FESTB057_OCRRA_CONTRATO O
-                                 ON O.NU_CANDIDATO_FK36 = L.NU_SEQ_CANDIDATO
-                                     AND O.AA_REFERENCIA = L.AA_REFERENCIA_LIBERACAO
-                                     AND O.NU_SEMESTRE_REFERENCIA = CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END
-                                     AND O.NU_STATUS_OCORRENCIA = 11
-        WHERE L.IC_SITUACAO_LIBERACAO = 'NE'
-          AND (
-                    A.NU_CANDIDATO_FK36 IS NOT NULL
-                OR
-                    ( C.NU_SEQ_CANDIDATO IS NOT NULL AND F.NU_CANDIDATO_FK11 IS NOT NULL )
-            )
-          AND O.NU_CANDIDATO_FK36 IS NULL
-        )
-        LOOP
-            UPDATE FES.FESTB712_LIBERACAO_CONTRATO
-            SET IC_SITUACAO_LIBERACAO = 'R',
-                DT_ATUALIZACAO = SYSDATE
-            WHERE NU_SQNCL_LIBERACAO_CONTRATO = X.NU_SQNCL_LIBERACAO_CONTRATO;
-        END LOOP;
-    COMMIT;
-    DBMS_OUTPUT.PUT_LINE('FIM DO PROCESSAMENTO DE ADEQUACAO DA SITUACAO DAS LIBERACOES NE QUE NÃO POSSUEM LANCAMENTOS PERTINENTES');
+Etapa 3: Adequação da Situação das Liberações 'NE' e 'S' sem Lançamentos Pertinentes
 
+Essas duas subetapas finais ajustam as situações de liberações (IC_SITUACAO_LIBERACAO = 'NE' ou 'S') que, após as operações anteriores, não possuem um aditamento ativo, um contrato FIES ativo ou uma ocorrência de contrato ativa correspondente, revertendo-as para R (Repassado) ou NR (Não Repassado).
 
-    -- ADEQUACAO DA SITUACAO DAS LIBERACOES SUSPENSAS QUE NÃO POSSUEM LANCAMENTOS PERTINENTES
-    FOR X IN
-        (
-        SELECT
-            L.NU_SQNCL_LIBERACAO_CONTRATO
-        FROM FES.FESTB712_LIBERACAO_CONTRATO L
-                 LEFT OUTER JOIN FES.FESTB038_ADTMO_CONTRATO A
-                                 ON L.NU_SEQ_CANDIDATO = A.NU_CANDIDATO_FK36
-                                     AND A.NU_STATUS_ADITAMENTO > 3
-                                     AND L.AA_REFERENCIA_LIBERACAO = A.AA_ADITAMENTO
-                                     AND (CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END) = A.NU_SEM_ADITAMENTO
-                 LEFT OUTER JOIN FES.FESTB010_CANDIDATO C
-                                 ON L.NU_SEQ_CANDIDATO = C.NU_SEQ_CANDIDATO
-                                     AND L.AA_REFERENCIA_LIBERACAO = TO_CHAR(C.DT_ADMISSAO_CANDIDATO,'YYYY')
-                                     AND (CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END) = (CASE WHEN TO_CHAR(C.DT_ADMISSAO_CANDIDATO,'MM') < 7 THEN 1 ELSE 2 END)
-                 LEFT OUTER JOIN FES.FESTB036_CONTRATO_FIES F
-                                 ON L.NU_SEQ_CANDIDATO = F.NU_CANDIDATO_FK11
-                                     AND F.NU_STATUS_CONTRATO > 3
-                 LEFT OUTER JOIN FES.FESTB057_OCRRA_CONTRATO O
-                                 ON L.NU_SEQ_CANDIDATO = O.NU_CANDIDATO_FK36
-                                     AND O.NU_STATUS_OCORRENCIA IN (11, 18)
-                                     AND O.AA_REFERENCIA = L.AA_REFERENCIA_LIBERACAO
-                                     AND O.NU_SEMESTRE_REFERENCIA = (CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END)
-        WHERE L.NU_SEQ_CANDIDATO > 20000000
-          AND L.IC_SITUACAO_LIBERACAO = 'S'
-          AND L.MM_REFERENCIA_LIBERACAO > 0
-          AND (A.NU_CANDIDATO_FK36 IS NOT NULL OR C.NU_SEQ_CANDIDATO IS NOT NULL)
-          AND F.NU_CANDIDATO_FK11 IS NOT NULL
-          AND O.NU_CANDIDATO_FK36 IS NULL
-        )
-        LOOP
-            UPDATE FES.FESTB712_LIBERACAO_CONTRATO
-            SET IC_SITUACAO_LIBERACAO = 'NR',
-                DT_ATUALIZACAO = SYSDATE
-            WHERE NU_SQNCL_LIBERACAO_CONTRATO = X.NU_SQNCL_LIBERACAO_CONTRATO;
-        END LOOP;
-    COMMIT;
-    DBMS_OUTPUT.PUT_LINE('FIM DO PROCESSAMENTO DE ADEQUACAO DA SITUACAO DAS LIBERACOES SUSPENSAS QUE NÃO POSSUEM LANCAMENTOS PERTINENTES');
+    Objetivo: Limpar inconsistências onde liberações estão marcadas como "Não Estornadas" ('NE') ou "Suspensas" ('S'), mas não há justificativa em outros registros relacionados (aditamentos, contratos FIES, ou ocorrências de contrato ativas).
+    Lógica Principal:
+        Para 'NE': Um cursor seleciona liberações em situação 'NE' que possuem um aditamento finalizado (status > 3) OU um candidato com contrato FIES ativo (status > 3), mas não possuem uma ocorrência de contrato (suspensão/encerramento) ativa (NU_STATUS_OCORRENCIA = 11). Essas são revertidas para 'R' (Repassado).
+        Para 'S': Um cursor seleciona liberações em situação 'S' que possuem um aditamento finalizado OU um candidato com contrato FIES ativo, mas não possuem uma ocorrência de contrato (suspensão/encerramento) ativa (NU_STATUS_OCORRENCIA in (11, 18)). Essas são revertidas para 'NR' (Não Repassado).
+    Tabelas Consultadas:
+        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
+        FES.FESTB038_ADTMO_CONTRATO (aliás A, LEFT OUTER JOIN)
+        FES.FESTB010_CANDIDATO (aliás C, LEFT OUTER JOIN)
+        FES.FESTB036_CONTRATO_FIES (aliás F, LEFT OUTER JOIN)
+        FES.FESTB057_OCRRA_CONTRATO (aliás O, LEFT OUTER JOIN)
+    Campos Consultados:
+        De FES.FESTB712_LIBERACAO_CONTRATO (L):
+            NU_SQNCL_LIBERACAO_CONTRATO
+            IC_SITUACAO_LIBERACAO
+            NU_SEQ_CANDIDATO
+            AA_REFERENCIA_LIBERACAO
+            MM_REFERENCIA_LIBERACAO
+        Das tabelas A, C, F, O: Seus respectivos IDs e status para as condições IS NOT NULL e IS NULL.
+    Tabela Atualizada:
+        FES.FESTB712_LIBERACAO_CONTRATO
+    Campos Atualizados:
+        IC_SITUACAO_LIBERACAO (para 'R' ou 'NR')
+        DT_ATUALIZACAO (para SYSDATE)
 
-    DBMS_OUTPUT.PUT_LINE(' ************* FIM DA FESSPZ55_CRISE2019_TRATA_SUSP');
+Etapa 4: Finalização e Tratamento de Exceções
 
-EXCEPTION  -- Inicio do tratamento de excessao
-WHEN OTHERS THEN  -- Trata todo tipo de excessao
-    ROLLBACK;
-    DBMS_OUTPUT.PUT_LINE(' *** ERRO VERIFICADO: ' || SQLCODE || ' - ' || SUBSTR(SQLERRM, 1, 100));
-    DBMS_OUTPUT.PUT_LINE(' *** INSTRUCAO      : ' || SQL_QUERY);
+Este é o bloco de encerramento da procedure, que garante a consistência dos dados e o tratamento de erros.
 
-    DBMS_OUTPUT.PUT_LINE(' ************* FIM DA FESSPZ55_CRISE2019_TRATA_SUSP');
-
-END;
-
-
+    Objetivo: Confirmar todas as alterações realizadas durante a execução bem-sucedida da procedure e fornecer um mecanismo robusto para capturar e registrar erros, desfazendo quaisquer operações não confirmadas em caso de falha.
+    Ações:
+        Executa um COMMIT final após a conclusão bem-sucedida de todas as operações.
+        Imprime mensagens de finalização para cada bloco de processamento e para a procedure como um todo.
+        O bloco EXCEPTION WHEN OTHERS THEN captura qualquer erro não tratado durante a execução.
+        Em caso de erro, executa um ROLLBACK para desfazer todas as transações pendentes e imprime o código e a mensagem de erro (SQLCODE, SQLERRM), além da última instrução SQL (SQL_QUERY) que estava sendo executada.
+        Finaliza com uma mensagem de fim de procedure, mesmo em caso de erro.
 
 
 
