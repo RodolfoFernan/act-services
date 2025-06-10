@@ -8,112 +8,71 @@
 <h2>1. Estrutura dos Microsserviços</h2>
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
 Análise do Bloco de Código: Alteração de Suspensão e Vigência
-CREATE OR REPLACE PROCEDURE FES.FESSPZ57_CRISE2019_CORR_VLRS
---F620600  27/05/2021 15:16:26
-    --C077033  21/05/2021 17:08:00
---C077033  23/04/2021 19:15:00
---C077033  17/01/2021 20:33:00
---C077033  29/10/2020 15:25:00
+Análise da Procedure FES.FESSPZ57_CRISE2019_CORR_VLRS - Corrige Valores de Repasse
 
-AS
-    QT_COMPENSACAO_CRIADA NUMERIC(10) := 0;
-    SQL_QUERY VARCHAR2(500) := NULL;
-    V_NU_SQNCL_COMPENSACAO_REPASSE NUMERIC(12);
-    vr_repasse NUMERIC(18,2) := NULL;
-    mm_repasse integer;
-    MM_LIBERACAO NUMERIC(2);
-    COUNT_1 NUMERIC(5) := 0;
+A procedure FES.FESSPZ57_CRISE2019_CORR_VLRS é responsável por corrigir problemas relacionados aos valores de repasse em liberações de contrato, especialmente aqueles com um "deslocamento" no valor. Ela faz isso criando registros de compensação para repasses incorretos e ajustando a situação das liberações afetadas.
+Visão Geral da Procedure
 
-BEGIN
+    Nome: FES.FESSPZ57_CRISE2019_CORR_VLRS
+    Propósito: Corrigir valores de repasse e a situação de liberações de contrato que apresentaram problemas de deslocamento ou inconsistência nos montantes repassados.
+    Variáveis Locais:
+        QT_COMPENSACAO_CRIADA NUMERIC(10): Contador para o número de compensações criadas.
+        SQL_QUERY VARCHAR2(500): Usada para construir e executar SQL dinâmico.
+        V_NU_SQNCL_COMPENSACAO_REPASSE NUMERIC(12): Armazena o maior número sequencial de compensação de repasse individual, que será usado para gerar novos IDs.
+        vr_repasse NUMERIC(18,2): Não utilizada neste trecho.
+        mm_repasse INTEGER: Não utilizada neste trecho.
+        MM_LIBERACAO NUMERIC(2): Não utilizada neste trecho.
+        COUNT_1 NUMERIC(5): Não utilizada neste trecho.
+
+Início e Inicialização
+
+O bloco começa habilitando a saída do DBMS_OUTPUT e exibindo uma mensagem de início. Em seguida, busca o maior NU_SQNCL_COMPENSACAO_REPASSE na tabela FES.FESTB812_CMPSO_RPSE_INDVO para garantir que os novos IDs de compensação sejam únicos.
 
     DBMS_OUTPUT.ENABLE (buffer_size => NULL);
-
     DBMS_OUTPUT.PUT_LINE(' ************* INICIO DA FESSPZ57_CRISE2019_CORR_VLRS - CORRIGE VALORES DE REPASSE ************* ');
-
-
     SELECT MAX(NU_SQNCL_COMPENSACAO_REPASSE) INTO V_NU_SQNCL_COMPENSACAO_REPASSE FROM FES.FESTB812_CMPSO_RPSE_INDVO;
 
-    --COMPENSACAO, E NOVO REPASSE, DE LIBERACOES DE SEMESTRES COM PROBLEMA DE DESLOCAMENTO NO VALOR DO REPASSE
-    FOR X IN
-        (
-        SELECT
-            L.NU_SQNCL_LIBERACAO_CONTRATO,
-            A.NU_SQNCL_RLTRO_CTRTO_ANALITICO,
-            L.NU_SEQ_CANDIDATO,
-            L.AA_REFERENCIA_LIBERACAO,
-            L.MM_REFERENCIA_LIBERACAO,
-            R.NU_SQNCL_RLTRO_CTRTO_ANALITICO AS SQNCL_COMPENSADO
-        FROM FES.FESTB712_LIBERACAO_CONTRATO L
-                 INNER JOIN (
-            SELECT
-                NU_CANDIDATO_FK36,
-                AA_ADITAMENTO,
-                NU_SEM_ADITAMENTO,
-                VR_ADITAMENTO
-            FROM FES.FESTB712_LIBERACAO_CONTRATO
-                     INNER JOIN FES.FESTB038_ADTMO_CONTRATO
-                                ON NU_SEQ_CANDIDATO = NU_CANDIDATO_FK36
-                                    AND AA_REFERENCIA_LIBERACAO = AA_ADITAMENTO
-                                    AND CASE WHEN MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END = NU_SEM_ADITAMENTO
-                                    AND NU_STATUS_ADITAMENTO > 3
-                                    AND VR_ADITAMENTO > 0
-            WHERE NU_SEQ_CANDIDATO > 20000000
-              AND MM_REFERENCIA_LIBERACAO > 0
-            GROUP BY
-                NU_CANDIDATO_FK36,
-                VR_ADITAMENTO,
-                AA_ADITAMENTO,
-                NU_SEM_ADITAMENTO
-            HAVING (
-                               COUNT(VR_REPASSE) = 6
-                           AND
-                               SUM(VR_REPASSE) > 0
-                           AND
-                               VR_ADITAMENTO > SUM(VR_REPASSE)
-                           AND
-                               (
-                                           MOD( ROUND( ( SUM(VR_REPASSE) / VR_ADITAMENTO ), 1 ), 10 ) = 0
-                                       OR
-                                           MOD( ROUND( ( VR_ADITAMENTO / SUM(VR_REPASSE) ), 1 ), 10 ) = 0
-                                       OR
-                                           VR_ADITAMENTO / SUM(VR_REPASSE) >= 100
-                                   )
-                       )
-        ) D
-                            ON L.NU_SEQ_CANDIDATO = D.NU_CANDIDATO_FK36
-                                AND L.AA_REFERENCIA_LIBERACAO = D.AA_ADITAMENTO
-                                AND CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END = D.NU_SEM_ADITAMENTO
-                 INNER JOIN FES.FESTB711_RLTRO_CTRTO_ANLTO A
-                            ON L.NU_SQNCL_LIBERACAO_CONTRATO = A.NU_SQNCL_LIBERACAO_CONTRATO
-                                AND L.NU_SEQ_CANDIDATO = A.NU_SEQ_CANDIDATO
-                                AND L.VR_REPASSE = A.VR_REPASSE
-                 LEFT OUTER JOIN FES.FESTB812_CMPSO_RPSE_INDVO R
-                                 ON R.NU_SQNCL_RLTRO_CTRTO_ANALITICO = A.NU_SQNCL_RLTRO_CTRTO_ANALITICO
-        WHERE L.IC_SITUACAO_LIBERACAO IN ('R', 'NE')
-        )
-        LOOP
-            IF X.SQNCL_COMPENSADO IS NULL THEN
-                QT_COMPENSACAO_CRIADA := QT_COMPENSACAO_CRIADA + 1;
-                V_NU_SQNCL_COMPENSACAO_REPASSE := V_NU_SQNCL_COMPENSACAO_REPASSE + 1;
+Compensação e Novo Repasse para Liberações com Deslocamento de Valor
 
-                SQL_QUERY := 'INSERT INTO FES.FESTB812_CMPSO_RPSE_INDVO (' ||
-                             'NU_SQNCL_COMPENSACAO_REPASSE, NU_SQNCL_RLTRO_CTRTO_ANALITICO, NU_TIPO_ACERTO, TS_INCLUSAO, CO_USUARIO_INCLUSAO)' ||
-                             ' VALUES (' || V_NU_SQNCL_COMPENSACAO_REPASSE || ', ' || X.NU_SQNCL_RLTRO_CTRTO_ANALITICO || ', 5,''' || SYSDATE || ''', ''CRISE19'')';
+Esta é a parte central da procedure, que identifica liberações com problemas de valor e realiza as correções.
 
-                DBMS_OUTPUT.PUT_LINE(SQL_QUERY);
-                EXECUTE IMMEDIATE SQL_QUERY;
-            END IF;
+    Objetivo: Identificar liberações de contrato (FES.FESTB712_LIBERACAO_CONTRATO) que estão em situação de "Repassado" ('R') ou "Não Estornado" ('NE') e que, em conjunto com seus aditamentos, apresentam uma inconsistência nos valores de repasse. Para esses casos, um registro de compensação é criado, e a situação da liberação é alterada para "Não Repassado" ('NR').
 
-            UPDATE FES.FESTB712_LIBERACAO_CONTRATO
-            SET IC_SITUACAO_LIBERACAO = 'NR',
-                DT_ATUALIZACAO = SYSDATE
-            WHERE NU_SQNCL_LIBERACAO_CONTRATO = X.NU_SQNCL_LIBERACAO_CONTRATO
-              AND NU_SEQ_CANDIDATO = X.NU_SEQ_CANDIDATO
-              AND AA_REFERENCIA_LIBERACAO = X.AA_REFERENCIA_LIBERACAO
-              AND MM_REFERENCIA_LIBERACAO = X.MM_REFERENCIA_LIBERACAO;
-        END LOOP;
-    COMMIT;
-    DBMS_OUTPUT.PUT_LINE(' ************* QUANTIDADE DE COMPENSACOES CRIADAS: ' || QT_COMPENSACAO_CRIADA || ' ************* ');
+    Lógica Principal:
+        Sub-query D (Origem dos Problemas): Seleciona candidatos, valores de aditamento, ano e semestre de aditamento da tabela FES.FESTB712_LIBERACAO_CONTRATO (join com FES.FESTB038_ADTMO_CONTRATO). Filtra por candidatos com NU_SEQ_CANDIDATO > 20000000, MM_REFERENCIA_LIBERACAO > 0, NU_STATUS_ADITAMENTO > 3 e VR_ADITAMENTO > 0.
+            Cláusula HAVING (Condição de Inconsistência):
+                COUNT(VR_REPASSE) = 6: Indica que há 6 repasses para aquele aditamento (o que pode ser um padrão esperado para um semestre completo).
+                SUM(VR_REPASSE) > 0: Garante que houve repasses.
+                VR_ADITAMENTO > SUM(VR_REPASSE): O valor do aditamento é maior que a soma dos repasses (indicando que algo não foi totalmente repassado ou houve um "deslocamento").
+                MOD( ROUND( ( SUM(VR_REPASSE) / VR_ADITAMENTO ), 1 ), 10 ) = 0 OR MOD( ROUND( ( VR_ADITAMENTO / SUM(VR_REPASSE) ), 1 ), 10 ) = 0 OR VR_ADITAMENTO / SUM(VR_REPASSE) >= 100: Esta é uma condição complexa que tenta identificar um "deslocamento" no valor. Basicamente, verifica se a proporção entre o valor do aditamento e a soma dos repasses (ou vice-versa), arredondada para uma casa decimal, resulta em um múltiplo de 10, ou se a proporção VR_ADITAMENTO / SUM(VR_REPASSE) é maior ou igual a 100. Isso sugere que o valor real foi repassado com um erro significativo (e.g., um zero a mais, ou um fator de 10 na diferença).
+        Join Principal: A sub-query D é então joinada com:
+            FES.FESTB712_LIBERACAO_CONTRATO (aliás L): A tabela principal de liberações.
+            FES.FESTB711_RLTRO_CTRTO_ANLTO (aliás A): Tabela de relatórios analíticos de contrato, para obter o NU_SQNCL_RLTRO_CTRTO_ANALITICO da liberação.
+            FES.FESTB812_CMPSO_RPSE_INDVO (aliás R, LEFT OUTER JOIN): Tabela de compensação de repasse individual, para verificar se o repasse já foi compensado.
+        Filtro Final: O FOR X IN (...) itera sobre as liberações que têm status 'R' (Repassado) ou 'NE' (Não Estornado) e atendem às condições complexas da sub-query D.
+        Processamento no Loop:
+            Criação de Compensação: Se a liberação ainda não tiver um registro de compensação (X.SQNCL_COMPENSADO IS NULL), a procedure incrementa um contador, gera um novo NU_SQNCL_COMPENSACAO_REPASSE e insere um registro na tabela FES.FESTB812_CMPSO_RPSE_INDVO. A inserção é feita via EXECUTE IMMEDIATE, o que permite construir a string SQL dinamicamente. O NU_TIPO_ACERTO é definido como 5.
+            Atualização da Liberação: A situação da liberação (IC_SITUACAO_LIBERACAO) é alterada para 'NR' (Não Repassado), e a DT_ATUALIZACAO é definida como SYSDATE.
+
+    Tabelas Envolvidas:
+        FES.FESTB712_LIBERACAO_CONTRATO (leitura e atualização)
+        FES.FESTB038_ADTMO_CONTRATO (leitura)
+        FES.FESTB711_RLTRO_CTRTO_ANLTO (leitura)
+        FES.FESTB812_CMPSO_RPSE_INDVO (leitura e inserção)
+
+    Campos Chave no SELECT do cursor:
+        L.NU_SQNCL_LIBERACAO_CONTRATO
+        A.NU_SQNCL_RLTRO_CTRTO_ANALITICO
+        L.NU_SEQ_CANDIDATO
+        L.AA_REFERENCIA_LIBERACAO
+        L.MM_REFERENCIA_LIBERACAO
+        R.NU_SQNCL_RLTRO_CTRTO_ANALITICO AS SQNCL_COMPENSADO
+
+    Campos Atualizados no UPDATE:
+        IC_SITUACAO_LIBERACAO (para 'NR')
+        DT_ATUALIZACAO (para SYSDATE)
+
+
 
 
 <pre>
