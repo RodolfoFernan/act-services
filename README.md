@@ -13,70 +13,99 @@ Análise da Procedure FES.FESSPZ57_CRISE2019_CORR_VLRS (Continuação)
 Os próximos blocos da procedure focam na adequação dos valores de repasse em diferentes cenários de inconsistência e na correção da situação das liberações associadas.
 Adequação do Valor das Liberações com Problema de Deslocamento no Repasse
 
-Este bloco visa corrigir os valores de repasse em liberações onde foi detectado um problema de "deslocamento" no montante repassado, redistribuindo o valor do aditamento entre as 6 parcelas do semestre.
+ --Atualização do sequencial do aditamento na TB712
+    FOR X IN
+        (
+        SELECT
+            NU_SQNCL_LIBERACAO_CONTRATO,
+            NU_SEQ_ADITAMENTO
+        FROM FES.FESTB712_LIBERACAO_CONTRATO
+                 INNER JOIN FES.FESTB038_ADTMO_CONTRATO
+                            ON NU_SEQ_CANDIDATO = NU_CANDIDATO_FK36
+                                AND AA_REFERENCIA_LIBERACAO = AA_ADITAMENTO
+                                AND CASE WHEN MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END = NU_SEM_ADITAMENTO
+                                --AND NU_STATUS_ADITAMENTO > 3
+                                AND NU_SEQ_ADITAMENTO IS NOT NULL
+        WHERE NU_SEQ_CANDIDATO > 20000000
+          AND ( NU_SQNCL_ADITAMENTO <> NU_SEQ_ADITAMENTO
+            OR NU_SQNCL_ADITAMENTO IS NULL )
+        )
+        LOOP
+            UPDATE FES.FESTB712_LIBERACAO_CONTRATO
+            SET NU_SQNCL_ADITAMENTO = X.NU_SEQ_ADITAMENTO,
+                DT_ATUALIZACAO = SYSDATE
+            WHERE NU_SQNCL_LIBERACAO_CONTRATO = X.NU_SQNCL_LIBERACAO_CONTRATO;
+        END LOOP;
 
-    Objetivo: Recalcular e atualizar o VR_REPASSE para cada uma das 6 liberações mensais de um dado semestre, para aqueles candidatos que já foram identificados com problema de "deslocamento" no valor do repasse (ou seja, o valor do aditamento é maior que a soma dos repasses, e a proporção entre eles segue um padrão específico, como múltiplos de 10 ou um fator de 100).
+    COMMIT;
 
-    Lógica Principal:
-        Cursor (FOR X IN (...)): Seleciona os NU_CANDIDATO_FK36, AA_ADITAMENTO, NU_SEM_ADITAMENTO e VR_ADITAMENTO de aditamentos válidos (status > 3, valor > 0) que estão relacionados a liberações de contrato.
-        Cláusula HAVING: A condição HAVING é a mesma do bloco anterior, que identifica os semestres com as seguintes características:
-            COUNT(L.VR_REPASSE) = 6: O aditamento tem exatamente 6 repasses associados (indicando um semestre completo).
-            SUM(L.VR_REPASSE) > 0: A soma dos repasses não é zero.
-            VR_ADITAMENTO > SUM(VR_REPASSE): O valor total do aditamento é maior que a soma dos repasses.
-            A condição de proporção (usando MOD e ROUND) que indica um provável "deslocamento" de valor (ex: diferença de um fator de 10 ou 100).
-        Loop Interno (FOR Lcntr IN 1..6): Para cada aditamento/semestre identificado (que satisfaz a condição de "deslocamento"), este loop itera 6 vezes, uma para cada mês do semestre.
-            Cálculo de vr_repasse: O valor de repasse para cada mês é calculado dividindo o VR_ADITAMENTO por 6 e arredondando para duas casas decimais (TRUNC(X.VR_ADITAMENTO / 6, 2)). A última parcela (mês 6) recebe o valor residual para garantir que a soma dos 6 repasses seja exatamente igual ao VR_ADITAMENTO.
-            Definição do mm_repasse: O mês de repasse é ajustado de acordo com o semestre (Lcntr para o 1º semestre, Lcntr + 6 para o 2º semestre).
-            Atualização do VR_REPASSE: Uma instrução UPDATE dinâmica (EXECUTE IMMEDIATE SQL_QUERY) é gerada e executada para atualizar o VR_REPASSE e DT_ATUALIZACAO na tabela FES.FESTB712_LIBERACAO_CONTRATO para a liberação específica (candidato, ano e mês de referência).
-        COMMIT por Candidato: Após processar as 6 parcelas de um candidato/semestre, um COMMIT é realizado. Isso garante que as alterações sejam salvas progressivamente e evita que transações grandes demais causem problemas de rollback em caso de falha.
 
-    Tabelas Envolvidas:
-        FES.FESTB712_LIBERACAO_CONTRATO (leitura e atualização)
-        FES.FESTB038_ADTMO_CONTRATO (leitura)
+    /* ####################################################################
+       TRATAMENTO DIVERGENCIA DE VALORES ENTRE O REPASSE E A CONTRATACAO
+       ####################################################################
+    */
 
-    Campos Chave no SELECT do cursor:
-        A.NU_CANDIDATO_FK36
-        A.AA_ADITAMENTO
-        A.NU_SEM_ADITAMENTO
-        A.VR_ADITAMENTO
+    --CURSOR PARA INSERCAO DE RETENCAO PARA LIBERACOES POR DIVERGENCIA ENTRE REPASSE E A CONTRATACAO
+    FOR X IN
+        (
+        SELECT
+            L.NU_SQNCL_LIBERACAO_CONTRATO
+        FROM FES.FESTB712_LIBERACAO_CONTRATO L
+                 INNER JOIN
+             (
+                 SELECT
+                     A.NU_CANDIDATO_FK11,
+                     TO_CHAR(C.DT_ADMISSAO_CANDIDATO, 'YYYY') AS ANO,
+                     (CASE WHEN TO_CHAR(C.DT_ADMISSAO_CANDIDATO,'MM') < 7 THEN 1 ELSE 2 END) AS SEMESTRE,
+                     A.VR_CONTRATO,
+                     SUM(L.VR_REPASSE)
+                 FROM FES.FESTB712_LIBERACAO_CONTRATO L
+                          INNER JOIN FES.FESTB036_CONTRATO_FIES A
+                                     ON L.NU_SEQ_CANDIDATO = A.NU_CANDIDATO_FK11
+                                         AND A.NU_STATUS_CONTRATO > 3
+                          INNER JOIN FES.FESTB010_CANDIDATO C
+                                     ON C.NU_SEQ_CANDIDATO = L.NU_SEQ_CANDIDATO
+                                         AND L.AA_REFERENCIA_LIBERACAO = TO_CHAR(C.DT_ADMISSAO_CANDIDATO, 'YYYY')
+                                         AND (CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END) = (CASE WHEN TO_CHAR(C.DT_ADMISSAO_CANDIDATO,'MM') < 7 THEN 1 ELSE 2 END)
+                 WHERE L.NU_SEQ_CANDIDATO > 20000000
+                   AND L.MM_REFERENCIA_LIBERACAO > 0
+                 GROUP BY
+                     CO_CPF,
+                     A.NU_CANDIDATO_FK11,
+                     A.VR_CONTRATO,
+                     TO_CHAR(C.DT_ADMISSAO_CANDIDATO, 'YYYY'),
+                     (CASE WHEN TO_CHAR(C.DT_ADMISSAO_CANDIDATO,'MM') < 7 THEN 1 ELSE 2 END)
+                 HAVING
+                     (
+                             ( SUM(VR_REPASSE) - VR_CONTRATO > 1 OR VR_CONTRATO - SUM(VR_REPASSE) > 1 )
+                             AND
+                             COUNT(L.VR_REPASSE) = 6
+                         )
+             ) D
+             ON L.NU_SEQ_CANDIDATO = D.NU_CANDIDATO_FK11
+                 AND L.AA_REFERENCIA_LIBERACAO = D.ANO
+                 AND CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END = D.SEMESTRE
+        WHERE NOT EXISTS
+            (
+                SELECT 1
+                FROM FES.FESTB817_RETENCAO_LIBERACAO R
+                WHERE L.NU_SQNCL_LIBERACAO_CONTRATO = R.NU_SQNCL_LIBERACAO_CONTRATO
+                  AND R.NU_MOTIVO_RETENCAO_LIBERACAO = 9
+                  AND R.DT_FIM_RETENCAO IS NULL
+            )
+        )
+        LOOP
+            --INSERE RETENCAO POR DIVERGENCIA ENTRE REPASSE E CONTRATO
+            SQL_QUERY := 'INSERT INTO FES.FESTB817_RETENCAO_LIBERACAO ' ||
+                         ' (NU_SQNCL_LIBERACAO_CONTRATO, NU_MOTIVO_RETENCAO_LIBERACAO, DT_INICIO_RETENCAO) values (' ||
+                         X.NU_SQNCL_LIBERACAO_CONTRATO || ', ''9'',''' || SYSDATE || ''')';
 
-    Campos Atualizados no UPDATE (dinâmico):
-        VR_REPASSE
-        DT_ATUALIZACAO
+            DBMS_OUTPUT.PUT_LINE(SQL_QUERY);
+            EXECUTE IMMEDIATE SQL_QUERY;
+        END LOOP;
 
-Adequação do Valor das Liberações com Repasse Zerado
+    COMMIT;
 
-Este bloco é similar ao anterior, mas foca em outro tipo de inconsistência: semestres onde o valor de repasse está zerado.
-
-    Objetivo: Recalcular e atualizar o VR_REPASSE para cada uma das 6 liberações mensais de um dado semestre, para aqueles candidatos que possuem liberações com VR_REPASSE igual a zero para o semestre, mas o aditamento associado tem um VR_ADITAMENTO positivo.
-
-    Lógica Principal:
-        Cursor (FOR X IN (...)): Seleciona os mesmos dados que o bloco anterior.
-        Cláusula HAVING: A condição HAVING é simplificada:
-            COUNT(L.VR_REPASSE) = 6: O aditamento tem exatamente 6 repasses associados.
-            SUM(L.VR_REPASSE) = 0: A soma dos repasses é zero (indicando que não houve repasse efetivo).
-        Loop Interno (FOR Lcntr IN 1..6): Para cada aditamento/semestre identificado com repasses zerados, este loop itera 6 vezes.
-            Cálculo de vr_repasse: O cálculo do vr_repasse para cada mês é idêntico ao do bloco anterior, garantindo que o valor do aditamento seja distribuído igualmente entre as 6 parcelas, com o ajuste final na última parcela.
-            Definição do mm_repasse: O mês de repasse é ajustado de acordo com o semestre.
-            Atualização do VR_REPASSE: Uma instrução UPDATE dinâmica (EXECUTE IMMEDIATE SQL_QUERY) é gerada e executada para atualizar o VR_REPASSE e DT_ATUALIZACAO na tabela FES.FESTB712_LIBERACAO_CONTRATO.
-        COMMIT por Candidato: Após processar as 6 parcelas de um candidato/semestre, um COMMIT é realizado.
-        Atualização da Situação da Liberação: Diferentemente do bloco anterior, após o commit das atualizações de VR_REPASSE para todas as 6 parcelas, há um UPDATE adicional que muda o IC_SITUACAO_LIBERACAO para 'NR' (Não Repassado) para todas as liberações daquele candidato/semestre que estavam com status 'R', 'NE' ou 'E'. Isso garante que, uma vez que os valores foram corrigidos, a situação da liberação seja redefinida para "Não Repassado", indicando que um novo processo de repasse pode ser necessário ou que o status precisa ser reavaliado com base nos novos valores.
-        COMMIT Final: Outro COMMIT é feito após a atualização da situação da liberação.
-
-    Tabelas Envolvidas:
-        FES.FESTB712_LIBERACAO_CONTRATO (leitura e atualização)
-        FES.FESTB038_ADTMO_CONTRATO (leitura)
-
-    Campos Chave no SELECT do cursor:
-        A.NU_CANDIDATO_FK36
-        A.AA_ADITAMENTO
-        A.NU_SEM_ADITAMENTO
-        A.VR_ADITAMENTO
-
-    Campos Atualizados no UPDATE (dinâmico e final):
-        VR_REPASSE
-        DT_ATUALIZACAO
-        IC_SITUACAO_LIBERACAO (para 'NR')
 
 
 
