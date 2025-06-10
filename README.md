@@ -7,378 +7,250 @@
 
 <h2>1. Estrutura dos Microsserviços</h2>
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
-Procedimento FES.FESSPZ41_CRISE19_FIM_RETENC_2
+Jose Rodolfo Lima da Silva precisamos que você e um analista de negocio, levante esse fluxo Javaweb e os reflexos quando vai para o repasse SP's abaixo e a rotina Java batch FES.REPASSE: 
 
-Este procedimento tem como objetivo principal encerrar retenções em liberações que atendem a critérios específicos, principalmente relacionados a transferências e aditamentos de contratos.
-Inicialização do Procedimento
+ Avaliar quais tabelas Impactadas e parâmetros. 
+ 
 
-O procedimento começa com a definição de uma variável SQL_QUERY para armazenar comandos SQL dinâmicos. Em seguida, ele redefine os formatos de data e timestamp da sessão, o que é crucial para garantir que as operações de data sejam executadas corretamente, independentemente das configurações padrão do banco de dados.
+FES.FESSPU20_VINCULA_LIBERACAO  
+Serviço Técnico Especializado 12476268 
+Visão Negocial.:  
 
-    Comandos de Sessão:
-        ALTER SESSION SET NLS_DATE_FORMAT = 'DD/MM/YYYY'
-        ALTER SESSION SET NLS_TIMESTAMP_FORMAT = 'DD/MM/YYYY'
+(Vincula liberações ao contrato ou aditamento) 
+TABELAS ENVOLVIDAS 
+FES.FESTB038_ADTMO_CONTRATO 
 
-Etapa 19: Encerramento de Retenções por Transferência (Situação 'NR')
+FES.FESTB712_LIBERACAO_CONTRATO 
+FES.FESTB817_RETENCAO_LIBERACAO 
 
-Objetivo: Identificar e finalizar retenções de liberações que estavam na situação 'NR' (Não Repassada) devido a uma transferência de contrato concluída (status 5), e que já possuem um aditamento ou foram originadas em um determinado semestre de admissão. Isso permite que essas liberações sejam processadas no próximo repasse.
+ 
+ 
 
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_SEQ_CANDIDATO
-            AA_REFERENCIA_LIBERACAO
-            MM_REFERENCIA_LIBERACAO
-            IC_SITUACAO_LIBERACAO
-            NU_IES
-        FES.FESTB817_RETENCAO_LIBERACAO (aliás R)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_MOTIVO_RETENCAO_LIBERACAO (filtrado por 2 para transferência)
-            DT_FIM_RETENCAO
-        FES.FESTB049_TRANSFERENCIA (aliás T)
-            NU_CANDIDATO_FK10
-            NU_STATUS_TRANSFERENCIA (filtrado por 5 para status concluído)
-            NU_CAMPUS_ORIGEM_FK161
-            NU_CAMPUS_DESTINO_FK161
-            AA_REFERENCIA
-            NU_SEM_REFERENCIA
-            NU_SEQ_TRANSFERENCIA
-            DT_INCLUSAO
-        FES.FESTB154_CAMPUS_INEP (aliás C para campus de origem, I para campus de destino)
-            NU_CAMPUS
-            NU_IES_FK155
-        FES.FESTB038_ADTMO_CONTRATO (aliás A, LEFT OUTER JOIN)
-            NU_CANDIDATO_FK36
-            DT_ADITAMENTO
-            AA_ADITAMENTO
-            NU_SEM_ADITAMENTO
-        FES.FESTB010_CANDIDATO (aliás CA, LEFT OUTER JOIN)
-            NU_SEQ_CANDIDATO
-            DT_ADMISSAO_CANDIDATO
-    Tabelas Afetadas (Escrita):
-        FES.FESTB817_RETENCAO_LIBERACAO (Atualização do DT_FIM_RETENCAO)
+FES.FESSPZ57_CRISE2019_CORR_VLRS 
+Item de Backlog 20972958 
+Visão Negocial.: 
+As rotinas inerentes aos acertos pertinentes à apuração do repasse de Maio de 2023 foram encaminhadas, e atendidas, para execução por intermédio da solicitação REQ000065985851 na data de 22/05/2023. 
 
-Etapa 20: Encerramento de Retenções por Transferência (Situação Diferente de 'NR')
+ 
 
-Objetivo: Complementar a etapa anterior, finalizando as retenções de liberações cujo motivo é transferência (motivo 2), mas que já não estão mais na situação 'NR' (Não Repassada). Isso assegura que nenhuma retenção de transferência permaneça ativa em liberações que já foram reprocessadas ou tiveram sua situação alterada por outros meios.
+Após execução das mesmas e análise aos logs de saída disponibilizados identificamos que a execução da FESSPZ57_CRISE2019_CORR_VLRS apresentou erro, conforme abaixo: 
 
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            IC_SITUACAO_LIBERACAO (filtrado para ser diferente de 'NR')
-        FES.FESTB817_RETENCAO_LIBERACAO (aliás R)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_MOTIVO_RETENCAO_LIBERACAO (filtrado por 2 para transferência)
-            DT_FIM_RETENCAO
-    Tabelas Afetadas (Escrita):
-        FES.FESTB817_RETENCAO_LIBERACAO (Atualização do DT_FIM_RETENCAO)
+ 
 
+UPDATE FES.FESTB712_LIBERACAO_CONTRATO SET VR_REPASSE = '7163.95', DT_ATUALIZACAO = '22/05/23' WHERE NU_SEQ_CANDIDATO = 20288376 AND AA_REFERENCIA_LIBERACAO = 2022 AND MM_REFERENCIA_LIBERACAO = 1 
 
-Você me forneceu mais um trecho de código PL/SQL, que continua o procedimento FES.FESSPZ41_CRISE19_FIM_RETENC_2. Este trecho foca no encerramento de retenções por motivos de suspensão e ausência de aditamento válido.
+*** ERRO VERIFICADO: -1722 - ORA-01722: número inválido 
 
-Vamos analisar as próximas etapas:
-Etapa 21: Encerramento de Retenções por Suspensão (Completa)
+*** INSTRUCAO : UPDATE FES.FESTB712_LIBERACAO_CONTRATO SET VR_REPASSE = '7163.95', DT_ATUALIZACAO = '22/05/23' WHERE NU_SEQ_CANDIDATO = 20288376 AND AA_REFERENCIA_LIBERACAO = 2022 AND MM_REFERENCIA_LIBERACAO = 1 
 
-Objetivo: Identificar e finalizar retenções de liberações que estavam suspensas, mas que não possuem mais uma ocorrência de suspensão ativa (NU_STATUS_OCORRENCIA = 11) para o semestre de referência da liberação. Isso indica que a suspensão foi resolvida, permitindo que a liberação prossiga.
+ 
 
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_SEQ_CANDIDATO
-            AA_REFERENCIA_LIBERACAO
-            MM_REFERENCIA_LIBERACAO
-        FES.FESTB817_RETENCAO_LIBERACAO (aliás R)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_MOTIVO_RETENCAO_LIBERACAO (filtrado por 3 para suspensão)
-            DT_FIM_RETENCAO
-        FES.FESTB057_OCRRA_CONTRATO (aliás O, LEFT OUTER JOIN)
-            NU_CANDIDATO_FK36
-            IC_TIPO_OCORRENCIA (filtrado por 'S' para suspensão)
-            NU_STATUS_OCORRENCIA (filtrado por 11 para status de ocorrência)
-            AA_REFERENCIA
-            NU_SEMESTRE_REFERENCIA
-    Lógica: O LEFT OUTER JOIN com FESTB057_OCRRA_CONTRATO e a condição WHERE O.NU_CANDIDATO_FK36 IS NULL são cruciais aqui. Eles buscam liberações que possuem uma retenção de suspensão ativa (R.DT_FIM_RETENCAO IS NULL e R.NU_MOTIVO_RETENCAO_LIBERACAO = 3), mas que não têm mais uma ocorrência de suspensão correspondente e ativa. Isso significa que a condição que causou a retenção (a suspensão) foi removida ou finalizada em outra parte do sistema.
-    Tabelas Afetadas (Escrita):
-        FES.FESTB817_RETENCAO_LIBERACAO (Atualização do DT_FIM_RETENCAO)
+Haja vista a constatação do erro identificado ser reincidente da não configuração correta do setvar, incorrendo em um formato de data rejeitada pelo comando de Update na rotina, solicitamos que todos os Jobs fossem reexecutados na mesma ordem, observando a correção deste em questão para a contemplação da configuração do setvar esperada. 
 
-Etapa 22: Encerramento de Retenções por Suspensão Parcial e Atualização da Situação
+ 
 
-Objetivo: Identificar liberações que estão retidas por suspensão parcial e, dependendo da sua situação atual, atualizar o IC_SITUACAO_LIBERACAO para 'S' (Suspenso) e finalizar a retenção. Isso é aplicado a liberações que deveriam ter sido suspensas parcialmente durante um período específico.
+TABELAS ENVOLVIDAS 
+FESTB812_CMPSO_RPSE_INDVO 
 
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            IC_SITUACAO_LIBERACAO
-            DT_LIBERACAO
-            NU_SEQ_CANDIDATO
-            AA_REFERENCIA_LIBERACAO
-            MM_REFERENCIA_LIBERACAO
-        FES.FESTB817_RETENCAO_LIBERACAO (aliás R)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_MOTIVO_RETENCAO_LIBERACAO (filtrado por 3 para suspensão)
-            DT_FIM_RETENCAO
-        FES.FESTB057_OCRRA_CONTRATO (aliás O)
-            NU_CANDIDATO_FK36
-            IC_TIPO_OCORRENCIA (filtrado por 'S' para suspensão)
-            NU_STATUS_OCORRENCIA (filtrado por 11 para status de ocorrência)
-            IC_TIPO_SUSPENSAO (filtrado por 'P' para suspensão parcial)
-            AA_REFERENCIA
-            NU_SEMESTRE_REFERENCIA
-            DT_OCORRENCIA
-            DT_INICIO_VIGENCIA
-            DT_FIM_VIGENCIA
-    Lógica:
-        O cursor seleciona liberações com retenção de motivo 3 (suspensão) e sem data de fim de retenção.
-        Ele junta com ocorrências de contrato que são suspensões parciais (IC_TIPO_SUSPENSAO = 'P') com status 11 e que se alinham com o ano/semestre da liberação.
-        Há uma verificação de datas complexa para o DT_OCORRENCIA e DT_FIM_VIGENCIA da ocorrência, garantindo que as datas correspondam aos semestres.
-        A condição DT_INICIO_VIGENCIA = LAST_DAY(DT_OCORRENCIA) + 1 parece indicar que a vigência da suspensão parcial começa no dia 1 do mês seguinte ao da ocorrência.
-        Dentro do loop, se a liberação está na situação 'NR' e sua DT_LIBERACAO está entre DT_INICIO_VIGENCIA e DT_FIM_VIGENCIA da ocorrência de suspensão, a situação da liberação (IC_SITUACAO_LIBERACAO) é atualizada para 'S' (Suspenso).
-        Finalmente, a retenção de suspensão para essa liberação é finalizada.
-    Tabelas Afetadas (Escrita):
-        FES.FESTB712_LIBERACAO_CONTRATO (Atualização do IC_SITUACAO_LIBERACAO e DT_ATUALIZACAO)
-        FES.FESTB817_RETENCAO_LIBERACAO (Atualização do DT_FIM_RETENCAO)
+FESTB712_LIBERACAO_CONTRATO 
 
-Etapa 23: Encerramento de Retenções por Falha de Vinculação
+FESTB038_ADTMO_CONTRATO 
 
-Objetivo: Finalizar retenções de liberações cujo motivo é falha na vinculação entre tabelas (NU_MOTIVO_RETENCAO_LIBERACAO = 4), mas que já possuem um NU_TIPO_TRANSACAO preenchido. Isso sugere que a vinculação foi corrigida, permitindo o prosseguimento da liberação.
+FESTB711_RLTRO_CTRTO_ANLTO 
 
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_TIPO_TRANSACAO
-        FES.FESTB817_RETENCAO_LIBERACAO (aliás R)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_MOTIVO_RETENCAO_LIBERACAO (filtrado por 4 para falha de vinculação)
-            DT_FIM_RETENCAO
-    Lógica: O cursor busca liberações que têm uma retenção ativa por "falha na vinculação entre tabelas" e verifica se o campo NU_TIPO_TRANSACAO da liberação já não é NULL. Se NU_TIPO_TRANSACAO não é NULL, presume-se que a falha foi resolvida, e a retenção é finalizada.
-    Tabelas Afetadas (Escrita):
-        FES.FESTB817_RETENCAO_LIBERACAO (Atualização do DT_FIM_RETENCAO)
+ 
 
-Etapa 24: Encerramento de Retenções por Ausência de Aditamento Válido
+ FES.FESSPZ55_CRISE2019_TRATA_SUSP 
+Item de Backlog 20808327 
+Visão Negocial 
+Visando à análise ao requerido, no que concerne aos impactos no repasse provenientes da inclusão e exclusão das Suspensões Tácitas indevidas, seguem algumas observações: 
 
-Objetivo: Finalizar retenções de liberações que foram retidas por ausência de aditamento válido (NU_MOTIVO_RETENCAO_LIBERACAO = 7), mas que agora possuem um aditamento válido ou um contrato FIES com status adequado.
+ 
 
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_SEQ_CANDIDATO
-            AA_REFERENCIA_LIBERACAO
-            MM_REFERENCIA_LIBERACAO
-        FES.FESTB817_RETENCAO_LIBERACAO (aliás R)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_MOTIVO_RETENCAO_LIBERACAO (filtrado por 7 para ausência de aditamento)
-            DT_FIM_RETENCAO
-        FES.FESTB038_ADTMO_CONTRATO (aliás A, LEFT OUTER JOIN)
-            NU_CANDIDATO_FK36
-            NU_STATUS_ADITAMENTO (filtrado por > 3 para aditamento válido)
-            DT_ADITAMENTO
-            AA_ADITAMENTO
-            NU_SEM_ADITAMENTO
-        FES.FESTB010_CANDIDATO (aliás CA, LEFT OUTER JOIN)
-            NU_SEQ_CANDIDATO
-            DT_ADMISSAO_CANDIDATO
-        FES.FESTB036_CONTRATO_FIES (aliás F, LEFT OUTER JOIN)
-            NU_CANDIDATO_FK11
-            NU_STATUS_CONTRATO (filtrado por > 3 para contrato válido)
-            DT_ASSINATURA
-    Lógica: O cursor busca liberações com retenção ativa por "ausência de aditamento válido". A condição WHERE verifica se existe um aditamento válido (A.NU_CANDIDATO_FK36 IS NOT NULL) OU se existe um registro de candidato com data de admissão e um contrato FIES válido associado (CA.NU_SEQ_CANDIDATO IS NOT NULL AND F.NU_CANDIDATO_FK11 IS NOT NULL). Se alguma dessas condições for verdadeira, a retenção é finalizada.
-    Tabelas Afetadas (Escrita):
-        FES.FESTB817_RETENCAO_LIBERACAO (Atualização do DT_FIM_RETENCAO)
+1ª Etapa 
 
-Cada bloco de código termina com um COMMIT;, o que significa que as alterações são persistidas no banco de dados após a conclusão de cada loop de atualização.
+ 
 
-Há mais algum trecho desse procedimento, ou algum outro procedimento que você gostaria de analisar?
+- Foram incluídas 78.591 suspensões tácitas do período 01/2022, obedecendo o público pré-selecionado, conforme registrado na tabela FESTB835_MVMTO_TACITO_CONTRATO, objeto dos resultados apresentado do relatório em tela; 
 
+ 
 
+- As suspensões foram incluídas sem restrições de critérios, ou seja, sem verificação de pertinência para as mesmas, visando à reprodução do ocorrido quando da execução da funcionalidade; 
 
-tapa 25: Encerramento de Retenções por Ausência de Aditamento Válido (Situações Específicas)
+ 
 
-Objetivo: Finalizar retenções de liberações que foram marcadas com motivo 7 (Ausência de Aditamento Válido) e cuja situação atual da liberação (IC_SITUACAO_LIBERACAO) não seja 'NR' (Não Repassada) ou 'R' (Repassada).
+- Os resultados podem ser observados, conforme arquivo Suspensoes Tacita Incluidas 01_2022, em anexo; 
 
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            IC_SITUACAO_LIBERACAO
-        FES.FESTB817_RETENCAO_LIBERACAO (aliás R)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_MOTIVO_RETENCAO_LIBERACAO (filtrado por 7)
-            DT_FIM_RETENCAO
-    Lógica: Este bloco busca especificamente por retenções de motivo 7 que ainda estão ativas (DT_FIM_RETENCAO IS NULL). A condição crucial é L.IC_SITUACAO_LIBERACAO NOT IN ('NR', 'R'). Isso implica que se a liberação não está mais em um status de "Não Repassada" ou "Repassada" (ou seja, ela foi processada ou teve sua situação alterada de alguma outra forma), a retenção de "Ausência de Aditamento Válido" não é mais relevante e deve ser encerrada.
-    Tabelas Afetadas (Escrita):
-        FES.FESTB817_RETENCAO_LIBERACAO (Atualização do DT_FIM_RETENCAO)
+ 
 
-Etapa 26: Encerramento de Retenções por Análise de Liberações a Estornar (Situação Diferente de 'NE')
+- Foram realizados os procedimentos para suspensão ( S ) dos repasses não realizados ( NR ) e estorno ( NE ) dos repasses realizados ( R ); 
 
-Objetivo: Finalizar retenções de liberações que estavam sob análise para estorno (motivo 5), mas que não estão mais na situação 'NE' (Não Enviada). Isso sugere que a análise foi concluída ou que a liberação mudou de estado, tornando a retenção desnecessária.
+ 
 
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            IC_SITUACAO_LIBERACAO
-        FES.FESTB817_RETENCAO_LIBERACAO (aliás R)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_MOTIVO_RETENCAO_LIBERACAO (filtrado por 5)
-            DT_FIM_RETENCAO
-    Lógica: Este bloco visa liberações com retenção ativa de motivo 5 (Análise de Liberações a Estornar). Se a situação da liberação (IC_SITUACAO_LIBERACAO) não for mais 'NE', a retenção é finalizada.
-    Tabelas Afetadas (Escrita):
-        FES.FESTB817_RETENCAO_LIBERACAO (Atualização do DT_FIM_RETENCAO)
+- Foram totalizadas 217.542 Liberações concomitantes às Suspensões Tácitas incluídas. Desse total 91 (noventa e uma) já se encontravam suspensas (S) ou (NE), por outros expedientes. 
 
-Etapa 27: Encerramento de Retenções por Análise de Liberações a Estornar (Condições Complexas)
+ 
 
-Objetivo: Finalizar retenções de liberações que estavam sob análise para estorno (motivo 5) e que estão na situação 'NE' (Não Enviada), mas que satisfazem um conjunto complexo de condições sobre a existência ou ausência de aditamentos, contratos FIES, ou ocorrências de suspensão/estorno.
+ 
 
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_SEQ_CANDIDATO
-            AA_REFERENCIA_LIBERACAO
-            MM_REFERENCIA_LIBERACAO
-            IC_SITUACAO_LIBERACAO (filtrado por 'NE')
-            DT_LIBERACAO
-        FES.FESTB817_RETENCAO_LIBERACAO (aliás R)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_MOTIVO_RETENCAO_LIBERACAO (filtrado por 5)
-            DT_FIM_RETENCAO
-        FES.FESTB038_ADTMO_CONTRATO (aliás A, LEFT OUTER JOIN)
-            NU_CANDIDATO_FK36
-            NU_STATUS_ADITAMENTO (filtrado por > 3)
-        FES.FESTB010_CANDIDATO (aliás C, LEFT OUTER JOIN)
-            NU_SEQ_CANDIDATO
-        FES.FESTB036_CONTRATO_FIES (aliás F, LEFT OUTER JOIN)
-            NU_CANDIDATO_FK11
-            NU_STATUS_CONTRATO (filtrado por > 3)
-        FES.FESTB057_OCRRA_CONTRATO (aliás O e OC, LEFT OUTER JOIN, com diferentes filtros para suspensão parcial 'S' e estorno 'E')
-            NU_CANDIDATO_FK36
-            IC_TIPO_OCORRENCIA
-            IC_TIPO_SUSPENSAO
-            NU_STATUS_OCORRENCIA (filtrado por 11)
-            AA_REFERENCIA
-            NU_SEMESTRE_REFERENCIA
-            DT_OCORRENCIA
-            DT_FIM_VIGENCIA
-            DT_INICIO_VIGENCIA
+2ª Etapa 
 
-    Lógica: Este é o bloco mais complexo até agora. Ele busca liberações que estão na situação 'NE' e que ainda têm uma retenção ativa por motivo 5. A condição WHERE avalia se:
-        Não há um aditamento válido E não há um registro de candidato válido, OU
-        Existe um registro de candidato, mas não há um contrato FIES válido, OU
-        Existe uma ocorrência de suspensão parcial (O.NU_CANDIDATO_FK36 IS NOT NULL), OU
-        Existe uma ocorrência de estorno (OC.NU_CANDIDATO_FK36 IS NOT NULL).
+ 
 
-    Se qualquer uma dessas condições (que parecem indicar que a liberação ainda não está "pronta" para ser estornada ou que há uma pendência a ser resolvida que a impede de ser processada normalmente) for verdadeira, a retenção de análise de estorno é finalizada. Isso pode parecer contraintuitivo, mas o objetivo de "finalizar a retenção" aqui é, provavelmente, remover a marca de "análise de estorno" porque outra condição (ou a ausência de condições necessárias) já indica que a liberação não será estornada ou que a análise não é mais aplicável sob aquelas circunstâncias.
+- Foi realizado procedimento de exclusão de todas as suspensões tácitas incluídas para o período de 01/2022, conforme resultado apresentado acima; 
 
-    Tabelas Afetadas (Escrita):
-        FES.FESTB817_RETENCAO_LIBERACAO (Atualização do DT_FIM_RETENCAO)
+ 
 
-Todos esses blocos operam em conjunto para gerenciar o ciclo de vida das retenções de liberações, garantindo que elas sejam encerradas quando as condições que as originaram não são mais válidas ou quando outras situações determinam que a retenção deve ser desfeita.
+- Foi executado o procedimento FESSPZ55_CRISE2019_TRATA_SUSP, parte inerente aos processos executados mensalmente quando da iminência da apuração do repasse em Produção. 
 
-Você tem mais algum trecho desse procedimento ou outro que gostaria de analisar?
+ 
 
+- Foi observado que para as Liberações do período cuja a Suspensão Tácita foi excluída o status das mesmas foi revertido. 
 
-O Gemini pode cometer erros, por isso, verifique as informações
+ 
 
+- Cabe salientar neste ponto que o procedimento FESSPZ55_CRISE2019_TRATA_SUSP verifica a existência de lançamentos que sustentem, ou fundamentem, o status de Suspensão ( S ) ou Estorno ( NE ) das Liberações do período. Dessa forma, ainda que para a inclusão das Suspensões Tácitas não foram observados critérios de pertinência, e consequentemente reflexo na alteração dos status da Liberações correlatas, para a adequação, conforme esse procedimento, são considerados critérios de validação: inexistência de ocorrências de suspensão ou encerramento (status 11 ou 18); Aditamento de Renovação contratado (status 4 ou 5); Contrato Finalizado (status 4 ou 5). 
 
+ 
 
-Etapa 28: Encerramento de Retenções por Divergência entre Repasse e Aditamento
+- O ressaltado acima pode ser observado no arquivo Liberações status S ou NE permanentes, em anexo. 
+TABELAS ENVOLVIDAS 
+FESTB812_CMPSO_RPSE_INDVO 
 
-Objetivo: Finalizar retenções de liberações que foram marcadas com motivo 9 (Divergência entre Repasse e Aditamento) e que, após uma reavaliação, mostram que a soma dos repasses está muito próxima do valor do aditamento (dentro de uma margem de $1) para o semestre em questão.
+FESTB712_LIBERACAO_CONTRATO 
 
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_SEQ_CANDIDATO
-            AA_REFERENCIA_LIBERACAO
-            MM_REFERENCIA_LIBERACAO
-            VR_REPASSE
-        FES.FESTB038_ADTMO_CONTRATO (unido em uma subconsulta 'D')
-            NU_CANDIDATO_FK36
-            AA_ADITAMENTO
-            NU_SEM_ADITAMENTO
-            NU_STATUS_ADITAMENTO (filtrado por > 3 para aditamento válido)
-            VR_ADITAMENTO
-        FES.FESTB817_RETENCAO_LIBERACAO (aliás R, em uma subconsulta EXISTS)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_MOTIVO_RETENCAO_LIBERACAO (filtrado por 9)
-            DT_FIM_RETENCAO
-    Lógica:
-        A subconsulta D calcula a soma dos VR_REPASSE por candidato, ano e semestre, e compara com o VR_ADITAMENTO do aditamento correspondente.
-        A condição HAVING é crucial: ( ( SUM(VR_REPASSE) - VR_ADITAMENTO ) BETWEEN 0 AND 1 OR ( VR_ADITAMENTO - SUM(VR_REPASSE) ) BETWEEN 0 AND 1 ). Isso significa que a diferença entre o total repassado e o valor do aditamento deve ser de no máximo $1 (para cima ou para baixo), indicando que a divergência foi resolvida ou é insignificante.
-        A condição COUNT(VR_REPASSE) = 6 sugere que a liberação deve ter 6 parcelas de repasse para ser considerada.
-        O INNER JOIN com a subconsulta D filtra as liberações que atendem a essa condição de "quase igualdade" de valores.
-        O EXISTS verifica se a liberação atualmente tem uma retenção ativa de motivo 9.
-        Se todas as condições forem satisfeitas, a retenção é finalizada.
-    Tabelas Afetadas (Escrita):
-        FES.FESTB817_RETENCAO_LIBERACAO (Atualização do DT_FIM_RETENCAO)
+FESTB010_CANDIDATO 
 
-Etapa 29: Encerramento de Retenções por Divergência entre Repasse e Contratação
+FESTB711_RLTRO_CTRTO_ANLTO 
 
-Objetivo: Finalizar retenções de liberações que foram marcadas com motivo 9 (Divergência entre Repasse e Contratação) e que, após uma reavaliação, mostram que a soma dos repasses está muito próxima do valor do contrato (dentro de uma margem de $1) para o semestre de contratação.
+FESTB817_RETENCAO_LIBERACAO 
 
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_SEQ_CANDIDATO
-            AA_REFERENCIA_LIBERACAO
-            MM_REFERENCIA_LIBERACAO
-            VR_REPASSE
-        FES.FESTB036_CONTRATO_FIES (aliás A, unido em uma subconsulta 'D')
-            NU_CANDIDATO_FK11
-            NU_STATUS_CONTRATO (filtrado por > 3 para contrato válido)
-            VR_CONTRATO
-        FES.FESTB010_CANDIDATO (aliás C, unido em uma subconsulta 'D')
-            NU_SEQ_CANDIDATO
-            DT_ADMISSAO_CANDIDATO
-        FES.FESTB711_RLTRO_CTRTO_ANLTO (aliás A, LEFT OUTER JOIN)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_SEQ_CANDIDATO
-            VR_REPASSE
-        FES.FESTB812_CMPSO_RPSE_INDVO (aliás R, LEFT OUTER JOIN)
-            NU_SQNCL_RLTRO_CTRTO_ANALITICO
-            NU_TIPO_ACERTO (filtrado por 7)
-            IC_COMPENSADO (filtrado por 'N')
-    Lógica:
-        A subconsulta D é similar à anterior, mas compara a soma dos VR_REPASSE com o VR_CONTRATO para o ano e semestre de admissão do candidato.
-        As condições HAVING (( SUM(VR_REPASSE) - VR_CONTRATO ) BETWEEN 0 AND 1 OR ( VR_CONTRATO - SUM(VR_REPASSE) ) BETWEEN 0 AND 1) e COUNT(L.VR_REPASSE) = 6 são as mesmas da etapa anterior, mas aplicadas ao contrato.
-        Os LEFT OUTER JOINs com FESTB711_RLTRO_CTRTO_ANLTO e FESTB812_CMPSO_RPSE_INDVO e a condição ( A.NU_SQNCL_LIBERACAO_CONTRATO IS NULL OR R.NU_SQNCL_RLTRO_CTRTO_ANALITICO IS NULL ) sugerem que a retenção é finalizada se não houver um registro analítico de repasse ou um registro de compensação de repasse individual que indique uma pendência.
-        O EXISTS verifica a presença de uma retenção ativa de motivo 9.
-        Se as condições indicarem que a divergência foi resolvida ou não é mais um problema, a retenção é finalizada.
-    Tabelas Afetadas (Escrita):
-        FES.FESTB817_RETENCAO_LIBERACAO (Atualização do DT_FIM_RETENCAO)
+FESTB057_OCRRA_CONTRATO 
 
-Etapa 30: Encerramento de Retenções por Ausência de Finalização no Processo de Aditamento
+ 
+FES.FESSPZA6_COMPENSACAO_REPASSE 
+Serviço Técnico Especializado 18389570 
+Visão Negocial.: 
+Conforme evidências apresentadas, informamos que as 1145 compensações previstas na extração das tabelas de liberação do ambiente de produção foram identificadas também em extrações do ambiente TGE/EXADATA, marcadas com o status IC_COMPENSACAO "N". 
 
-Objetivo: Finalizar retenções de liberações que foram marcadas com motivo 10 (Ausência de Finalização no Processo de Aditamento), mas cujo processo de aditamento correspondente já está em um status finalizado (NU_SITUACAO_PROCESSO = 9).
+Quanto às retenções previstas em Produção, identificamos que das 130 liberações, 111 receberam indicativo de retenção após a execução da FESSPZA6_COMPENSACAO_REPASSE. As demais retenções não foram encontradas com a situação a repassar quando da avaliação do extrato analítico das parcelas aptas a repassar, o que pode indicar que as liberações ausentes tenham sido geradas após a data de atualização da base. 
 
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás T712)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_SEQ_CANDIDATO
-            AA_REFERENCIA_LIBERACAO
-            MM_REFERENCIA_LIBERACAO
-            IC_SITUACAO_LIBERACAO (filtrado por 'NR')
-        FES.FESTB038_ADTMO_CONTRATO (aliás T38)
-            NU_CANDIDATO_FK36
-            AA_ADITAMENTO
-            NU_SEM_ADITAMENTO
-            NU_STATUS_ADITAMENTO (filtrado por IN (4, 5))
-        FES.FESTB759_PROCESSO_ADITAMENTO (aliás T759)
-            NU_CANDIDATO
-            AA_REFERENCIA
-            NU_SEMESTRE_REFERENCIA
-            NU_SITUACAO_PROCESSO (filtrado por 9)
-        FES.FESTB817_RETENCAO_LIBERACAO (aliás T817, em uma subconsulta EXISTS)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_MOTIVO_RETENCAO_LIBERACAO (filtrado por 10)
-            DT_FIM_RETENCAO
-    Lógica: Este bloco procura por liberações que ainda não foram repassadas (IC_SITUACAO_LIBERACAO = 'NR') e que possuem uma retenção ativa por motivo 10. A condição principal é que o processo de aditamento associado (FESTB759_PROCESSO_ADITAMENTO) esteja com NU_SITUACAO_PROCESSO = 9, indicando que o aditamento foi finalizado. Se o processo de aditamento está finalizado, a retenção baseada na "ausência de finalização" não faz mais sentido e é encerrada.
-    Tabelas Afetadas (Escrita):
-        FES.FESTB817_RETENCAO_LIBERACAO (Atualização do DT_FIM_RETENCAO)
+Diante disso, homologamos a presente solução sob as perspectivas avaliadas, supracitadas 
 
-Finalização e Tratamento de Exceções
+TABELAS ENVOLVIDAS 
+FESTB812_CMPSO_RPSE_INDVO 
 
-    COMMIT;: Após cada bloco de loops, um COMMIT; é executado, garantindo que as atualizações de DT_FIM_RETENCAO (e IC_SITUACAO_LIBERACAO em um caso específico) sejam gravadas permanentemente no banco de dados.
-    Mensagens DBMS_OUTPUT.PUT_LINE: São usadas para depuração e para indicar o progresso do procedimento, informando o início e o fim do processamento de cada tipo de retenção, e o fim geral do procedimento.
-    EXCEPTION WHEN OTHERS THEN: Este é o bloco de tratamento de exceções. Se qualquer erro ocorrer durante a execução do procedimento, ele será capturado aqui.
-        ROLLBACK;: Todas as alterações feitas desde o último COMMIT (ou desde o início do procedimento, se não houver COMMIT anterior) são desfeitas, garantindo a integridade dos dados.
-        DBMS_OUTPUT.PUT_LINE: Mensagens de erro são exibidas, incluindo o código do erro (SQLCODE), a mensagem de erro (SQLERRM), e a instrução SQL que causou o problema (SQL_QUERY). Isso é extremamente útil para depuração em um ambiente de desenvolvimento ou para registro de logs em produção.
+FESTB712_LIBERACAO_CONTRATO 
+FESTB818_MOTIVO_RETENCAO_LBRCO 
+
+FESTB711_RLTRO_CTRTO_ANLTO 
+
+FESTB817_RETENCAO_LIBERACAO 
+
+ 
+
+Serviço Técnico Especializado 12476268 
+
+Visão Negocial.: 
+(atualiza para não apto nas situações: troca mantença, suspensão, estornado e transferência) 
+
+ 
+FES.FESSPZ45_CRISE2019_ALTER_LIB_2 
+Serviço Técnico Especializado 14707163 
+Visão Negocial.: 
+À 
+CEDESBR251 
+ 
+Segue proposta para regularização de situações do repasse a ser realizada em junho: 
+ 
+1.   Ajuste nas liberações a repassar e repassadas – inconsistência no percentual de financiamento 
+ 
+Deverá ser realizado análise de todas as liberações geradas, repassadas ou não repassadas, verificando se o valor das liberações corresponde ao valor contratado no aditamento renovação. 
+Se o valor das liberações não corresponder ao valor do aditamento renovação, então deverá ser realizado o ajuste no valor. 
+ 
+Para os casos onde as liberações estejam repassadas, o valor repassado deverá ser incluído na compensação e o valor da liberação corrigida e alterada para situação “a repassar”, para que seja repassado no valor correto. 
+ 
+Para os casos onde as liberações não foram repassadas, seu valor deverá ser ajustado para que corresponda ao valor do aditamento renovação. As liberações enquadradas nesse caso, que tiverem retenções por liberações a estornar, deverão ter a retenção finalizada após o ajuste no valor. 
+ 
+ 
+2        Ajuste na IES da liberação para estudantes com transferência 
+ 
+Para contratos com transferência realizada (status 5) deverá ser verificado se a IES da liberação dos semestres anteriores a transferência é a IES de origem e se as liberações referentes ao mesmo semestre da transferência e posteriores são da IES de destino. 
+ 
+Caso a IES da liberação não esteja obedecendo a regra acima, a liberação deverá ter a IES ajustada para a IES correta. No caso das liberações já repassadas, o valor deverá ser incluído na compensação e as liberações correspondentes deverão ter a IES ajustada a situação alterada para “não repassada”. 
+ 
+Para os casos onde houver mais de uma transferência realizada para o estudante, a liberação estará gravada na mantenedora destino até o semestre imediatamente anterior à segunda transferência, devendo as demais estarem geradas para a nova mantenedora destino e assim por diante. 
+
+TABELAS ENVOLVIDAS 
+FESTB812_CMPSO_RPSE_INDVO 
+
+FESTB712_LIBERACAO_CONTRATO 
+FESTB818_MOTIVO_RETENCAO_LBRCO 
+
+FESTB711_RLTRO_CTRTO_ANLTO 
+
+FESTB817_RETENCAO_LIBERACAO 
+
+FESTB049_TRANSFERENCIA 
+
+FESTB154_CAMPUS_INEP 
+
+FESTB155_IES_INEP 
+
+FESTB038_ADTMO_CONTRATO 
+
+FESTB010_CANDIDATO 
+
+ 
+FES.FESSPZ37_CRISE19_FIM_RETENCAO 
+Serviço Técnico Especializado 13854457 
+ 
+
+Registramos aqui o andamento das análises e definição de regras construídas em conjunto pela GEFET e CEDES para finalização de retenções de liberações retidas por transferência ou suspensão. 
+2. As regras deverão ser aplicadas para possibilitar o repasse das liberações que estiverem consistentes, conforme definições e regras registradas em anexo. 
+2.1 Ressaltamos que as definições aqui registradas poderão sofrer alteração em razão da análise dos resultados em massa de testes. 
+3. Agradecemos a colaboração e ficamos à disposição. 
+
+ 
+
+TABELAS ENVOLVIDAS 
+ 
+
+FESTB049_TRANSFERENCIA 
+
+FESTB038_ADTMO_CONTRATO 
+
+FESTB010_CANDIDATO 
+
+ 
+
+FES.FESSPZ41_CRISE19_FIM_RETENC_2 
+Serviço Técnico Especializado 14499423 
+Visão Negocial 
+
+1.       Conforme acordado, segue abaixo uma prévia da proposta de trabalho para a apuração de maio/2020, contendo as seguintes regularizações: 
+ 
+• Inclusão de regra para não retenção de contratos com transferência realizada, cujas liberações estejam geradas para a mantendora correta. 
+• Ajuste na rotina de retenção para que não reter os contratos que estejam enquadrados nas exceções para retenção de suspensão e transferência. 
+• Ajuste na rotina eventual que gera liberações para contemplar as alterações nos processos de retenção de suspensão e transferência. 
+ 
+2.       Para que possamos atingir o objetivo deste repasse, propomos extender o prazo da apuração de 20/05 para 31/05/2020, de maneira que haja tempo hábil para os ajustes. 
+ 
+3.       Assim, seguem o esboço das regras a serem utilizadas nessa próxima etapa, para avaliação e complementação. 
+ 
+3.1.   Contratos com transferência realizada 
+3.1.1.Para contratos com transferência realizada (status 5) deverá ser finalizada a retenção ou não gerada a retenção nos casos em que as liberações referentes a semestres anteriores à transferência estejam geradas para a mantenedora de origem e as liberações geradas para o mesmo semestre da transferêcia e posteriores estejam geradas para a mantenedora destino. 
+3.1.2.Para os casos onde houver mais de uma transferência realizada para o estudante, a liberação estará gravada na mantenedora destino até o semestre imediatamente anterior à segunda transferência, devendo as demais estarem geradas para a nova mantenedora destino e assim por diante. 
+ 
+3.2.   Ajuste na rotina de retenção 
+3.2.1.A rotina de retenção deverá ser ajustada para incluir as regras estabelecidas para suspensão e transferência, de modo que não gerem retenções para os casos onde a retenção não é devida, evitando, assim, a necessidade de se finalizar a retenção posteriormente. 
+3.2.2.Dessa forma, deverá estar prevista nessa rotina de renteção as regras para tratamento de suspensão e transferência. 
+ 
+3.3.   Ajuste na rotina eventual de liberação 
+3.3.1.A rotina eventual que gera liberações deverá ser ajustada para contemplar as regras de tratamento de suspensão e transferência. 
+3.3.2.A geração de liberações para inscrições com transferência realizada deverá obecer a regra descrita no item 3.2, ou seja, as liberações referentes a semestres anteriores à transferência devem ser geradas para a mantenedora de origem, e as liberações referentes ao semestre da transferência e posteriores deverão ser geradas para a mantenedora destino. 
+3.3.3.Para os casos onde houver mais de uma transferência realizada para o estudante, a liberação deverá ser gerada para mantenedora destino até o semestre imediatamente anterior à a segunda transferência, devendo as demais estarem geradas para a nova mantenedora destino e assim por diante. 
+
 
 
 
