@@ -21,161 +21,152 @@ Esta etapa inicial lida com a exibição de mensagens e a preparação do ambien
         Executa ALTER SESSION SET NLS_DATE_FORMAT = 'DD/MM/YYYY'.
         Executa ALTER SESSION SET NLS_TIMESTAMP_FORMAT = 'DD/MM/YYYY'.
 
-Etapa 2: Processamento de Retenções por Transferência
+CREATE OR REPLACE PROCEDURE FES.FESSPZ55_CRISE2019_TRATA_SUSP
+--F620600  18/06/2021 20:11:44
+    --C077033 18/06/2021 16:50:00
+--C077033 21/05/2021 19:26:00
+--C077033 23/01/2021 20:25:00
+--C077033 17/01/2021 22:04:00
+--C077033 24/11/2020 18:10:00
+--C077033 01/10/2020 19:48:00
 
-Esta é a primeira fase principal de lógica da SP, focada em identificar e finalizar retenções de liberações de contrato relacionadas a problemas de transferência.
+AS
+    SQL_QUERY VARCHAR2(1000) := NULL;
+    COUNT_1 NUMERIC(5) := 0;
+    QT_COMPENSACAO_CRIADA NUMERIC(10) := 0;
+    V_NU_SQNCL_COMPENSACAO_REPASSE NUMERIC(12);
 
-    Objetivo: Encontrar liberações de contrato que possuem retenção por transferência e que, devido a novas validações, podem ter essa retenção finalizada.
-    Lógica Principal: Um cursor FOR x IN (...) com múltiplas Common Table Expressions (CTEs) e uma consulta SELECT final que seleciona os registros a serem atualizados.
+BEGIN
 
-Estrutura e Interações da Stored Procedure FES.FESSPZ24_CRISE2019_ALTERA_LIB
+    DBMS_OUTPUT.PUT_LINE(' ************* INICIO DA FESSPZ55_CRISE2019_TRATA_SUSP');
 
-Esta Stored Procedure é responsável por inserir novas retenções em liberações de contrato com base em diferentes critérios: liberações com situação "Não Repassado" que possuem transferências ou suspensões pendentes, liberações a estornar, liberações com problemas de cadastro de IES/Mantenedora, e liberações sem transação válida ou sem finalização de processo de aditamento.
-Etapa 1: Início e Seleção de Liberações para Análise de Retenção
 
-Esta etapa inicial exibe uma mensagem de início e coleta as liberações de contrato que serão avaliadas para a inserção de retenções.
+    --INSERE TIPO DE ACERTO - 6 - REPASSE ANTERIOR CONTRATACAO - NA TB813
+    SELECT COUNT(*) INTO COUNT_1
+    FROM FES.FESTB813_TIPO_ACERTO_RPSE
+    WHERE NU_TIPO_ACERTO = 6;
 
-    Objetivo: Sinalizar o início da execução e identificar as liberações de contrato que estão com status NR (Não Repassado) e possuem transferências ou suspensões ativas, ou que estão com status NE (Não Estornado).
-    Lógica Principal: Um cursor FOR X IN (...) que seleciona registros da tabela FES.FESTB712_LIBERACAO_CONTRATO e verifica a existência de condições em outras tabelas (EXISTS).
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-        FES.FESTB049_TRANSFERENCIA (em subquery EXISTS, aliás T)
-        FES.FESTB057_OCRRA_CONTRATO (em subquery EXISTS, aliás O)
-    Campos Consultados:
-        De FES.FESTB712_LIBERACAO_CONTRATO (L):
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_SEQ_CANDIDATO
-            IC_SITUACAO_LIBERACAO
-        De FES.FESTB049_TRANSFERENCIA (T):
-            NU_CANDIDATO_FK10
-            NU_STATUS_TRANSFERENCIA
-        De FES.FESTB057_OCRRA_CONTRATO (O):
-            IC_TIPO_OCORRENCIA
-            NU_CANDIDATO_FK36
-            NU_STATUS_OCORRENCIA
+    IF COUNT_1 = 0
+    THEN
+        INSERT INTO FES.FESTB813_TIPO_ACERTO_RPSE (NU_TIPO_ACERTO, DE_TIPO_ACERTO)
+        VALUES (6,'REPASSE ANTERIOR CONTRATACAO');
+        COMMIT;
+        DBMS_OUTPUT.PUT_LINE(' ************* INSERCAO TIPO DE ACERTO 6 - REPASSE ANTERIOR CONTRATACAO - NA TB813 ************* ');
+    END IF;
 
-Etapa 2: Inserção de Retenções Baseada em Condições Específicas
 
-Para cada liberação identificada na Etapa 1, esta etapa verifica diversas condições e insere novas retenções na tabela FES.FESTB817_RETENCAO_LIBERACAO.
+    --COMPENSACAO E SUSPENSAO DE TODAS AS LIBERACOES EXISTENTES ANTERIORES AO SEMESTRE DE CONTRATACAO DO CANDIDATO
+    SELECT MAX(NU_SQNCL_COMPENSACAO_REPASSE) INTO V_NU_SQNCL_COMPENSACAO_REPASSE FROM FES.FESTB812_CMPSO_RPSE_INDVO;
 
-    Objetivo: Adicionar registros de retenção para liberações de contrato com base em diferentes motivos (estorno, transferência, suspensão), garantindo que não haja retenções duplicadas ativas para o mesmo motivo.
-    Lógica Principal: Blocos IF aninhados que executam INSERT condicionalmente, precedidos por contagens (SELECT COUNT(1) INTO COUNT_TABELA) e verificações de EXISTS para evitar duplicação.
+    FOR X IN
+        (
+        SELECT
+            L.IC_SITUACAO_LIBERACAO,
+            L.NU_SQNCL_LIBERACAO_CONTRATO,
+            A.NU_SQNCL_RLTRO_CTRTO_ANALITICO
+        FROM FES.FESTB712_LIBERACAO_CONTRATO L
+                 INNER JOIN FES.FESTB010_CANDIDATO C
+                            ON C.NU_SEQ_CANDIDATO = L.NU_SEQ_CANDIDATO
+                                AND
+                               (
+                                           TO_CHAR(L.DT_LIBERACAO,'YYYY') < TO_CHAR(C.DT_ADMISSAO_CANDIDATO,'YYYY')
+                                       OR
+                                           (
+                                                       TO_CHAR(L.DT_LIBERACAO,'YYYY') = TO_CHAR(C.DT_ADMISSAO_CANDIDATO,'YYYY')
+                                                   AND
+                                                       (CASE WHEN TO_CHAR(L.DT_LIBERACAO,'MM') < 7 THEN 1 ELSE 2 END) < (CASE WHEN TO_CHAR(C.DT_ADMISSAO_CANDIDATO,'MM') < 7 THEN 1 ELSE 2 END)
+                                               )
+                                   )
+                 LEFT OUTER JOIN FES.FESTB711_RLTRO_CTRTO_ANLTO A
+                                 ON L.NU_SQNCL_LIBERACAO_CONTRATO = A.NU_SQNCL_LIBERACAO_CONTRATO
+                                     AND L.NU_SEQ_CANDIDATO = A.NU_SEQ_CANDIDATO
+                                     AND A.VR_REPASSE > 0
+                 LEFT OUTER JOIN FES.FESTB812_CMPSO_RPSE_INDVO R
+                                 ON R.NU_SQNCL_RLTRO_CTRTO_ANALITICO = A.NU_SQNCL_RLTRO_CTRTO_ANALITICO
+        WHERE L.NU_SEQ_CANDIDATO > 20000000
+          AND L.IC_SITUACAO_LIBERACAO <> 'S'
+          AND R.NU_SQNCL_RLTRO_CTRTO_ANALITICO IS NULL
+        )
+        LOOP
+            IF (X.IC_SITUACAO_LIBERACAO NOT IN ('NR', 'E') AND X.NU_SQNCL_RLTRO_CTRTO_ANALITICO IS NOT NULL) THEN
+                QT_COMPENSACAO_CRIADA := QT_COMPENSACAO_CRIADA + 1;
+                V_NU_SQNCL_COMPENSACAO_REPASSE := V_NU_SQNCL_COMPENSACAO_REPASSE + 1;
 
-2.1. Inserção de Retenção por Situação 'NE' (Não Estornado)
+                SQL_QUERY := 'INSERT INTO FES.FESTB812_CMPSO_RPSE_INDVO (' ||
+                             'NU_SQNCL_COMPENSACAO_REPASSE, NU_SQNCL_RLTRO_CTRTO_ANALITICO, NU_TIPO_ACERTO, TS_INCLUSAO, CO_USUARIO_INCLUSAO)' ||
+                             ' VALUES (' || V_NU_SQNCL_COMPENSACAO_REPASSE || ', ' || X.NU_SQNCL_RLTRO_CTRTO_ANALITICO || ', 6,''' || SYSDATE || ''', ''CRISE19'')';
 
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás T712)
-        FES.FESTB817_RETENCAO_LIBERACAO (em subquery NOT EXISTS, aliás T817)
-    Tabela Atualizada:
-        FES.FESTB817_RETENCAO_LIBERACAO
-    Campos Consultados:
-        De FES.FESTB712_LIBERACAO_CONTRATO (T712): NU_SQNCL_LIBERACAO_CONTRATO
-        De FES.FESTB817_RETENCAO_LIBERACAO (T817): NU_SQNCL_LIBERACAO_CONTRATO, NU_MOTIVO_RETENCAO_LIBERACAO, DT_FIM_RETENCAO
-    Campos Inseridos:
-        NU_SQNCL_LIBERACAO_CONTRATO (do x.NU_SQNCL_LIBERACAO_CONTRATO)
-        NU_MOTIVO_RETENCAO_LIBERACAO (fixo em '5')
-        DT_INICIO_RETENCAO (definido para SYSDATE)
+                DBMS_OUTPUT.PUT_LINE(SQL_QUERY);
+                EXECUTE IMMEDIATE SQL_QUERY;
+            END IF;
 
-2.2. Inserção de Retenção por Existência de Transferência
+            UPDATE FES.FESTB712_LIBERACAO_CONTRATO
+            SET IC_SITUACAO_LIBERACAO = 'S',
+                DT_ATUALIZACAO = SYSDATE
+            WHERE NU_SQNCL_LIBERACAO_CONTRATO = X.NU_SQNCL_LIBERACAO_CONTRATO;
+        END LOOP;
 
-    Tabelas Consultadas:
-        FES.FESTB049_TRANSFERENCIA
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás T712)
-        FES.FESTB817_RETENCAO_LIBERACAO (em subquery NOT EXISTS, aliás T817)
-    Tabela Atualizada:
-        FES.FESTB817_RETENCAO_LIBERACAO
-    Campos Consultados:
-        De FES.FESTB049_TRANSFERENCIA: NU_CANDIDATO_FK10, NU_STATUS_TRANSFERENCIA
-        De FES.FESTB712_LIBERACAO_CONTRATO (T712): NU_SQNCL_LIBERACAO_CONTRATO
-        De FES.FESTB817_RETENCAO_LIBERACAO (T817): NU_SQNCL_LIBERACAO_CONTRATO, NU_MOTIVO_RETENCAO_LIBERACAO, DT_FIM_RETENCAO
-    Campos Inseridos:
-        NU_SQNCL_LIBERACAO_CONTRATO (do x.NU_SQNCL_LIBERACAO_CONTRATO)
-        NU_MOTIVO_RETENCAO_LIBERACAO (fixo em '2')
-        DT_INICIO_RETENCAO (definido para SYSDATE)
+    COMMIT;
 
-2.3. Inserção de Retenção por Existência de Suspensão
+    DBMS_OUTPUT.PUT_LINE(' ************* FIM DO PROCESSAMENTO DA INSERCAO DE COMPENSACAO E SUSPENSAO DE LIBERACOES ANTERIORES AO SEMESTRE DA CONTRATACAO ************* ');
 
-    Tabelas Consultadas:
-        FES.FESTB057_OCRRA_CONTRATO
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás T712)
-        FES.FESTB817_RETENCAO_LIBERACAO (em subquery NOT EXISTS, aliás T817)
-    Tabela Atualizada:
-        FES.FESTB817_RETENCAO_LIBERACAO
-    Campos Consultados:
-        De FES.FESTB057_OCRRA_CONTRATO: IC_TIPO_OCORRENCIA, NU_CANDIDATO_FK36, NU_STATUS_OCORRENCIA
-        De FES.FESTB712_LIBERACAO_CONTRATO (T712): NU_SQNCL_LIBERACAO_CONTRATO
-        De FES.FESTB817_RETENCAO_LIBERACAO (T817): NU_SQNCL_LIBERACAO_CONTRATO, NU_MOTIVO_RETENCAO_LIBERACAO, DT_FIM_RETENCAO
-    Campos Inseridos:
-        NU_SQNCL_LIBERACAO_CONTRATO (do x.NU_SQNCL_LIBERACAO_CONTRATO)
-        NU_MOTIVO_RETENCAO_LIBERACAO (fixo em '3')
-        DT_INICIO_RETENCAO (definido para SYSDATE)
 
-Etapa 3: Inserção de Retenções por Problemas Cadastrais (IES/Mantenedora)
+    --CURSOR PARA RETENCAO DE LIBERACOES DO SEMESTRE DA CONTRATACAO QUE POSSUI SUSPENSAO INTEGRAL
+    --PARA VERIFICACAO DE CONFORMIDADE COM O SIAPI
+    FOR X IN
+        (
+        SELECT
+            L.NU_SEQ_CANDIDATO AS CANDIDATO,
+            TO_CHAR(C.DT_ADMISSAO_CANDIDATO) AS ADM_CANDIDATO,
+            L.NU_SQNCL_LIBERACAO_CONTRATO,
+            L.AA_REFERENCIA_LIBERACAO AS ANO_LIBERACAO,
+            L.MM_REFERENCIA_LIBERACAO AS MES_LIBERACAO,
+            L.IC_SITUACAO_LIBERACAO AS SITUACAO_LIBERACAO,
+            L.VR_REPASSE,
+            TO_CHAR(O.DT_OCORRENCIA) AS OCORRENCIA_SUSPENSAO,
+            O.IC_TIPO_SUSPENSAO AS TP_SUSPENSAO,
+            TO_CHAR(O.DT_INICIO_VIGENCIA) AS INICIO_VIGENCIA,
+            TO_CHAR(O.DT_FIM_VIGENCIA) AS FIM_VIGENCIA
+        FROM FES.FESTB712_LIBERACAO_CONTRATO L
+                 INNER JOIN FES.FESTB057_OCRRA_CONTRATO O
+                            ON L.NU_SEQ_CANDIDATO = O.NU_CANDIDATO_FK36
+                                AND O.IC_TIPO_OCORRENCIA = 'S'
+                                AND	O.NU_STATUS_OCORRENCIA = 11
+                                AND ( O.IC_TIPO_SUSPENSAO = 'I' OR O.IC_TIPO_SUSPENSAO IS NULL )
+                                AND O.AA_REFERENCIA = L.AA_REFERENCIA_LIBERACAO
+                                AND O.NU_SEMESTRE_REFERENCIA = CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END
+                                AND TO_CHAR(O.DT_OCORRENCIA, 'YYYY') = O.AA_REFERENCIA
+                                AND (
+                                       ( O.NU_SEMESTRE_REFERENCIA = 1 AND TO_CHAR(O.DT_OCORRENCIA, 'MM') < '06' )
+                                       OR
+                                       ( O.NU_SEMESTRE_REFERENCIA = 2 AND ( TO_CHAR(O.DT_OCORRENCIA, 'MM') > '06' AND TO_CHAR(O.DT_OCORRENCIA, 'MM') < '12' ) )
+                                   )
+                 INNER JOIN FES.FESTB010_CANDIDATO C
+                            ON L.NU_SEQ_CANDIDATO = C.NU_SEQ_CANDIDATO
+                                AND L.AA_REFERENCIA_LIBERACAO = TO_CHAR(C.DT_ADMISSAO_CANDIDATO,'YYYY')
+                                AND (CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END) = (CASE WHEN TO_CHAR(C.DT_ADMISSAO_CANDIDATO,'MM') < 7 THEN 1 ELSE 2 END)
+        WHERE L.NU_SEQ_CANDIDATO > 20000000
+          AND NOT EXISTS 	(
+                SELECT 1
+                FROM FES.FESTB817_RETENCAO_LIBERACAO R
+                WHERE L.NU_SQNCL_LIBERACAO_CONTRATO = R.NU_SQNCL_LIBERACAO_CONTRATO
+                  AND R.NU_MOTIVO_RETENCAO_LIBERACAO = 8
+            )
+        )
+        LOOP
+            --INSERE RETENCAO POR CONFORMIDADE SUSPENSAO NO SIAPI
+            SQL_QUERY := 'INSERT INTO FES.FESTB817_RETENCAO_LIBERACAO ' ||
+                         ' (NU_SQNCL_LIBERACAO_CONTRATO, NU_MOTIVO_RETENCAO_LIBERACAO, DT_INICIO_RETENCAO) values (' ||
+                         x.NU_SQNCL_LIBERACAO_CONTRATO || ', ''8'',''' || SYSDATE || ''')';
 
-Esta etapa identifica liberações de contrato que possuem IES (NU_IES) em uma lista predefinida de "IES com problemas de cadastro" e insere uma retenção específica para esses casos.
+            DBMS_OUTPUT.PUT_LINE(SQL_QUERY);
+            EXECUTE IMMEDIATE SQL_QUERY;
+        END LOOP;
 
-    Objetivo: Adicionar uma retenção para liberações associadas a IESs que podem ter problemas de cadastro (Mantenedora ou IES não existentes no SIFES).
-    Lógica Principal: Um segundo cursor FOR X IN (...) que seleciona liberações com base em sua situação (NR ou NE) e se a NU_IES está em uma lista de valores fixos, além de verificar se uma retenção de motivo 6 já existe e está ativa.
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-        FES.FESTB817_RETENCAO_LIBERACAO (em subquery NOT IN, aliás T817)
-    Tabela Atualizada:
-        FES.FESTB817_RETENCAO_LIBERACAO
-    Campos Consultados:
-        De FES.FESTB712_LIBERACAO_CONTRATO (L): NU_SQNCL_LIBERACAO_CONTRATO, IC_SITUACAO_LIBERACAO, NU_IES
-        De FES.FESTB817_RETENCAO_LIBERACAO (T817): NU_SQNCL_LIBERACAO_CONTRATO, NU_MOTIVO_RETENCAO_LIBERACAO, DT_FIM_RETENCAO
-    Campos Inseridos:
-        NU_SQNCL_LIBERACAO_CONTRATO (do x.NU_SQNCL_LIBERACAO_CONTRATO)
-        NU_MOTIVO_RETENCAO_LIBERACAO (fixo em '6')
-        DT_INICIO_RETENCAO (definido para SYSDATE)
+    COMMIT;
 
-Etapa 4: Inserção de Retenções por Ausência de Transação Válida
+    DBMS_OUTPUT.PUT_LINE(' ************* FIM DO PROCESSAMENTO DA INSERCAO DE RETENCAO DE LIBERACOES DO SEMESTRE DA CONTRATACAO ************* ');
 
-Esta etapa busca liberações que não possuem um aditamento válido ou um registro de admissão/contrato FIES associado, e insere uma retenção por "ausência de transação válida".
-
-    Objetivo: Identificar e reter liberações que não têm um aditamento, admissão de candidato ou contrato FIES que as justifique.
-    Lógica Principal: Um terceiro cursor FOR X IN (...) que realiza LEFT OUTER JOIN com tabelas de aditamento, candidato e contrato FIES, e seleciona liberações com base na ausência de registros válidos nessas junções.
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-        FES.FESTB038_ADTMO_CONTRATO (aliás A)
-        FES.FESTB010_CANDIDATO (aliás CA)
-        FES.FESTB036_CONTRATO_FIES (aliás F)
-        FES.FESTB817_RETENCAO_LIBERACAO (em subquery NOT EXISTS, aliás R)
-    Tabela Atualizada:
-        FES.FESTB817_RETENCAO_LIBERACAO
-    Campos Consultados:
-        De FES.FESTB712_LIBERACAO_CONTRATO (L): NU_SQNCL_LIBERACAO_CONTRATO, NU_SEQ_CANDIDATO, AA_REFERENCIA_LIBERACAO, MM_REFERENCIA_LIBERACAO, IC_SITUACAO_LIBERACAO
-        De FES.FESTB038_ADTMO_CONTRATO (A): NU_CANDIDATO_FK36, NU_STATUS_ADITAMENTO, DT_ADITAMENTO, AA_ADITAMENTO, NU_SEM_ADITAMENTO
-        De FES.FESTB010_CANDIDATO (CA): NU_SEQ_CANDIDATO, DT_ADMISSAO_CANDIDATO
-        De FES.FESTB036_CONTRATO_FIES (F): NU_CANDIDATO_FK11, NU_STATUS_CONTRATO, DT_ASSINATURA
-        De FES.FESTB817_RETENCAO_LIBERACAO (R): NU_SQNCL_LIBERACAO_CONTRATO, NU_MOTIVO_RETENCAO_LIBERACAO, DT_FIM_RETENCAO
-    Campos Inseridos:
-        NU_SQNCL_LIBERACAO_CONTRATO (do x.NU_SQNCL_LIBERACAO_CONTRATO)
-        NU_MOTIVO_RETENCAO_LIBERACAO (fixo em '7')
-        DT_INICIO_RETENCAO (definido para SYSDATE)
-
-Etapa 5: Inserção de Retenções por Ausência de Finalização no Processo de Aditamento
-
-Esta etapa verifica liberações que estão vinculadas a um aditamento e a um processo de aditamento, mas onde o status do processo de aditamento não indica finalização (NU_SITUACAO_PROCESSO <> 9).
-
-    Objetivo: Reter liberações onde o processo de aditamento correspondente ainda não foi finalizado.
-    Lógica Principal: Um quarto cursor FOR X IN (...) que realiza INNER JOIN com tabelas de aditamento e processo de aditamento, e seleciona liberações onde o processo não foi finalizado.
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás T712)
-        FES.FESTB038_ADTMO_CONTRATO (aliás T38)
-        FES.FESTB759_PROCESSO_ADITAMENTO (aliás T759)
-        FES.FESTB817_RETENCAO_LIBERACAO (em subquery NOT EXISTS, aliás T817)
-    Tabela Atualizada:
-        FES.FESTB817_RETENCAO_LIBERACAO
-    Campos Consultados:
-        De FES.FESTB712_LIBERACAO_CONTRATO (T712): NU_SQNCL_LIBERACAO_CONTRATO, NU_SEQ_CANDIDATO, AA_REFERENCIA_LIBERACAO, MM_REFERENCIA_LIBERACAO, IC_SITUACAO_LIBERACAO
-        De FES.FESTB038_ADTMO_CONTRATO (T38): NU_CANDIDATO_FK36, AA_ADITAMENTO, NU_SEM_ADITAMENTO
-        De FES.FESTB759_PROCESSO_ADITAMENTO (T759): NU_CANDIDATO, AA_REFERENCIA, NU_SEMESTRE_REFERENCIA, NU_SITUACAO_PROCESSO
-        De FES.FESTB817_RETENCAO_LIBERACAO (T817): NU_SQNCL_LIBERACAO_CONTRATO, NU_MOTIVO_RETENCAO_LIBERACAO, DT_FIM_RETENCAO
-    Campos Inseridos:
-        NU_SQNCL_LIBERACAO_CONTRATO (do x.NU_SQNCL_LIBERACAO_CONTRATO)
-        NU_MOTIVO_RETENCAO_LIBERACAO (fixo em '10')
-        DT_INICIO_RETENCAO (definido para SYSDATE)
 
 
 
