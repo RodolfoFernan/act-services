@@ -7,389 +7,687 @@
 
 <h2>1. Estrutura dos Microsserviços</h2>
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
-Etapa 1: Identificar e Inativar Retenções de Liberações para Contratos Transferidos/Aditados com Divergência
+CREATE OR REPLACE PROCEDURE FES.FESSPZ41_CRISE19_FIM_RETENC_2
+--C077033  26/05/2022 16:29:58
+--C077033  24/05/2022 14:00:00
+--F620600  27/05/2021 15:18:23
+--C077033  22/05/2021 12:32:00
+--C077033  22/04/2021 12:40:00
+--C077033  17/01/2021 20:33:00
+--C077033  24/11/2020 18:10:00
+--C077033  29/10/2020 16:33:00
+--C077033  30/09/2020 16:20:00
+--C077033  14/08/2020 15:00:00
+--C077033  24/07/2020 12:00:00
+--C077033  29/06/2020 15:00:00
+--C077033  29/05/2020 10:00:00
 
-Objetivo: Localizar liberações com retenções ativas e inativá-las caso o contrato associado tenha sido transferido ou aditado, ou se a retenção não for mais necessária para o ajuste de valores.
+AS
+    SQL_QUERY VARCHAR2(30000) := NULL;
+BEGIN
 
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_SEQ_CANDIDATO
-            AA_REFERENCIA_LIBERACAO
-            MM_REFERENCIA_LIBERACAO
-            NU_IES
-            IC_SITUACAO_LIBERACAO
-        FES.FESTB817_RETENCAO_LIBERACAO (aliás R)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_MOTIVO_RETENCAO_LIBERACAO
-            DT_FIM_RETENCAO
-        FES.FESTB049_TRANSFERENCIA (aliás T)
-            NU_CANDIDATO_FK10
-            NU_SEQ_TRANSFERENCIA
-            AA_REFERENCIA
-            NU_SEM_REFERENCIA
-            NU_CAMPUS_ORIGEM_FK161
-            NU_CAMPUS_DESTINO_FK161
-            DT_INCLUSAO
-            NU_STATUS_TRANSFERENCIA
-        FES.FESTB154_CAMPUS_INEP (aliás C, I)
-            NU_CAMPUS
-            NU_IES_FK155
-        FES.FESTB155_IES_INEP (aliás E, N)
-            NU_IES
-            NU_MANTENEDORA_FK156
-        FES.FESTB038_ADTMO_CONTRATO (aliás A)
-            NU_CANDIDATO_FK36
-            AA_ADITAMENTO
-            NU_SEM_ADITAMENTO
-            DT_ADITAMENTO
-            NU_STATUS_ADITAMENTO
-        FES.FESTB010_CANDIDATO (aliás CA)
-            NU_SEQ_CANDIDATO
-            DT_ADMISSAO_CANDIDATO
+    DBMS_OUTPUT.PUT_LINE(' ************* INICIO DA FESSPZ41_CRISE19_FIM_RETENCAO - ENCERRA RETENCOES DE LIBERACOES ************* ');
 
-Etapa 2: Atualizar a Situação de Liberações Efetivadas para 'NR' (Não Repassado)
+    SQL_QUERY := 'ALTER SESSION SET NLS_DATE_FORMAT = ''DD/MM/YYYY''';
+    DBMS_OUTPUT.PUT_LINE(' ************* ' || SQL_QUERY);
+    EXECUTE IMMEDIATE SQL_QUERY;
 
-Objetivo: Alterar o status de liberações que já foram "Efetivadas" ('E') para "Não Repassadas" ('NR') se elas pertencem a semestres onde há divergência entre o valor repassado e o contrato.
+    SQL_QUERY := 'ALTER SESSION SET NLS_TIMESTAMP_FORMAT = ''DD/MM/YYYY''';
+    DBMS_OUTPUT.PUT_LINE(' ************* ' || SQL_QUERY);
+    EXECUTE IMMEDIATE SQL_QUERY;
 
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_SEQ_CANDIDATO
-            AA_REFERENCIA_LIBERACAO
-            MM_REFERENCIA_LIBERACAO
-            IC_SITUACAO_LIBERACAO
-            VR_REPASSE
-        FES.FESTB036_CONTRATO_FIES (aliás A)
-            NU_CANDIDATO_FK11
-            VR_CONTRATO
-            NU_STATUS_CONTRATO
-        FES.FESTB010_CANDIDATO (aliás C)
-            DT_ADMISSAO_CANDIDATO
-    Tabelas Afetadas (Escrita):
-        FES.FESTB712_LIBERACAO_CONTRATO
+    -- Cursor com as liberacoes que possuem retencao por transferencia e
+    -- que deverao ser encaminhadas no proximo repasse.
+    FOR x IN
+    (
+        SELECT
+            L.NU_SQNCL_LIBERACAO_CONTRATO
+        FROM FES.FESTB712_LIBERACAO_CONTRATO L
+            INNER JOIN FES.FESTB817_RETENCAO_LIBERACAO R
+                ON L.NU_SQNCL_LIBERACAO_CONTRATO = R.NU_SQNCL_LIBERACAO_CONTRATO
+				AND R.NU_MOTIVO_RETENCAO_LIBERACAO = 2
+				AND R.DT_FIM_RETENCAO IS NULL
+				AND L.IC_SITUACAO_LIBERACAO IN ('NR')
+            INNER JOIN FES.FESTB049_TRANSFERENCIA T
+                ON L.NU_SEQ_CANDIDATO = T.NU_CANDIDATO_FK10
+                AND T.NU_STATUS_TRANSFERENCIA = 5
+            INNER JOIN FES.FESTB154_CAMPUS_INEP C
+                ON T.NU_CAMPUS_ORIGEM_FK161 = C.NU_CAMPUS
+            INNER JOIN FES.FESTB154_CAMPUS_INEP I
+                ON T.NU_CAMPUS_DESTINO_FK161 = I.NU_CAMPUS
+            LEFT OUTER JOIN FES.FESTB038_ADTMO_CONTRATO A
+                ON L.NU_SEQ_CANDIDATO = A.NU_CANDIDATO_FK36
+				--AND A.NU_STATUS_ADITAMENTO > 3
+				AND A.DT_ADITAMENTO IS NOT NULL
+				AND L.AA_REFERENCIA_LIBERACAO = A.AA_ADITAMENTO
+				AND (CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END) = A.NU_SEM_ADITAMENTO
+            LEFT OUTER JOIN FES.FESTB010_CANDIDATO CA
+                ON L.NU_SEQ_CANDIDATO = CA.NU_SEQ_CANDIDATO
+                AND L.AA_REFERENCIA_LIBERACAO = TO_CHAR(CA.DT_ADMISSAO_CANDIDATO,'YYYY')
+                AND (CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END) = (CASE WHEN TO_CHAR(CA.DT_ADMISSAO_CANDIDATO,'MM') < 7 THEN 1 ELSE 2 END)
+        WHERE ( A.NU_CANDIDATO_FK36 IS NOT NULL OR CA.NU_SEQ_CANDIDATO IS NOT NULL )
+        AND (
+                (
+					I.NU_IES_FK155 = L.NU_IES 
+					AND 
+						(
+							T.AA_REFERENCIA < L.AA_REFERENCIA_LIBERACAO
+							OR
+								(
+									T.AA_REFERENCIA = L.AA_REFERENCIA_LIBERACAO
+									AND T.NU_SEM_REFERENCIA < CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END
+								)
+						)
+						AND T.NU_CANDIDATO_FK10 NOT IN 
+													(
+														SELECT Q.NU_CANDIDATO_FK10
+														FROM FES.FESTB049_TRANSFERENCIA Q
+														WHERE Q.NU_CANDIDATO_FK10 > 20000000
+														AND Q.NU_STATUS_TRANSFERENCIA = 5
+														AND Q.NU_SEQ_TRANSFERENCIA > T.NU_SEQ_TRANSFERENCIA
+														AND 
+															( 
+																Q.AA_REFERENCIA < L.AA_REFERENCIA_LIBERACAO
+																OR 
+																	(
+																		Q.AA_REFERENCIA = L.AA_REFERENCIA_LIBERACAO
+																		AND Q.NU_SEM_REFERENCIA <= CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END
+																	)
+															)
+													)
+                )
+                OR
+					( 
+						I.NU_IES_FK155 = L.NU_IES
+						AND 
+							(
+								T.AA_REFERENCIA = L.AA_REFERENCIA_LIBERACAO 
+								AND T.NU_SEM_REFERENCIA = CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END 
+							)
+							AND 
+								(
+									(
+										T.AA_REFERENCIA = A.AA_ADITAMENTO 
+										AND T.NU_SEM_REFERENCIA = A.NU_SEM_ADITAMENTO 
+										AND TO_CHAR(T.DT_INCLUSAO, 'YYYYMMDD') <= TO_CHAR(A.DT_ADITAMENTO, 'YYYYMMDD') 
+									)
+									OR
+										(
+											T.AA_REFERENCIA = TO_CHAR(CA.DT_ADMISSAO_CANDIDATO,'YYYY') 
+											AND T.NU_SEM_REFERENCIA = (CASE WHEN TO_CHAR(CA.DT_ADMISSAO_CANDIDATO,'MM') < 7 THEN 1 ELSE 2 END)
+											AND T.DT_INCLUSAO < CA.DT_ADMISSAO_CANDIDATO 
+										)
+								)
+					)
+                OR
+					( 
+						C.NU_IES_FK155 = L.NU_IES
+						AND 
+							( 
+								T.AA_REFERENCIA = L.AA_REFERENCIA_LIBERACAO 
+								AND T.NU_SEM_REFERENCIA = CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END 
+							)
+						AND 
+							(  
+								( 
+									T.AA_REFERENCIA = A.AA_ADITAMENTO 
+									AND T.NU_SEM_REFERENCIA = A.NU_SEM_ADITAMENTO 
+									AND TO_CHAR(T.DT_INCLUSAO, 'YYYYMMDD') > TO_CHAR(A.DT_ADITAMENTO, 'YYYYMMDD') 
+								)
+								OR 
+									( 
+										T.AA_REFERENCIA = TO_CHAR(CA.DT_ADMISSAO_CANDIDATO,'YYYY') 
+										AND T.NU_SEM_REFERENCIA = (CASE WHEN TO_CHAR(CA.DT_ADMISSAO_CANDIDATO,'MM') < 7 THEN 1 ELSE 2 END)
+										AND T.DT_INCLUSAO > CA.DT_ADMISSAO_CANDIDATO 
+									) 
+							) 
+					)
+                OR
+					( 
+						C.NU_IES_FK155 = L.NU_IES
+						AND 
+							( 
+								T.AA_REFERENCIA > L.AA_REFERENCIA_LIBERACAO
+								OR 
+									( 
+										T.AA_REFERENCIA = L.AA_REFERENCIA_LIBERACAO
+										AND T.NU_SEM_REFERENCIA > (CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END)
+									)
+							)
+						AND T.NU_CANDIDATO_FK10 NOT IN 
+														( 
+															SELECT P.NU_CANDIDATO_FK10
+															FROM FES.FESTB049_TRANSFERENCIA P
+															WHERE P.NU_CANDIDATO_FK10 > 20000000
+															AND P.NU_STATUS_TRANSFERENCIA = 5
+															AND P.NU_SEQ_TRANSFERENCIA < T.NU_SEQ_TRANSFERENCIA
+														)
+                    )
+            )
+    )
+    LOOP
+		-- FINALIZA A RETENCAO DO TIPO TRANSFERENCIA
+		SQL_QUERY := 'UPDATE FES.FESTB817_RETENCAO_LIBERACAO SET DT_FIM_RETENCAO = ''' ||
+					 TO_CHAR(SYSDATE,'DD/MM/YYYY') || ''' WHERE NU_SQNCL_LIBERACAO_CONTRATO = ' ||
+					 x.NU_SQNCL_LIBERACAO_CONTRATO || ' AND NU_MOTIVO_RETENCAO_LIBERACAO = 2';
+        --DBMS_OUTPUT.PUT_LINE(SQL_QUERY);
+        EXECUTE IMMEDIATE SQL_QUERY;
+    END LOOP;
+    COMMIT; -- COMMIT NO FINAL DA ATUALIZACAO
 
-Etapa 3: Compensação e Novo Repasse de Liberações com Divergência entre Repasse e Contrato (Criação de Compensação e Atualização de Situação)
 
-Objetivo: Registrar compensações para liberações com divergência entre o valor repassado e o contrato, e ajustar a situação da liberação para permitir um novo processamento.
+    -- Cursor com as liberacoes que possuem retencao por TRANSFERENCIA COM IC_SITUACAO_LIBERACAO <> NR e devem ser finalizadas
+    FOR X IN
+    (
+        SELECT L.NU_SQNCL_LIBERACAO_CONTRATO
+        FROM FES.FESTB712_LIBERACAO_CONTRATO L
+            INNER JOIN FES.FESTB817_RETENCAO_LIBERACAO R
+                ON L.NU_SQNCL_LIBERACAO_CONTRATO = R.NU_SQNCL_LIBERACAO_CONTRATO
+				AND R.NU_MOTIVO_RETENCAO_LIBERACAO = 2
+				AND R.DT_FIM_RETENCAO IS NULL
+        WHERE L.IC_SITUACAO_LIBERACAO <> 'NR'
+    )
+    LOOP
+		-- FINALIZA A RETENCAO DO TIPO TRANSFERENCIA
+		SQL_QUERY := 'UPDATE FES.FESTB817_RETENCAO_LIBERACAO SET DT_FIM_RETENCAO = ''' ||
+					 TO_CHAR(SYSDATE,'DD/MM/YYYY') || ''' WHERE NU_SQNCL_LIBERACAO_CONTRATO = ' ||
+					 x.NU_SQNCL_LIBERACAO_CONTRATO || ' AND NU_MOTIVO_RETENCAO_LIBERACAO = 2';
+		--DBMS_OUTPUT.PUT_LINE(SQL_QUERY);
+        EXECUTE IMMEDIATE SQL_QUERY;
+    END LOOP;
+    COMMIT; -- COMMIT NO FINAL DA ATUALIZACAO
 
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_SEQ_CANDIDATO
-            AA_REFERENCIA_LIBERACAO
-            MM_REFERENCIA_LIBERACAO
-            IC_SITUACAO_LIBERACAO
-            VR_REPASSE
-        FES.FESTB036_CONTRATO_FIES (aliás A, usado na sub-query D)
-            NU_CANDIDATO_FK11
-            VR_CONTRATO
-            NU_STATUS_CONTRATO
-        FES.FESTB010_CANDIDATO (aliás C, usado na sub-query D)
-            CO_CPF
-            DT_ADMISSAO_CANDIDATO
-        FES.FESTB711_RLTRO_CTRTO_ANLTO (aliás A, no join principal)
-            NU_SQNCL_RLTRO_CTRTO_ANALITICO
-        FES.FESTB812_CMPSO_RPSE_INDVO (aliás R)
-            NU_SQNCL_RLTRO_CTRTO_ANALITICO
-    Tabelas Afetadas (Escrita):
-        FES.FESTB812_CMPSO_RPSE_INDVO (Inserção)
-        FES.FESTB712_LIBERACAO_CONTRATO (Atualização)
 
-Etapa 4: Adequação do Valor das Liberações com Problema de Divergência entre Repasse e Contrato
 
-Objetivo: Recalcular e ajustar os valores de repasse para as 6 parcelas de um semestre, garantindo que a soma total dos repasses de um semestre seja igual ao VR_CONTRATO.
+    -- Cursor com as liberacoes que possuem retencao por SUSPENSAO e que deverao ser encaminhadas no proximo repasse.
+    FOR x IN
+    (
+        SELECT L.NU_SQNCL_LIBERACAO_CONTRATO
+        FROM FES.FESTB712_LIBERACAO_CONTRATO L
+            INNER JOIN FES.FESTB817_RETENCAO_LIBERACAO R
+                ON L.NU_SQNCL_LIBERACAO_CONTRATO = R.NU_SQNCL_LIBERACAO_CONTRATO
+                AND R.NU_MOTIVO_RETENCAO_LIBERACAO = 3
+                AND R.DT_FIM_RETENCAO IS NULL
+            LEFT OUTER JOIN FES.FESTB057_OCRRA_CONTRATO O
+                ON L.NU_SEQ_CANDIDATO = O.NU_CANDIDATO_FK36
+				AND O.IC_TIPO_OCORRENCIA = 'S'
+				AND O.NU_STATUS_OCORRENCIA = 11
+				AND O.AA_REFERENCIA = L.AA_REFERENCIA_LIBERACAO
+				AND O.NU_SEMESTRE_REFERENCIA = CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END
+        WHERE O.NU_CANDIDATO_FK36 IS NULL
+    )
+    LOOP
+		-- FINALIZA A RETENCAO DO TIPO SUSPENSAO
+		SQL_QUERY := 'UPDATE FES.FESTB817_RETENCAO_LIBERACAO SET DT_FIM_RETENCAO = ''' ||
+					 TO_CHAR(SYSDATE,'DD/MM/YYYY') || ''' WHERE NU_SQNCL_LIBERACAO_CONTRATO = ' ||
+					 x.NU_SQNCL_LIBERACAO_CONTRATO || ' AND NU_MOTIVO_RETENCAO_LIBERACAO = 3';
+		--DBMS_OUTPUT.PUT_LINE(SQL_QUERY);
+		EXECUTE IMMEDIATE SQL_QUERY;
+    END LOOP;
+    COMMIT; -- COMMIT NO FINAL DA ATUALIZACAO
 
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-            NU_SEQ_CANDIDATO
-            AA_REFERENCIA_LIBERACAO
-            MM_REFERENCIA_LIBERACAO
-            VR_REPASSE
-        FES.FESTB036_CONTRATO_FIES (aliás A)
-            NU_CANDIDATO_FK11
-            VR_CONTRATO
-            NU_STATUS_CONTRATO
-        FES.FESTB010_CANDIDATO (aliás C)
-            DT_ADMISSAO_CANDIDATO
-    Tabelas Afetadas (Escrita):
-        FES.FESTB712_LIBERACAO_CONTRATO (Atualização)
 
-Etapa 5: Tratamento de Divergência de Valores entre Repasse e Aditamento (Inserção de Retenções)
+    -- Cursor com as liberacoes que possuem retencao por SUSPENSAO PARCIAL e que deverao ser encaminhadas no proximo repasse.
+    FOR x IN
+    (
+        SELECT
+            L.NU_SQNCL_LIBERACAO_CONTRATO,
+            L.IC_SITUACAO_LIBERACAO,
+            L.DT_LIBERACAO,
+            O.DT_INICIO_VIGENCIA,
+            O.DT_FIM_VIGENCIA
+        FROM FES.FESTB712_LIBERACAO_CONTRATO L
+            INNER JOIN FES.FESTB817_RETENCAO_LIBERACAO R
+                ON L.NU_SQNCL_LIBERACAO_CONTRATO = R.NU_SQNCL_LIBERACAO_CONTRATO
+                AND R.NU_MOTIVO_RETENCAO_LIBERACAO = 3
+                AND R.DT_FIM_RETENCAO IS NULL
+            INNER JOIN FES.FESTB057_OCRRA_CONTRATO O
+                ON L.NU_SEQ_CANDIDATO = O.NU_CANDIDATO_FK36
+                AND O.IC_TIPO_OCORRENCIA = 'S'
+                AND  O.NU_STATUS_OCORRENCIA = 11
+                AND O.IC_TIPO_SUSPENSAO = 'P'
+                AND O.AA_REFERENCIA = L.AA_REFERENCIA_LIBERACAO
+                AND O.NU_SEMESTRE_REFERENCIA <= CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END
+                AND TO_CHAR(O.DT_OCORRENCIA, 'YYYY') = O.AA_REFERENCIA
+                AND 
+					( 
+						( 
+							O.NU_SEMESTRE_REFERENCIA = 1 
+							AND TO_CHAR(O.DT_OCORRENCIA, 'MM') < '06' 
+							AND TO_CHAR(O.DT_FIM_VIGENCIA, 'DDMM') = '3006' 
+						)
+                        OR
+                            ( 
+								O.NU_SEMESTRE_REFERENCIA = 2 
+								AND 
+									( 
+										TO_CHAR(O.DT_OCORRENCIA, 'MM') > '06' 
+										AND TO_CHAR(O.DT_OCORRENCIA, 'MM') < '12' 
+									)
+								AND TO_CHAR(O.DT_FIM_VIGENCIA, 'DDMM') = '3112' 
+							)
+                    )
+                AND DT_INICIO_VIGENCIA = LAST_DAY(DT_OCORRENCIA) + 1
+        WHERE L.IC_SITUACAO_LIBERACAO IN ('NR', 'S', 'R')
+        OR 
+			( 
+				L.IC_SITUACAO_LIBERACAO = 'NE' 
+				AND L.DT_LIBERACAO > O.DT_INICIO_VIGENCIA 
+				AND L.DT_LIBERACAO < O.DT_FIM_VIGENCIA 
+			)
+    )
+    LOOP
+        IF 	x.IC_SITUACAO_LIBERACAO = 'NR' 
+			AND x.DT_LIBERACAO > x.DT_INICIO_VIGENCIA 
+			AND x.DT_LIBERACAO < x.DT_FIM_VIGENCIA
+        THEN
+            UPDATE FES.FESTB712_LIBERACAO_CONTRATO
+            SET IC_SITUACAO_LIBERACAO = 'S',
+                DT_ATUALIZACAO = SYSDATE
+            WHERE NU_SQNCL_LIBERACAO_CONTRATO = x.NU_SQNCL_LIBERACAO_CONTRATO;
+        END IF;
 
-Objetivo: Identificar liberações onde a soma dos repasses difere do valor do aditamento e registrar uma retenção para essas liberações.
+		-- FINALIZA A RETENCAO DO TIPO SUSPENSAO
+		SQL_QUERY := 'UPDATE FES.FESTB817_RETENCAO_LIBERACAO SET DT_FIM_RETENCAO = ''' ||
+					 TO_CHAR(SYSDATE,'DD/MM/YYYY') || ''' WHERE NU_SQNCL_LIBERACAO_CONTRATO = ' ||
+					 x.NU_SQNCL_LIBERACAO_CONTRATO || ' AND NU_MOTIVO_RETENCAO_LIBERACAO = 3';
+		--DBMS_OUTPUT.PUT_LINE(SQL_QUERY);
+		EXECUTE IMMEDIATE SQL_QUERY;
+    END LOOP;
+    COMMIT; -- COMMIT NO FINAL DA ATUALIZACAO
 
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (sem alias no SELECT principal, mas com alias L no FROM)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_SEQ_CANDIDATO
-            AA_REFERENCIA_LIBERACAO
-            MM_REFERENCIA_LIBERACAO
-            VR_REPASSE
-        FES.FESTB038_ADTMO_CONTRATO (sem alias no SELECT principal, mas com alias A na subquery e no join)
-            NU_CANDIDATO_FK36
-            AA_ADITAMENTO
-            NU_SEM_ADITAMENTO
-            VR_ADITAMENTO
-            NU_STATUS_ADITAMENTO
-        FES.FESTB817_RETENCAO_LIBERACAO (aliás R)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_MOTIVO_RETENCAO_LIBERACAO
-            DT_FIM_RETENCAO
-    Tabelas Afetadas (Escrita):
-        FES.FESTB817_RETENCAO_LIBERACAO (Inserção)
 
-Etapa 6: Compensação e Novo Repasse de Liberações com Divergência entre Repasse e Aditamento (Criação de Compensação e Atualização de Situação)
+    -- Cursor com as liberacoes que possuem retencao por falha na vinculacao entre tabelas e
+    -- que deverao ser encaminhadas no proximo repasse.
+    FOR x IN
+    (
+        SELECT L.NU_SQNCL_LIBERACAO_CONTRATO
+        FROM FES.FESTB712_LIBERACAO_CONTRATO L
+            INNER JOIN FES.FESTB817_RETENCAO_LIBERACAO R
+                ON L.NU_SQNCL_LIBERACAO_CONTRATO = R.NU_SQNCL_LIBERACAO_CONTRATO
+                AND R.NU_MOTIVO_RETENCAO_LIBERACAO = 4
+                AND R.DT_FIM_RETENCAO IS NULL
+        WHERE L.NU_TIPO_TRANSACAO IS NOT NULL
+    )
+    LOOP
+		-- FINALIZA A RETENCAO DO TIPO FALHA NA VINCULACAO ENTRE TABELAS
+		SQL_QUERY := 'UPDATE FES.FESTB817_RETENCAO_LIBERACAO SET DT_FIM_RETENCAO = ''' ||
+					 TO_CHAR(SYSDATE,'DD/MM/YYYY') || ''' WHERE NU_SQNCL_LIBERACAO_CONTRATO = ' ||
+					 x.NU_SQNCL_LIBERACAO_CONTRATO || ' AND NU_MOTIVO_RETENCAO_LIBERACAO = 4';
+		--DBMS_OUTPUT.PUT_LINE(SQL_QUERY);
+		EXECUTE IMMEDIATE SQL_QUERY;
+	END LOOP;
+    COMMIT; -- COMMIT NO FINAL DA ATUALIZACAO
 
-Objetivo: Registrar compensações para liberações com divergência entre o valor repassado e o aditamento, e ajustar a situação da liberação para permitir um novo processamento.
 
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_SEQ_CANDIDATO
-            AA_REFERENCIA_LIBERACAO
-            MM_REFERENCIA_LIBERACAO
-            IC_SITUACAO_LIBERACAO
-            VR_REPASSE
-        FES.FESTB038_ADTMO_CONTRATO (usado na sub-query D)
-            NU_CANDIDATO_FK36
-            AA_ADITAMENTO
-            NU_SEM_ADITAMENTO
-            VR_ADITAMENTO
-            NU_STATUS_ADITAMENTO
-        FES.FESTB711_RLTRO_CTRTO_ANLTO (aliás A, no join principal)
-            NU_SQNCL_RLTRO_CTRTO_ANALITICO
-        FES.FESTB812_CMPSO_RPSE_INDVO (aliás R)
-            NU_SQNCL_RLTRO_CTRTO_ANALITICO
-    Tabelas Afetadas (Escrita):
-        FES.FESTB812_CMPSO_RPSE_INDVO (Inserção)
-        FES.FESTB712_LIBERACAO_CONTRATO (Atualização)
+    -- Cursor com as liberacoes que possuem retencao por AUSENCIA DE ADITAMENTO VALIDO e devera ser finalizada.
+    FOR x IN
+	(
+        SELECT L.NU_SQNCL_LIBERACAO_CONTRATO
+        FROM FES.FESTB712_LIBERACAO_CONTRATO L
+            INNER JOIN FES.FESTB817_RETENCAO_LIBERACAO R
+                ON L.NU_SQNCL_LIBERACAO_CONTRATO = R.NU_SQNCL_LIBERACAO_CONTRATO
+                AND R.NU_MOTIVO_RETENCAO_LIBERACAO = 7
+                AND R.DT_FIM_RETENCAO IS NULL
+			LEFT OUTER JOIN FES.FESTB038_ADTMO_CONTRATO A
+                ON L.NU_SEQ_CANDIDATO = A.NU_CANDIDATO_FK36
+                AND A.NU_STATUS_ADITAMENTO > 3
+                AND A.DT_ADITAMENTO IS NOT NULL
+                AND L.AA_REFERENCIA_LIBERACAO = A.AA_ADITAMENTO
+                AND ( CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END ) = A.NU_SEM_ADITAMENTO
+            LEFT OUTER JOIN FES.FESTB010_CANDIDATO CA
+                ON L.NU_SEQ_CANDIDATO = CA.NU_SEQ_CANDIDATO
+                AND L.AA_REFERENCIA_LIBERACAO = TO_CHAR(CA.DT_ADMISSAO_CANDIDATO,'YYYY')
+                AND ( CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END ) = ( CASE WHEN TO_CHAR(CA.DT_ADMISSAO_CANDIDATO,'MM') < 7 THEN 1 ELSE 2 END )
+            LEFT OUTER JOIN FES.FESTB036_CONTRATO_FIES F
+                ON L.NU_SEQ_CANDIDATO = F.NU_CANDIDATO_FK11
+                AND F.NU_STATUS_CONTRATO > 3
+                AND F.DT_ASSINATURA IS NOT NULL
+        WHERE
+				(
+                    A.NU_CANDIDATO_FK36 IS NOT NULL
+                    OR
+                        ( 
+							CA.NU_SEQ_CANDIDATO IS NOT NULL 
+							AND F.NU_CANDIDATO_FK11 IS NOT NULL 
+						)
+                )
+	)
+    LOOP
+		-- FINALIZA A RETENCAO DO TIPO AUSENCIA DE ADITAMENTO VALIDO
+		SQL_QUERY := 'UPDATE FES.FESTB817_RETENCAO_LIBERACAO SET DT_FIM_RETENCAO = ''' ||
+					 TO_CHAR(SYSDATE,'DD/MM/YYYY') || ''' WHERE NU_SQNCL_LIBERACAO_CONTRATO = ' ||
+					 x.NU_SQNCL_LIBERACAO_CONTRATO || ' AND NU_MOTIVO_RETENCAO_LIBERACAO = 7';
+		--DBMS_OUTPUT.PUT_LINE(SQL_QUERY);
+		EXECUTE IMMEDIATE SQL_QUERY;
+	END LOOP;
+    COMMIT; -- COMMIT NO FINAL DA ATUALIZACAO
 
-Etapa 7: Adequação do Valor das Liberações com Problema de Divergência entre Repasse e Aditamento
 
-Objetivo: Recalcular e ajustar os valores de repasse para as 6 parcelas de um semestre, garantindo que a soma total dos repasses de um semestre seja igual ao VR_ADITAMENTO.
 
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-            NU_SEQ_CANDIDATO
-            AA_REFERENCIA_LIBERACAO
-            MM_REFERENCIA_LIBERACAO
-            VR_REPASSE
-        FES.FESTB038_ADTMO_CONTRATO (aliás A)
-            NU_CANDIDATO_FK36
-            AA_ADITAMENTO
-            NU_SEM_ADITAMENTO
-            VR_ADITAMENTO
-            NU_STATUS_ADITAMENTO
-    Tabelas Afetadas (Escrita):
-        FES.FESTB712_LIBERACAO_CONTRATO (Atualização)
+    -- Cursor com as liberacoes que possuem retencao por AUSENCIA DE ADITAMENTO VALIDO COM IC_SITUACAO_LIBERACAO <> NR e R
+    -- e devem ser finalizadas
+    FOR X IN
+    (
+        SELECT L.NU_SQNCL_LIBERACAO_CONTRATO
+        FROM FES.FESTB712_LIBERACAO_CONTRATO L
+            INNER JOIN FES.FESTB817_RETENCAO_LIBERACAO R
+                ON L.NU_SQNCL_LIBERACAO_CONTRATO = R.NU_SQNCL_LIBERACAO_CONTRATO
+                AND R.NU_MOTIVO_RETENCAO_LIBERACAO = 7
+                AND R.DT_FIM_RETENCAO IS NULL
+        WHERE L.IC_SITUACAO_LIBERACAO NOT IN ('NR', 'R')
+	)
+    LOOP
+		-- FINALIZA A RETENCAO DO TIPO AUSENCIA DE ADITAMENTO VALIDO
+		SQL_QUERY := 'UPDATE FES.FESTB817_RETENCAO_LIBERACAO SET DT_FIM_RETENCAO = ''' ||
+					 TO_CHAR(SYSDATE,'DD/MM/YYYY') || ''' WHERE NU_SQNCL_LIBERACAO_CONTRATO = ' ||
+					 x.NU_SQNCL_LIBERACAO_CONTRATO || ' AND NU_MOTIVO_RETENCAO_LIBERACAO = 7';
+		--DBMS_OUTPUT.PUT_LINE(SQL_QUERY);
+		EXECUTE IMMEDIATE SQL_QUERY;
+	END LOOP;
+    COMMIT; -- COMMIT NO FINAL DA ATUALIZACAO
 
-Etapa 8: Compensação e Readequação de Liberações com Deslocamento no Valor do Repasse (em relação ao Aditamento)
 
-Objetivo: Identificar semestres onde o somatório dos repasses está significativamente menor que o valor do aditamento, e registrar compensações para essas liberações, redefinindo o status para "Não Repassado" ('NR'). Este caso trata de um "deslocamento" no valor.
 
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_SEQ_CANDIDATO
-            AA_REFERENCIA_LIBERACAO
-            MM_REFERENCIA_LIBERACAO
-            VR_REPASSE
-            IC_SITUACAO_LIBERACAO
-        FES.FESTB038_ADTMO_CONTRATO (usado na sub-query D)
-            NU_CANDIDATO_FK36
-            AA_ADITAMENTO
-            NU_SEM_ADITAMENTO
-            VR_ADITAMENTO
-            NU_STATUS_ADITAMENTO
-        FES.FESTB711_RLTRO_CTRTO_ANLTO (aliás A)
-            NU_SQNCL_RLTRO_CTRTO_ANALITICO
-        FES.FESTB812_CMPSO_RPSE_INDVO (aliás R)
-            NU_SQNCL_RLTRO_CTRTO_ANALITICO
-    Tabelas Afetadas (Escrita):
-        FES.FESTB812_CMPSO_RPSE_INDVO (Inserção)
-        FES.FESTB712_LIBERACAO_CONTRATO (Atualização)
+    -- Cursor com as liberacoes que possuem retencao por ANALISE DE LIBERACOES A ESTORNAR COM IC_SITUACAO_LIBERACAO <> NE
+    -- e devem ser finalizadas
+    FOR X IN
+   (
+        SELECT L.NU_SQNCL_LIBERACAO_CONTRATO
+        FROM FES.FESTB712_LIBERACAO_CONTRATO L
+            INNER JOIN FES.FESTB817_RETENCAO_LIBERACAO R
+                ON L.NU_SQNCL_LIBERACAO_CONTRATO = R.NU_SQNCL_LIBERACAO_CONTRATO
+                AND R.NU_MOTIVO_RETENCAO_LIBERACAO = 5
+                AND R.DT_FIM_RETENCAO IS NULL
+        WHERE L.IC_SITUACAO_LIBERACAO <> 'NE'
+	)
+    LOOP
+		-- FINALIZA A RETENCAO DO TIPO ANALISE DE LIBERACOES A ESTORNAR
+		SQL_QUERY := 'UPDATE FES.FESTB817_RETENCAO_LIBERACAO SET DT_FIM_RETENCAO = ''' ||
+					 TO_CHAR(SYSDATE,'DD/MM/YYYY') || ''' WHERE NU_SQNCL_LIBERACAO_CONTRATO = ' ||
+					 x.NU_SQNCL_LIBERACAO_CONTRATO || ' AND NU_MOTIVO_RETENCAO_LIBERACAO = 5';
+		--DBMS_OUTPUT.PUT_LINE(SQL_QUERY);
+		EXECUTE IMMEDIATE SQL_QUERY;
+	END LOOP;
+    COMMIT; -- COMMIT NO FINAL DA ATUALIZACAO
 
-Etapa 9: Adequação do Valor das Liberações com Deslocamento no Repasse (Baseado em Aditamento)
 
-Objetivo: Recalcular e ajustar os valores de repasse para as 6 parcelas de liberações que apresentam um "deslocamento" no valor total repassado em relação ao VR_ADITAMENTO do aditamento, garantindo que a soma dos repasses por semestre seja igual ao VR_ADITAMENTO.
 
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-            NU_SEQ_CANDIDATO
-            AA_REFERENCIA_LIBERACAO
-            MM_REFERENCIA_LIBERACAO
-            VR_REPASSE
-        FES.FESTB038_ADTMO_CONTRATO (aliás A)
-            NU_CANDIDATO_FK36
-            AA_ADITAMENTO
-            NU_SEM_ADITAMENTO
-            VR_ADITAMENTO
-            NU_STATUS_ADITAMENTO
-    Tabelas Afetadas (Escrita):
-        FES.FESTB712_LIBERACAO_CONTRATO (Atualização)
+    -- Cursor com as liberacoes que possuem retencao por ANALISE DE LIBERACOES A ESTORNAR e deverao ser finalizadas.
+    FOR x IN
+    (
+        SELECT L.NU_SQNCL_LIBERACAO_CONTRATO
+        FROM FES.FESTB712_LIBERACAO_CONTRATO L
+            INNER JOIN FES.FESTB817_RETENCAO_LIBERACAO R
+                ON L.NU_SQNCL_LIBERACAO_CONTRATO = R.NU_SQNCL_LIBERACAO_CONTRATO
+                AND R.NU_MOTIVO_RETENCAO_LIBERACAO = 5
+                AND R.DT_FIM_RETENCAO IS NULL
+            LEFT OUTER JOIN FES.FESTB038_ADTMO_CONTRATO A
+                ON L.NU_SEQ_CANDIDATO = A.NU_CANDIDATO_FK36
+                AND L.AA_REFERENCIA_LIBERACAO = A.AA_ADITAMENTO
+                AND (CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END) = A.NU_SEM_ADITAMENTO
+                AND A.NU_STATUS_ADITAMENTO > 3
+            LEFT OUTER JOIN FES.FESTB010_CANDIDATO C
+                ON L.NU_SEQ_CANDIDATO = C.NU_SEQ_CANDIDATO
+                AND L.AA_REFERENCIA_LIBERACAO = TO_CHAR(C.DT_ADMISSAO_CANDIDATO,'YYYY')
+                AND ( CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END ) = ( CASE WHEN TO_CHAR(C.DT_ADMISSAO_CANDIDATO,'MM') < 7 THEN 1 ELSE 2 END )
+            LEFT OUTER JOIN FES.FESTB036_CONTRATO_FIES F
+                ON L.NU_SEQ_CANDIDATO = F.NU_CANDIDATO_FK11
+                AND F.NU_STATUS_CONTRATO > 3
+            LEFT OUTER JOIN FES.FESTB057_OCRRA_CONTRATO O
+                ON L.NU_SEQ_CANDIDATO = O.NU_CANDIDATO_FK36
+                AND O.IC_TIPO_OCORRENCIA = 'S'
+                AND O.IC_TIPO_SUSPENSAO = 'P'
+                AND O.NU_STATUS_OCORRENCIA = 11
+                AND O.AA_REFERENCIA = L.AA_REFERENCIA_LIBERACAO
+                AND O.NU_SEMESTRE_REFERENCIA = ( CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END )
+                AND TO_CHAR(O.DT_OCORRENCIA, 'YYYY') = O.AA_REFERENCIA
+                AND 
+					(
+                        ( 
+							O.NU_SEMESTRE_REFERENCIA = 1 
+							AND TO_CHAR(O.DT_OCORRENCIA, 'MM') < '06' 
+							AND TO_CHAR(O.DT_FIM_VIGENCIA, 'DDMM') = '3006' 
+						)
+                        OR
+                            ( 
+								O.NU_SEMESTRE_REFERENCIA = 2 
+								AND ( TO_CHAR(O.DT_OCORRENCIA, 'MM') > '06' 
+								AND TO_CHAR(O.DT_OCORRENCIA, 'MM') < '12' ) 
+								AND TO_CHAR(O.DT_FIM_VIGENCIA, 'DDMM') = '3112' 
+							)
+                    )
+                AND O.DT_INICIO_VIGENCIA = LAST_DAY(O.DT_OCORRENCIA) + 1
+                AND L.DT_LIBERACAO > O.DT_INICIO_VIGENCIA
+            LEFT OUTER JOIN FES.FESTB057_OCRRA_CONTRATO OC
+                ON L.NU_SEQ_CANDIDATO = OC.NU_CANDIDATO_FK36
+                AND OC.IC_TIPO_OCORRENCIA = 'E'
+                AND OC.NU_STATUS_OCORRENCIA = 11
+                AND OC.AA_REFERENCIA = L.AA_REFERENCIA_LIBERACAO
+                AND OC.NU_SEMESTRE_REFERENCIA = (CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END)
+                AND TO_CHAR(OC.DT_OCORRENCIA, 'YYYY') = OC.AA_REFERENCIA
+                AND 
+					(
+                        ( 
+							OC.NU_SEMESTRE_REFERENCIA = 1 
+							AND TO_CHAR(OC.DT_OCORRENCIA, 'MM') < '06' 
+						)
+                        OR
+							( 
+								OC.NU_SEMESTRE_REFERENCIA = 2 
+								AND TO_CHAR(OC.DT_OCORRENCIA, 'MM') > '06' 
+								AND TO_CHAR(OC.DT_OCORRENCIA, 'MM') < '12' 
+							)
+                    )
+                AND OC.DT_INICIO_VIGENCIA = LAST_DAY(OC.DT_OCORRENCIA) + 1
+                AND L.DT_LIBERACAO > OC.DT_INICIO_VIGENCIA
+        WHERE L.IC_SITUACAO_LIBERACAO = 'NE'
+        AND 
+			(
+				(
+					A.NU_CANDIDATO_FK36 IS NULL 
+					AND C.NU_SEQ_CANDIDATO IS NULL
+				)
+                OR
+					(
+						C.NU_SEQ_CANDIDATO IS NOT NULL 
+						AND F.NU_CANDIDATO_FK11 IS NULL
+					)
+                OR O.NU_CANDIDATO_FK36 IS NOT NULL
+                OR OC.NU_CANDIDATO_FK36 IS NOT NULL
+            )
+    )
+    LOOP
+		-- FINALIZA A RETENCAO DO TIPO ANALISE DE LIBERACOES A ESTORNAR
+		SQL_QUERY := 'UPDATE FES.FESTB817_RETENCAO_LIBERACAO SET DT_FIM_RETENCAO = ''' ||
+					 TO_CHAR(SYSDATE,'DD/MM/YYYY') || ''' WHERE NU_SQNCL_LIBERACAO_CONTRATO = ' ||
+					 x.NU_SQNCL_LIBERACAO_CONTRATO || ' AND NU_MOTIVO_RETENCAO_LIBERACAO = 5';
+		--DBMS_OUTPUT.PUT_LINE(SQL_QUERY);
+		EXECUTE IMMEDIATE SQL_QUERY;
+        END LOOP;
+    COMMIT; -- COMMIT NO FINAL DA ATUALIZACAO
 
-Etapa 10: Adequação do Valor das Liberações com Repasse Zerado (Baseado em Aditamento)
 
-Objetivo: Recalcular e ajustar os valores de repasse para as 6 parcelas de liberações onde o somatório dos repasses para um semestre está zerado, apesar de haver um aditamento com valor positivo. Após o ajuste, o status da liberação é alterado para "Não Repassado" ('NR').
 
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-            NU_SEQ_CANDIDATO
-            AA_REFERENCIA_LIBERACAO
-            MM_REFERENCIA_LIBERACAO
-            VR_REPASSE
-            IC_SITUACAO_LIBERACAO
-        FES.FESTB038_ADTMO_CONTRATO (aliás A)
-            NU_CANDIDATO_FK36
-            AA_ADITAMENTO
-            NU_SEM_ADITAMENTO
-            VR_ADITAMENTO
-            NU_STATUS_ADITAMENTO
-    Tabelas Afetadas (Escrita):
-        FES.FESTB712_LIBERACAO_CONTRATO (Atualização)
+    -- Cursor com as liberacoes que possuem retencao por DIVERGENCIA ENTRE REPASSE E ADITAMENTO e devera ser finalizada.
+    FOR x IN
+    (
+        SELECT
+            L.NU_SQNCL_LIBERACAO_CONTRATO
+        FROM FES.FESTB712_LIBERACAO_CONTRATO L
+            INNER JOIN
+            (
+                SELECT
+                    NU_CANDIDATO_FK36,
+                    AA_ADITAMENTO,
+                    NU_SEM_ADITAMENTO
+                FROM FES.FESTB712_LIBERACAO_CONTRATO
+                    INNER JOIN FES.FESTB038_ADTMO_CONTRATO
+                        ON NU_SEQ_CANDIDATO = NU_CANDIDATO_FK36
+                        AND AA_REFERENCIA_LIBERACAO = AA_ADITAMENTO
+                        AND CASE WHEN MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END = NU_SEM_ADITAMENTO
+                        AND NU_STATUS_ADITAMENTO > 3
+                WHERE NU_SEQ_CANDIDATO > 20000000
+                AND MM_REFERENCIA_LIBERACAO > 0
+                GROUP BY
+                    NU_CANDIDATO_FK36,
+                    AA_ADITAMENTO,
+                    NU_SEM_ADITAMENTO,
+                    VR_ADITAMENTO
+                HAVING  (
+                            (
+                                ( SUM(VR_REPASSE) - VR_ADITAMENTO ) BETWEEN 0 AND 1
+                                OR
+                                ( VR_ADITAMENTO - SUM(VR_REPASSE) ) BETWEEN 0 AND 1
+                            )
+                            AND COUNT(VR_REPASSE) = 6
+                        )
+            ) D
+				ON L.NU_SEQ_CANDIDATO = D.NU_CANDIDATO_FK36
+                AND L.AA_REFERENCIA_LIBERACAO = D.AA_ADITAMENTO
+                AND CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END = D.NU_SEM_ADITAMENTO
+        WHERE EXISTS
+        (
+            SELECT 1
+            FROM FES.FESTB817_RETENCAO_LIBERACAO R
+            WHERE L.NU_SQNCL_LIBERACAO_CONTRATO = R.NU_SQNCL_LIBERACAO_CONTRATO
+            AND R.NU_MOTIVO_RETENCAO_LIBERACAO = 9
+            AND R.DT_FIM_RETENCAO IS NULL
+        )
+    )
+    LOOP
+		-- FINALIZA A RETENCAO DO TIPO DIVERGENCIA ENTRE REPASSE E ADITAMENTO
+		SQL_QUERY := 'UPDATE FES.FESTB817_RETENCAO_LIBERACAO SET DT_FIM_RETENCAO = ''' ||
+						TO_CHAR(SYSDATE,'DD/MM/YYYY') || ''' WHERE NU_SQNCL_LIBERACAO_CONTRATO = ' ||
+						x.NU_SQNCL_LIBERACAO_CONTRATO || ' AND NU_MOTIVO_RETENCAO_LIBERACAO = 9';
+		EXECUTE IMMEDIATE SQL_QUERY;
+    END LOOP;
+	
+    COMMIT; -- COMMIT NO FINAL DA ATUALIZACAO
 
-Etapa 11: Atualização do Sequencial de Aditamento em Liberações
 
-Objetivo: Sincronizar o número sequencial do aditamento (NU_SQNCL_ADITAMENTO) na tabela de liberações de contrato (FESTB712_LIBERACAO_CONTRATO) com o valor correspondente na tabela de aditamentos (FESTB038_ADTMO_CONTRATO), caso haja divergência ou o campo esteja nulo.
+    -- Cursor com as liberacoes que possuem retencao por DIVERGENCIA ENTRE REPASSE E CONTRATACAO e devera ser finalizada.
+    FOR X IN
+    (
+        SELECT
+            L.NU_SQNCL_LIBERACAO_CONTRATO
+        FROM FES.FESTB712_LIBERACAO_CONTRATO L
+			INNER JOIN
+            (
+                SELECT
+					A.NU_CANDIDATO_FK11,
+                    TO_CHAR(C.DT_ADMISSAO_CANDIDATO, 'YYYY') AS ANO,
+                    ( CASE WHEN TO_CHAR(C.DT_ADMISSAO_CANDIDATO,'MM') < 7 THEN 1 ELSE 2 END ) AS SEMESTRE,
+                    A.VR_CONTRATO,
+                    SUM(L.VR_REPASSE)
+                FROM FES.FESTB712_LIBERACAO_CONTRATO L
+					INNER JOIN FES.FESTB036_CONTRATO_FIES A
+                        ON L.NU_SEQ_CANDIDATO = A.NU_CANDIDATO_FK11
+                        AND A.NU_STATUS_CONTRATO > 3
+                    INNER JOIN FES.FESTB010_CANDIDATO C
+                        ON C.NU_SEQ_CANDIDATO = L.NU_SEQ_CANDIDATO
+                        AND L.AA_REFERENCIA_LIBERACAO = TO_CHAR(C.DT_ADMISSAO_CANDIDATO, 'YYYY')
+                        AND ( CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END ) = ( CASE WHEN TO_CHAR(C.DT_ADMISSAO_CANDIDATO,'MM') < 7 THEN 1 ELSE 2 END )
+                WHERE L.NU_SEQ_CANDIDATO > 20000000
+                AND L.MM_REFERENCIA_LIBERACAO > 0
+                GROUP BY
+					CO_CPF,
+                    A.NU_CANDIDATO_FK11,
+                    A.VR_CONTRATO,
+                    TO_CHAR(C.DT_ADMISSAO_CANDIDATO, 'YYYY'),
+                    ( CASE WHEN TO_CHAR(C.DT_ADMISSAO_CANDIDATO,'MM') < 7 THEN 1 ELSE 2 END )
+                HAVING
+                (
+                    (
+                        ( SUM(VR_REPASSE) - VR_CONTRATO ) BETWEEN 0 AND 1
+                        OR
+                        ( VR_CONTRATO - SUM(VR_REPASSE) ) BETWEEN 0 AND 1
+                    )
+                    AND COUNT(L.VR_REPASSE) = 6
+                )
+            ) D
+				ON L.NU_SEQ_CANDIDATO = D.NU_CANDIDATO_FK11
+				AND L.AA_REFERENCIA_LIBERACAO = D.ANO
+				AND CASE WHEN L.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END = D.SEMESTRE
+            LEFT OUTER JOIN FES.FESTB711_RLTRO_CTRTO_ANLTO A
+                ON L.NU_SQNCL_LIBERACAO_CONTRATO = A.NU_SQNCL_LIBERACAO_CONTRATO
+                AND L.NU_SEQ_CANDIDATO = A.NU_SEQ_CANDIDATO
+            LEFT OUTER JOIN FES.FESTB812_CMPSO_RPSE_INDVO R
+                ON R.NU_SQNCL_RLTRO_CTRTO_ANALITICO = A.NU_SQNCL_RLTRO_CTRTO_ANALITICO
+                AND R.NU_TIPO_ACERTO = 7
+                AND R.IC_COMPENSADO = 'N'
+                AND A.VR_REPASSE > L.VR_REPASSE
+        WHERE EXISTS
+        (
+            SELECT 1
+            FROM FES.FESTB817_RETENCAO_LIBERACAO R
+            WHERE L.NU_SQNCL_LIBERACAO_CONTRATO = R.NU_SQNCL_LIBERACAO_CONTRATO
+            AND R.NU_MOTIVO_RETENCAO_LIBERACAO = 9
+            AND R.DT_FIM_RETENCAO IS NULL
+        )
+        AND ( A.NU_SQNCL_LIBERACAO_CONTRATO IS NULL OR R.NU_SQNCL_RLTRO_CTRTO_ANALITICO IS NULL )
+    )
+	LOOP
+		-- FINALIZA A RETENCAO DO TIPO DIVERGENCIA ENTRE REPASSE E CONTRATACAO
+		SQL_QUERY := 'UPDATE FES.FESTB817_RETENCAO_LIBERACAO SET DT_FIM_RETENCAO = ''' ||
+					 TO_CHAR(SYSDATE,'DD/MM/YYYY') || ''' WHERE NU_SQNCL_LIBERACAO_CONTRATO = ' ||
+					 X.NU_SQNCL_LIBERACAO_CONTRATO || ' AND NU_MOTIVO_RETENCAO_LIBERACAO = 9';
+		EXECUTE IMMEDIATE SQL_QUERY;
+	END LOOP;
+		
+    COMMIT; -- COMMIT NO FINAL DA ATUALIZACAO
+	
+	DBMS_OUTPUT.PUT_LINE(' ************* FIM DO PROCESSAMENTO DA FINALIZACAO DE RETENCOES POR DIVERGENCIA ENTRE REPASSE E CONTRATACAO ************* ');
+	
+	
+	-- CURSOR PARA SELECIONAR LIBERACOES A TEREM RETENCAO POR AUSENCIA DE FINALIZACAO NO PROCESSO DE ADITAMENTO FINALIZADAS
+	FOR X IN
+	(
+		SELECT
+			T712.NU_SQNCL_LIBERACAO_CONTRATO
+		FROM FES.FESTB712_LIBERACAO_CONTRATO T712
+			INNER JOIN FES.FESTB038_ADTMO_CONTRATO T38
+				ON T38.NU_CANDIDATO_FK36 = T712.NU_SEQ_CANDIDATO
+				AND T38.AA_ADITAMENTO = T712.AA_REFERENCIA_LIBERACAO
+				AND T38.NU_SEM_ADITAMENTO = CASE WHEN T712.MM_REFERENCIA_LIBERACAO < 7 THEN 1 ELSE 2 END
+				AND T38.NU_STATUS_ADITAMENTO IN (4, 5)
+			INNER JOIN FES.FESTB759_PROCESSO_ADITAMENTO T759
+				ON T759.NU_CANDIDATO = T38.NU_CANDIDATO_FK36
+				AND T759.AA_REFERENCIA = T38.AA_ADITAMENTO
+				AND T759.NU_SEMESTRE_REFERENCIA = T38.NU_SEM_ADITAMENTO
+				AND T759.NU_SITUACAO_PROCESSO = 9
+		WHERE T712.NU_SEQ_CANDIDATO > 20000000
+		AND T712.IC_SITUACAO_LIBERACAO = 'NR'
+		AND EXISTS  (
+						SELECT 1
+						FROM FES.FESTB817_RETENCAO_LIBERACAO T817
+						WHERE T817.NU_SQNCL_LIBERACAO_CONTRATO = T712.NU_SQNCL_LIBERACAO_CONTRATO
+						AND T817.NU_MOTIVO_RETENCAO_LIBERACAO = 10
+						AND T817.DT_FIM_RETENCAO IS NULL
+					)
+	)
+	LOOP
+		--FINALIZA RETENCAO POR AUSENCIA DE FINALIZACAO NO PROCESSO DE ADITAMENTO
+		SQL_QUERY := 'UPDATE FES.FESTB817_RETENCAO_LIBERACAO SET DT_FIM_RETENCAO = ''' ||
+						TO_CHAR(SYSDATE,'DD/MM/YYYY') || ''' WHERE NU_SQNCL_LIBERACAO_CONTRATO = ' ||
+						X.NU_SQNCL_LIBERACAO_CONTRATO || ' AND NU_MOTIVO_RETENCAO_LIBERACAO = 10';
 
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_SEQ_CANDIDATO
-            AA_REFERENCIA_LIBERACAO
-            MM_REFERENCIA_LIBERACAO
-            NU_SQNCL_ADITAMENTO
-            DT_ATUALIZACAO
-        FES.FESTB038_ADTMO_CONTRATO
-            NU_CANDIDATO_FK36
-            AA_ADITAMENTO
-            NU_SEM_ADITAMENTO
-            NU_SEQ_ADITAMENTO
-    Tabelas Afetadas (Escrita):
-        FES.FESTB712_LIBERACAO_CONTRATO (Atualização)
+		EXECUTE IMMEDIATE SQL_QUERY;
+	END LOOP;						
+			
+	COMMIT; -- COMMIT NO FINAL DA ATUALIZACAO
 
-Etapa 12: Inserção de Retenções por Divergência entre Repasse e Contrato
+	DBMS_OUTPUT.PUT_LINE(' ************* FIM DO PROCESSAMENTO DA FINALIZACAO DE RETENCOES POR AUSENCIA DE FINALIZACAO NO PROCESSO DE ADITAMENTO ************* ');
 
-Objetivo: Identificar liberações onde a soma dos valores de repasse para um semestre apresenta uma divergência significativa (maior que R$ 1,00 para mais ou para menos) em relação ao VR_CONTRATO do contrato principal, e inserir uma retenção do tipo 9 (Motivo de Retenção) para essas liberações, caso ainda não exista uma retenção ativa com esse motivo.
+    DBMS_OUTPUT.PUT_LINE(' ************* FIM DA FESSPZ41_CRISE19_FIM_RETENCAO ************* ');
 
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_SEQ_CANDIDATO
-            AA_REFERENCIA_LIBERACAO
-            MM_REFERENCIA_LIBERACAO
-            VR_REPASSE
-        FES.FESTB036_CONTRATO_FIES (aliás A, usado na sub-query D)
-            NU_CANDIDATO_FK11
-            VR_CONTRATO
-            NU_STATUS_CONTRATO
-        FES.FESTB010_CANDIDATO (aliás C, usado na sub-query D)
-            CO_CPF
-            DT_ADMISSAO_CANDIDATO
-        FES.FESTB817_RETENCAO_LIBERACAO (aliás R, usado na cláusula NOT EXISTS)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_MOTIVO_RETENCAO_LIBERACAO
-            DT_FIM_RETENCAO
-    Tabelas Afetadas (Escrita):
-        FES.FESTB817_RETENCAO_LIBERACAO (Inserção)
 
-Etapa 13: Compensação e Novo Repasse de Liberações com Divergência entre Repasse e Contrato
-
-Objetivo: Registrar compensações para liberações que apresentam uma divergência significativa entre o valor repassado e o valor do contrato, e ajustar a situação da liberação para permitir um novo processamento. O tipo de acerto para a compensação é 7.
-
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_SEQ_CANDIDATO
-            AA_REFERENCIA_LIBERACAO
-            MM_REFERENCIA_LIBERACAO
-            VR_REPASSE
-            IC_SITUACAO_LIBERACAO
-        FES.FESTB036_CONTRATO_FIES (usado na sub-query D)
-            NU_CANDIDATO_FK11
-            VR_CONTRATO
-            NU_STATUS_CONTRATO
-        FES.FESTB010_CANDIDATO (usado na sub-query D)
-            CO_CPF
-            DT_ADMISSAO_CANDIDATO
-        FES.FESTB711_RLTRO_CTRTO_ANLTO (aliás A)
-            NU_SQNCL_RLTRO_CTRTO_ANALITICO
-        FES.FESTB812_CMPSO_RPSE_INDVO (aliás R)
-            NU_SQNCL_RLTRO_CTRTO_ANALITICO
-    Tabelas Afetadas (Escrita):
-        FES.FESTB812_CMPSO_RPSE_INDVO (Inserção)
-        FES.FESTB712_LIBERACAO_CONTRATO (Atualização)
-
-Etapa 14: Adequação do Valor das Liberações com Divergência entre Repasse e Contrato
-
-Objetivo: Recalcular e ajustar os valores de repasse para as 6 parcelas de liberações que apresentam uma divergência significativa (maior que R$ 1,00 para mais ou para menos) entre o valor total repassado em um semestre e o VR_CONTRATO do contrato principal. O ajuste garante que a soma dos repasses por semestre seja igual ao VR_CONTRATO.
-
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-            NU_SEQ_CANDIDATO
-            AA_REFERENCIA_LIBERACAO
-            MM_REFERENCIA_LIBERACAO
-            VR_REPASSE
-        FES.FESTB036_CONTRATO_FIES (aliás A)
-            NU_CANDIDATO_FK11
-            VR_CONTRATO
-            NU_STATUS_CONTRATO
-        FES.FESTB010_CANDIDATO (aliás C)
-            DT_ADMISSAO_CANDIDATO
-    Tabelas Afetadas (Escrita):
-        FES.FESTB712_LIBERACAO_CONTRATO (Atualização)
-
-Etapa 15: Inserção de Retenções por Divergência entre Repasse e Aditamento
-
-Objetivo: Identificar liberações onde a soma dos valores de repasse para um semestre apresenta uma divergência significativa (maior ou igual a R$ 1,00 para mais ou para menos) em relação ao VR_ADITAMENTO do aditamento, e inserir uma retenção do tipo 9 (Motivo de Retenção) para essas liberações, caso ainda não exista uma retenção ativa com esse motivo.
-
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_SEQ_CANDIDATO
-            AA_REFERENCIA_LIBERACAO
-            MM_REFERENCIA_LIBERACAO
-            VR_REPASSE
-        FES.FESTB038_ADTMO_CONTRATO (usado na sub-query D)
-            NU_CANDIDATO_FK36
-            AA_ADITAMENTO
-            NU_SEM_ADITAMENTO
-            VR_ADITAMENTO
-            NU_STATUS_ADITAMENTO
-        FES.FESTB817_RETENCAO_LIBERACAO (aliás R, usado na cláusula NOT EXISTS)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_MOTIVO_RETENCAO_LIBERACAO
-            DT_FIM_RETENCAO
-    Tabelas Afetadas (Escrita):
-        FES.FESTB817_RETENCAO_LIBERACAO (Inserção)
-
-Etapa 16: Compensação e Novo Repasse de Liberações com Divergência entre Repasse e Aditamento
-
-Objetivo: Registrar compensações para liberações que apresentam uma divergência significativa entre o valor repassado e o valor do aditamento, e ajustar a situação da liberação para permitir um novo processamento. O tipo de acerto para a compensação é 7.
-
-    Tabelas Consultadas:
-        FES.FESTB712_LIBERACAO_CONTRATO (aliás L)
-            NU_SQNCL_LIBERACAO_CONTRATO
-            NU_SEQ_CANDIDATO
-            AA_REFERENCIA_LIBERACAO
-            MM_REFERENCIA_LIBERACAO
-            VR_REPASSE
-            IC_SITUACAO_LIBERACAO
-        FES.FESTB038_ADTMO_CONTRATO (usado na sub-query D)
-            NU_CANDIDATO_FK36
-            AA_ADITAMENTO
-            NU_SEM_ADITAMENTO
-            VR_ADITAMENTO
-            NU_STATUS_ADITAMENTO
-        FES.FESTB711_RLTRO_CTRTO_ANLTO (aliás A)
-            NU_SQNCL_RLTRO_CTRTO_ANALITICO
-        FES.FESTB812_CMPSO_RPSE_INDVO (aliás R)
-            NU_SQNCL_RLTRO_CTRTO_ANALITICO
-    Tabelas Afetadas (Escrita):
-        FES.FESTB812_CMPSO_RPSE_INDVO (Inserção)
-        FES.FESTB712_LIBERACAO_CONTRATO (Atualização)
-
+EXCEPTION  -- Inicio do tratamento de excessao
+WHEN OTHERS THEN  -- Trata todo tipo de excessao
+    ROLLBACK;
+    DBMS_OUTPUT.PUT_LINE(' *** ERRO VERIFICADO: ' || SQLCODE || ' - ' || SUBSTR(SQLERRM, 1, 100));
+    DBMS_OUTPUT.PUT_LINE(' *** INSTRUCAO      : ' || SQL_QUERY);
+END;
 
 
 
