@@ -8,87 +8,103 @@
 <h2>1. Estrutura dos Microsserviços</h2>
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
 Perfeito! Com base nas informações que você forneceu, aqui está um resumo da motivação e das circunstâncias de criação das Stored Procedures (SPs) mencionadas, bem como o impacto delas no fluxo Javaweb e na rotina Java batch FES.REPASSE:
+CREATE OR REPLACE PROCEDURE FES.FESSPU20_VINCULA_LIBERACAO
+--F620600  26/04/2021 10:59:24
+    --C077033  14/04/2021 13:15:00
+--C077033  17/01/2021 21:02:00
+--F620600  18/02/2020 11:01:19
+--F620600  20/12/2019 10:57:04
+--F620600  06/12/2019 22:30:40
+--F620600  26/11/2019 14:35:50
+AS
+    wDT_INICIAL_SEM DATE := TO_DATE('01/01/2018', 'DD/MM/YYYY');
+    wDT_FINAL_SEM DATE := TO_DATE('01/07/2018', 'DD/MM/YYYY');
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('inicio execucao FESSPU20_VINCULA_LIBERACAO ');
 
-Observação Geral: Todas as SPs mencionadas parecem estar relacionadas a correções e ajustes no processo de repasse do FIES, principalmente em cenários de crise ou situações atípicas, como a pandemia de COVID-19 (CRISE2019). O objetivo principal é garantir que os repasses sejam feitos de forma correta, considerando diversos fatores como aditamentos, transferências de alunos, suspensões, e inconsistências nos valores.
-FES.FESSPU20_VINCULA_LIBERACAO
+    WHILE wDT_INICIAL_SEM < TO_DATE('01/07/2021', 'DD/MM/YYYY') LOOP
+            DBMS_OUTPUT.PUT_LINE('executa update aditamento periodo ' || TO_CHAR(wDT_INICIAL_SEM, 'DD/MM/YYYY') || ' - ' || TO_CHAR(wDT_FINAL_SEM, 'DD/MM/YYYY'));
+            BEGIN
+                UPDATE FES.FESTB712_LIBERACAO_CONTRATO T712
+                SET T712.NU_SQNCL_ADITAMENTO = (
+                    SELECT T038.NU_SEQ_ADITAMENTO
+                    FROM FES.FESTB038_ADTMO_CONTRATO T038
+                    WHERE T038.NU_CANDIDATO_FK36 = T712.NU_SEQ_CANDIDATO
+                      AND T712.DT_LIBERACAO >= (CASE WHEN T038.NU_SEM_ADITAMENTO = 1 THEN TO_DATE('01/01' || T038.AA_ADITAMENTO, 'DD/MM/YYYY') ELSE TO_DATE('01/07' || TO_CHAR(T038.AA_ADITAMENTO), 'DD/MM/YYYY') END)
+                      AND T712.DT_LIBERACAO < (CASE WHEN T038.NU_SEM_ADITAMENTO = 1 THEN TO_DATE('01/07' || T038.AA_ADITAMENTO, 'DD/MM/YYYY') ELSE TO_DATE('01/01' || TO_CHAR(T038.AA_ADITAMENTO + 1), 'DD/MM/YYYY') END)
+                      AND T712.NU_TIPO_TRANSACAO IS NULL
+                    --AND T038.NU_STATUS_ADITAMENTO IN (4, 5)
+                ),
+                    T712.NU_TIPO_TRANSACAO = 2,
+                    T712.NU_PARTICIPACAO_CANDIDATO = 1
+                WHERE TO_CHAR(T712.DT_LIBERACAO, 'YYYYMMDD') >= TO_CHAR(wDT_INICIAL_SEM ,'YYYYMMDD')
+                  AND TO_CHAR(T712.DT_LIBERACAO, 'YYYYMMDD') < TO_CHAR(wDT_FINAL_SEM ,'YYYYMMDD')
+                  AND T712.NU_TIPO_TRANSACAO IS NULL
+                  AND T712.NU_SQNCL_LIBERACAO_CONTRATO IN (
+                    SELECT T712A.NU_SQNCL_LIBERACAO_CONTRATO
+                    FROM FES.FESTB712_LIBERACAO_CONTRATO T712A
+                             JOIN FES.FESTB038_ADTMO_CONTRATO T038
+                                  ON T038.NU_CANDIDATO_FK36 = T712A.NU_SEQ_CANDIDATO
+                    WHERE T712A.DT_LIBERACAO >= (CASE WHEN T038.NU_SEM_ADITAMENTO = 1 THEN TO_DATE('01/01' || T038.AA_ADITAMENTO, 'DD/MM/YYYY') ELSE TO_DATE('01/07' || TO_CHAR(T038.AA_ADITAMENTO), 'DD/MM/YYYY') END)
+                      AND T712A.DT_LIBERACAO < (CASE WHEN T038.NU_SEM_ADITAMENTO = 1 THEN TO_DATE('01/07' || T038.AA_ADITAMENTO, 'DD/MM/YYYY') ELSE TO_DATE('01/01' || TO_CHAR(T038.AA_ADITAMENTO + 1), 'DD/MM/YYYY') END)
+                      AND T712A.NU_TIPO_TRANSACAO IS NULL
+                    --AND T038.NU_STATUS_ADITAMENTO IN (4, 5)
+                );
 
-    Visão Negocial: Vincula liberações ao contrato ou aditamento.
-    Motivação/Circunstâncias: Criada para associar as liberações de crédito do FIES aos contratos ou aditamentos correspondentes. Essa vinculação é essencial para o correto processamento dos repasses.
-    Tabelas Impactadas:
-        FES.FESTB038_ADTMO_CONTRATO
-        FES.FESTB712_LIBERACAO_CONTRATO
-        FES.FESTB817_RETENCAO_LIBERACAO
-    Impacto no Fluxo Javaweb/FES.REPASSE: Essa SP é crucial para o fluxo de repasse, pois garante que cada liberação seja corretamente direcionada ao contrato ou aditamento, permitindo o cálculo correto dos valores a serem repassados.
+                COMMIT;
+            EXCEPTION
+                WHEN NO_DATA_FOUND THEN
+                    NULL;
+                WHEN OTHERS THEN
+                    raise_application_error(SQLCODE, SQLERRM,true);
+            END;
 
-FES.FESSPZ57_CRISE2019_CORR_VLRS
+            DBMS_OUTPUT.PUT_LINE('executa update contrato periodo ' || TO_CHAR(wDT_INICIAL_SEM, 'DD/MM/YYYY') || ' - ' || TO_CHAR(wDT_FINAL_SEM, 'DD/MM/YYYY'));
+            BEGIN
+                UPDATE FES.FESTB712_LIBERACAO_CONTRATO T712
+                SET T712.NU_TIPO_TRANSACAO = 1,
+                    T712.NU_PARTICIPACAO_CANDIDATO = 1
+                WHERE TO_CHAR(T712.DT_LIBERACAO, 'YYYYMMDD') >= TO_CHAR(wDT_INICIAL_SEM ,'YYYYMMDD')
+                  AND TO_CHAR(T712.DT_LIBERACAO, 'YYYYMMDD') < TO_CHAR(wDT_FINAL_SEM ,'YYYYMMDD')
+                  AND T712.NU_TIPO_TRANSACAO IS NULL
+                  AND T712.NU_SQNCL_LIBERACAO_CONTRATO IN (
+                    SELECT T712A.NU_SQNCL_LIBERACAO_CONTRATO
+                    FROM FES.FESTB712_LIBERACAO_CONTRATO T712A
+                             JOIN FES.FESTB010_CANDIDATO T010
+                                  ON T010.NU_SEQ_CANDIDATO = T712A.NU_SEQ_CANDIDATO
+                    WHERE T712A.DT_LIBERACAO >= (CASE WHEN TO_NUMBER(TO_CHAR(T010.DT_ADMISSAO_CANDIDATO, 'MM')) < 7 THEN TO_DATE('01/01' || TO_CHAR(T010.DT_ADMISSAO_CANDIDATO, 'YYYY'), 'DD/MM/YYYY') ELSE TO_DATE('01/07' || TO_CHAR(T010.DT_ADMISSAO_CANDIDATO, 'YYYY'), 'DD/MM/YYYY') END)
+                      AND T712A.DT_LIBERACAO < (CASE WHEN TO_NUMBER(TO_CHAR(T010.DT_ADMISSAO_CANDIDATO, 'MM')) < 7 THEN TO_DATE('01/07' || TO_CHAR(T010.DT_ADMISSAO_CANDIDATO, 'YYYY'), 'DD/MM/YYYY') ELSE TO_DATE('01/01' || TO_NUMBER(TO_CHAR(T010.DT_ADMISSAO_CANDIDATO, 'YYYY') + 1), 'DD/MM/YYYY') END)
+                      AND T712A.NU_TIPO_TRANSACAO IS NULL
+                );
 
-    Visão Negocial: Corrige valores de repasse.
-    Motivação/Circunstâncias: Criada para corrigir erros nos valores de repasse, como o problema relatado onde o formato da data estava incorreto, causando falha na atualização dos valores. Essa SP foi utilizada para corrigir problemas específicos identificados nos repasses de Maio de 2023.
-    Tabelas Impactadas:
-        FESTB812_CMPSO_RPSE_INDVO
-        FESTB712_LIBERACAO_CONTRATO
-        FESTB038_ADTMO_CONTRATO
-        FESTB711_RLTRO_CTRTO_ANLTO
-    Impacto no Fluxo Javaweb/FES.REPASSE: Garante a correção dos valores de repasse, evitando pagamentos incorretos. A correção do formato da data é crucial para o funcionamento correto da rotina.
+                COMMIT;
+            EXCEPTION
+                WHEN NO_DATA_FOUND THEN
+                    NULL;
+                WHEN OTHERS THEN
+                    raise_application_error(SQLCODE, SQLERRM,true);
+            END;
 
-FES.FESSPZ55_CRISE2019_TRATA_SUSP
+            SELECT ADD_MONTHS(wDT_INICIAL_SEM, 6),
+                   ADD_MONTHS(wDT_FINAL_SEM, 6)
+            INTO wDT_INICIAL_SEM, wDT_FINAL_SEM
+            FROM DUAL;
 
-    Visão Negocial: Trata suspensões (tácitas e outras) nos repasses.
-    Motivação/Circunstâncias: Criada para lidar com o impacto das suspensões (incluídas e excluídas) nos repasses. Essa SP garante que os repasses sejam ajustados corretamente em casos de suspensão, considerando critérios de validação como a inexistência de ocorrências de suspensão/encerramento, aditamentos de renovação, e contratos finalizados.
-    Tabelas Impactadas:
-        FESTB812_CMPSO_RPSE_INDVO
-        FESTB712_LIBERACAO_CONTRATO
-        FESTB010_CANDIDATO
-        FESTB711_RLTRO_CTRTO_ANLTO
-        FESTB817_RETENCAO_LIBERACAO
-        FESTB057_OCRRA_CONTRATO
-    Impacto no Fluxo Javaweb/FES.REPASSE: Essencial para o cálculo correto dos repasses em cenários de suspensão, garantindo que os valores sejam ajustados de acordo com os critérios de validação.
+        END LOOP;
 
-FES.FESSPZA6_COMPENSACAO_REPASSE
+    DBMS_OUTPUT.PUT_LINE('INCLUI RETENCOES TIPO 4 PARA AS LIBERACOES QUE NAO POSSUEM VINCULACAO');
+    INSERT INTO FES.FESTB817_RETENCAO_LIBERACAO
+    (NU_SQNCL_LIBERACAO_CONTRATO, NU_MOTIVO_RETENCAO_LIBERACAO, DT_INICIO_RETENCAO)
+    SELECT NU_SQNCL_LIBERACAO_CONTRATO, '4', SYSDATE
+    FROM FES.FESTB712_LIBERACAO_CONTRATO T712
+    WHERE NU_TIPO_TRANSACAO IS NULL
+      AND NOT EXISTS (SELECT 1 FROM FES.FESTB817_RETENCAO_LIBERACAO T817
+                      WHERE T817.NU_SQNCL_LIBERACAO_CONTRATO = T712.NU_SQNCL_LIBERACAO_CONTRATO
+                        AND T817.NU_MOTIVO_RETENCAO_LIBERACAO = '4'
+                        AND T817.DT_FIM_RETENCAO IS NULL);
 
-    Visão Negocial: Realiza a compensação de repasses.
-    Motivação/Circunstâncias: Criada para gerenciar a compensação de valores de repasse, identificando e marcando as compensações como "N" (não compensado) no ambiente TGE/EXADATA. Também lida com retenções, garantindo que as liberações ausentes sejam corretamente processadas.
-    Tabelas Impactadas:
-        FESTB812_CMPSO_RPSE_INDVO
-        FESTB712_LIBERACAO_CONTRATO
-        FESTB818_MOTIVO_RETENCAO_LBRCO
-        FESTB711_RLTRO_CTRTO_ANLTO
-        FESTB817_RETENCAO_LIBERACAO
-    Impacto no Fluxo Javaweb/FES.REPASSE: Permite o controle e a gestão das compensações de repasse, garantindo que os valores sejam ajustados corretamente.
-
-FES.FESSPZ45_CRISE2019_ALTER_LIB_2
-
-    Visão Negocial: Atualiza liberações para não apto (troca de mantenedora, suspensão, estorno e transferência).
-    Motivação/Circunstâncias: Criada para regularizar situações de repasse, como inconsistências no percentual de financiamento e ajustes na IES da liberação para estudantes com transferência. Essa SP garante que os valores das liberações correspondam aos valores contratados no aditamento e que a IES correta seja associada a cada liberação, mesmo em casos de transferência.
-    Tabelas Impactadas:
-        FESTB812_CMPSO_RPSE_INDVO
-        FESTB712_LIBERACAO_CONTRATO
-        FESTB818_MOTIVO_RETENCAO_LBRCO
-        FESTB711_RLTRO_CTRTO_ANLTO
-        FESTB817_RETENCAO_LIBERACAO
-        FESTB049_TRANSFERENCIA
-        FESTB154_CAMPUS_INEP
-        FESTB155_IES_INEP
-        FESTB038_ADTMO_CONTRATO
-        FESTB010_CANDIDATO
-    Impacto no Fluxo Javaweb/FES.REPASSE: Garante a correção das liberações em casos de inconsistências de financiamento e transferência, permitindo o repasse correto dos valores.
-
-FES.FESSPZ37_CRISE19_FIM_RETENCAO
-
-    Visão Negocial: Finaliza retenções de liberações retidas por transferência ou suspensão.
-    Motivação/Circunstâncias: Criada para definir e aplicar regras para a finalização de retenções de liberações retidas por transferência ou suspensão, permitindo o repasse de liberações consistentes.
-    Tabelas Impactadas:
-        FESTB049_TRANSFERENCIA
-        FESTB038_ADTMO_CONTRATO
-        FESTB010_CANDIDATO
-    Impacto no Fluxo Javaweb/FES.REPASSE: Permite a liberação de repasses que estavam retidos devido a transferências ou suspensões, desde que as liberações estejam consistentes com as regras definidas.
-
-FES.FESSPZ41_CRISE19_FIM_RETENC_2
-
-    Visão Negocial: Propõe uma prévia de trabalho para a apuração de maio/2020, contendo regularizações como a não retenção de contratos com transferência e ajustes nas rotinas de retenção e liberação.
-    Motivação/Circunstâncias: Criada para ajustar o processo de repasse em situações específicas, como a pandemia, garantindo que as liberações sejam processadas corretamente em casos de transferência e suspensão.
-    Impacto no Fluxo Javaweb/FES.REPASSE: Essa SP é crucial para o correto processamento dos repasses, especialmente em cenários de crise, garantindo que as liberações sejam tratadas de acordo com as regras específicas para transferência e suspensão.
-
+    DBMS_OUTPUT.PUT_LINE('fim execucao FESSPU20_VINCULA_LIBERACAO');
+END;
 
 
 
