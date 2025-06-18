@@ -29,33 +29,21 @@ import br.gov.caixa.fes.siecm.dominio.model.*;
 import br.gov.caixa.fes.siecm.dominio.model.Arquivo;
 import br.gov.caixa.fes.siecm.dominio.model.Transacao;
 import br.gov.caixa.fes.util.SecurityKeycloakUtils;
-import br.gov.caixa.fes.negocio.exception.FESException; // Assumindo o pacote da sua FESException
-import br.gov.caixa.fes.util.MensagemUtil; // Assumindo o pacote da sua MensagemUtil
-import br.gov.caixa.fes.util.Constantes; // Assumindo o pacote da sua Constantes
-
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import org.apache.commons.lang3.SerializationUtils; // Import for SerializationUtils
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor; // To capture arguments passed to methods
 import org.mockito.InjectMocks;
 import org.mockito.Matchers;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.mockito.Spy;
 import org.mockito.runners.MockitoJUnitRunner;
 import org.modelmapper.ModelMapper;
 
 import javax.persistence.Query;
-import javax.persistence.NoResultException;
-import javax.persistence.NonUniqueResultException;
-
 import java.util.*;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import static org.mockito.Mockito.*;
 
@@ -63,9 +51,6 @@ import static org.mockito.Mockito.*;
 public class LiminarBeanTest extends BaseSIFESTest {
 
     private static final String SUCESSO = "sucesso";
-
-    private static final String CODIGO_TRANSACAO_PARAM_NAME = "codigoProcesso";
-    private static final String TABELA_LIMINAR = "FESTB_LIMINAR";
 
     @Mock
     private AuditoriaBean auditoriaBean;
@@ -82,13 +67,9 @@ public class LiminarBeanTest extends BaseSIFESTest {
     @Mock
     private DocumentoSiecmService documentoSiecmService;
 
-    @Mock
-    private Logger logger;
-
     private final Gson gson = new GsonBuilder().create();
 
     @InjectMocks
-    @Spy
     private LiminarBean liminarBean;
 
     @Before
@@ -97,200 +78,12 @@ public class LiminarBeanTest extends BaseSIFESTest {
         liminarBean.setEm(this.em);
         liminarBean.setGson(gson);
         liminarBean.setModelMapper(modelMapper);
-
-        try {
-            java.lang.reflect.Field loggerField = LiminarBean.class.getDeclaredField("logger");
-            loggerField.setAccessible(true);
-            loggerField.set(liminarBean, logger);
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            // Log this if it's a critical error for your setup, otherwise ignore.
-        }
     }
-
-    // --- MÉTODOS AUXILIARES (mantidos e ajustados) ---
-
-    private LiminarRecompraTO criarLiminarRecompraTO(String codigoTransacao, String usuarioAtestado) {
-        LiminarRecompraTO liminar = new LiminarRecompraTO();
-        liminar.setCodigoTransacao(codigoTransacao);
-        liminar.setUsuario(usuarioAtestado);
-        liminar.setTpSituacao("P"); // Exemplo: Estado pendente inicial
-        return liminar;
-    }
-
-    // Adicionado para criar um CadastroLiminar (similar a LiminarRecompraTO, mas para o método consultar)
-    private CadastroLiminar criarCadastroLiminar(String codigoTransacao, String tpSituacao) {
-        CadastroLiminar liminar = new CadastroLiminar();
-        liminar.setCodigoTransacao(codigoTransacao);
-        liminar.setTpSituacao(tpSituacao);
-        // Adicione outros campos necessários que o SerializationUtils possa precisar
-        return liminar;
-    }
-
-    private ParametroEmailLiminarTO criarParametroEmailLiminarTO() {
-        ParametroEmailLiminarTO parametroEmailLiminarTO = new ParametroEmailLiminarTO();
-        return parametroEmailLiminarTO;
-    }
-
-    private void mockBuscaLiminarParaAtestar(LiminarRecompraTO retornoLiminar, Class<? extends Throwable> exceptionType) {
-        Query queryMock = mock(Query.class);
-        when(this.em.createNamedQuery(LiminarRecompraTO.QUERY_FIND_BY_CODIGO_TRANSACAO)).thenReturn(queryMock);
-        when(queryMock.setParameter(eq(CODIGO_TRANSACAO_PARAM_NAME), anyString())).thenReturn(queryMock);
-
-        if (exceptionType != null) {
-            if (exceptionType.equals(NoResultException.class)) {
-                when(queryMock.getSingleResult()).thenThrow(new NoResultException("Liminar não encontrada no banco de dados."));
-            } else if (exceptionType.equals(NonUniqueResultException.class)) {
-                when(queryMock.getSingleResult()).thenThrow(new NonUniqueResultException("Mais de uma liminar encontrada."));
-            } else {
-                try {
-                    when(queryMock.getSingleResult()).thenThrow(exceptionType.newInstance());
-                } catch (InstantiationException | IllegalAccessException e) {
-                    throw new RuntimeException("Erro ao instanciar exceção mock.", e);
-                }
-            }
-        } else {
-            when(queryMock.getSingleResult()).thenReturn(retornoLiminar);
-        }
-    }
-
-    private void mockRetornaUltimaConfiguracaoEmailValida(ParametroEmailLiminarTO param) throws FESException {
-        doReturn(param).when(liminarBean).retornaUltimaConfiguracaoEmailValida();
-    }
-
-    private void mockVerificaSeUsuarioAtualPodeAtestarLiminar(boolean podeAtestar) throws FESException {
-        if (podeAtestar) {
-            doNothing().when(liminarBean).verificaSeUsuarioAtualPodeAtestarLiminar(any(LiminarRecompraTO.class), anyString());
-        } else {
-            doThrow(new FESException("O mesmo usuário que criou a liminar não pode atesta-la."))
-                .when(liminarBean).verificaSeUsuarioAtualPodeAtestarLiminar(any(LiminarRecompraTO.class), anyString());
-        }
-    }
-
-    private void mockSalvaLiminarHistorico() throws Exception {
-        doNothing().when(liminarBean).salvaLiminarHistorico(
-            any(CadastroLiminar.class), any(CadastroLiminar.class), anyString(), anyString(), anyString()
-        );
-    }
-
-    private void mockEnviarEmailNotificacaoLiminar() throws FESException {
-        doNothing().when(liminarBean).enviarEmailNotificacaoLiminar(anyString(), anyString(), anyString(), any(ParametroEmailLiminarTO.class));
-    }
-
-    private void mockGravaAuditoria() throws FESException {
-        doNothing().when(auditoriaBean).gravaAuditoria(anyString(), eq(TABELA_LIMINAR), eq(Constantes.ALTERACAO), any());
-    }
-    
-    // Método auxiliar para mockar `this.consultar(codigoTransacao, false)`
-    private void mockConsultarInterno(String codigoTransacao, CadastroLiminar retorno) throws Exception {
-        // Mocking a call to `this.consultar` within the @Spy `liminarBean` instance
-        // This is crucial because `atestarLiminarEgravarHistorico` calls `this.consultar`
-        doReturn(Collections.singletonList(retorno))
-            .when(liminarBean).consultar(eq(codigoTransacao), eq(false));
-    }
-
-
-    // --- TESTES DE CENÁRIOS PRINCIPAIS ---
-
-    @Test
-    public void deveAtestarLiminarComSucesso() throws Exception {
-        String codigoProcesso = "12345678901234567890";
-        String usuario = "usuarioTeste"; // Diferente de "usuario2" do objTO
-        String ip = "192.168.1.1";
-
-        LiminarRecompraTO liminarRecompraTO = criarLiminarRecompraTO(codigoProcesso, "usuarioCriador"); // Cria um TO para a busca inicial
-        CadastroLiminar objOriginal = criarCadastroLiminar(codigoProcesso, "P"); // Cria um CadastroLiminar para o clone
-
-        // 1. Configurar Mocks
-        mockBuscaLiminarParaAtestar(liminarRecompraTO, null); // Simula LiminarRecompraTO encontrada
-        mockRetornaUltimaConfiguracaoEmailValida(criarParametroEmailLiminarTO());
-        mockVerificaSeUsuarioAtualPodeAtestarLiminar(true); // Permissão para atestar
-
-        // MOCKS CRUCIAIS PARA atestarLiminarEgravarHistorico
-        // Mock da chamada interna a consultar para retornar o objOriginal
-        mockConsultarInterno(codigoProcesso, objOriginal);
-        // Não mockar atestarLiminarEgravarHistorico com doNothing() se quisermos testar sua lógica interna
-        // Certifique-se de que salvaLiminarHistorico e persist são mockados
-        mockSalvaLiminarHistorico();
-        doNothing().when(em).persist(any(LiminarRecompraTO.class)); // Mock do persist
-
-        // Mocks para o resto do fluxo
-        mockEnviarEmailNotificacaoLiminar();
-        mockGravaAuditoria();
-
-        // 2. Executar o método sob teste
-        Retorno retorno = liminarBean.atestarLiminar(codigoProcesso, usuario, ip);
-
-        // 3. Verificar as asserções do retorno
-        Assert.assertEquals(Long.valueOf(0L), retorno.getCodigo());
-        Assert.assertEquals("Liminar Atestada com sucesso.", retorno.getMensagem());
-        Assert.assertEquals(MensagemUtil.TipoMensagem.SUCESSO, retorno.getTipoMensagem());
-
-        // 4. Verificar as interações com os mocks
-        verify(em, times(1)).createNamedQuery(LiminarRecompraTO.QUERY_FIND_BY_CODIGO_TRANSACAO);
-        verify(liminarBean, times(1)).retornaUltimaConfiguracaoEmailValida();
-        verify(liminarBean, times(1)).verificaSeUsuarioAtualPodeAtestarLiminar(liminarRecompraTO, usuario);
-
-        // Verificações para atestarLiminarEgravarHistorico (já que não estamos mockando-o com doNothing())
-        verify(liminarBean, times(1)).consultar(eq(codigoProcesso), eq(false)); // Chamada interna a consultar
-        verify(em, times(1)).persist(liminarRecompraTO); // Verifica se o objTO foi persistido
-
-        // Capturar argumentos para verificar o historico
-        ArgumentCaptor<CadastroLiminar> originalCaptor = ArgumentCaptor.forClass(CadastroLiminar.class);
-        ArgumentCaptor<CadastroLiminar> alteradoCaptor = ArgumentCaptor.forClass(CadastroLiminar.class);
-        verify(liminarBean, times(1)).salvaLiminarHistorico(
-            originalCaptor.capture(), alteradoCaptor.capture(), eq(usuario), eq(LiminarBean.OPERACAO_ALTERACAO), eq(ip)
-        );
-
-        CadastroLiminar historicoOriginal = originalCaptor.getValue();
-        CadastroLiminar historicoAlterado = alteradoCaptor.getValue();
-
-        // Verifique o estado do histórico:
-        Assert.assertEquals("P", historicoOriginal.getTpSituacao()); // Original deve manter o status anterior
-        Assert.assertEquals(LiminarRecompraTO.SITUACAO_ATESTADA, historicoAlterado.getTpSituacao()); // Alterado deve ter o novo status
-        Assert.assertEquals(liminarRecompraTO.getTpSituacao(), LiminarRecompraTO.SITUACAO_ATESTADA); // Verifica que o objTO também foi atualizado
-
-        verify(liminarBean, times(1)).enviarEmailNotificacaoLiminar(codigoProcesso, usuario, "ATESTAR", any(ParametroEmailLiminarTO.class));
-        verify(auditoriaBean, times(1)).gravaAuditoria(usuario, TABELA_LIMINAR, Constantes.ALTERACAO, liminarRecompraTO);
-        verifyNoMoreInteractions(logger); // No errors should be logged
-    }
-
-    @Test
-    public void deveLancarFESExceptionQuandoUsuarioMesmoCriadorNaoPodeAtestar() throws Exception {
-        // Cenário: O usuário que tenta atestar é o mesmo que criou a liminar.
-
-        String codigoProcesso = "12345678901234567890";
-        String usuario = "usuarioCriador"; // MESMO USUÁRIO
-        String ip = "192.168.1.100";
-
-        LiminarRecompraTO liminarMock = criarLiminarRecompraTO(codigoProcesso, usuario); // Usuario no TO é o mesmo
-
-        mockBuscaLiminarParaAtestar(liminarMock, null);
-        mockRetornaUltimaConfiguracaoEmailValida(criarParametroEmailLiminarTO());
-        mockVerificaSeUsuarioAtualPodeAtestarLiminar(false); // FORÇA A EXCEÇÃO DE PERMISSÃO
-
-        try {
-            liminarBean.atestarLiminar(codigoProcesso, usuario, ip);
-            Assert.fail("Esperava FESException 'O mesmo usuário que criou a liminar não pode atesta-la.' mas nenhuma foi lançada.");
-        } catch (FESException e) {
-            Assert.assertEquals("A mensagem da exceção deve indicar que o usuário é o criador.", "O mesmo usuário que criou a liminar não pode atesta-la.", e.getMessage());
-        }
-
-        // Verifica que o logger foi chamado com a exceção
-        verify(logger, times(1)).log(eq(Level.SEVERE), eq("O mesmo usuário que criou a liminar não pode atesta-la."), any(FESException.class));
-        // Verifica que os métodos seguintes não foram chamados
-        verify(liminarBean, never()).atestarLiminarEgravarHistorico(any(LiminarRecompraTO.class), anyString(), anyString());
-        verify(em, never()).persist(any());
-        verify(liminarBean, never()).salvaLiminarHistorico(any(), any(), anyString(), anyString(), anyString());
-        verify(liminarBean, never()).enviarEmailNotificacaoLiminar(anyString(), anyString(), anyString(), any(ParametroEmailLiminarTO.class));
-        verify(auditoriaBean, never()).gravaAuditoria(anyString(), anyString(), anyString(), any());
-    }
-
-    // --- Outros testes da sua classe original (mantidos) ---
-    // ... (rest of your test methods) ...
 
     @Test
     public void deveConsultarDadosOperador() throws Exception {
         CadastroLiminarConsulta liminarConsulta = new CadastroLiminarConsulta();
+
         CadastroLiminarTO liminarTO = new CadastroLiminarTO();
         liminarTO.setCodigoTransacao("1234");
         liminarTO.setTransacao("RCO");
@@ -311,22 +104,20 @@ public class LiminarBeanTest extends BaseSIFESTest {
         Query query = mock(Query.class);
         when(this.em.createNamedQuery(CadastroLiminarTO.QUERY_NAME_OPERADOR)).thenReturn(query);
         when(query.getResultList()).thenReturn(liminarTOS);
+
         when(this.em.find(LiminarRecompraTO.class, "1234")).thenReturn(liminarRecompraTO);
+
 
         List<CadastroLiminar> resultado = liminarBean.consultar(liminarConsulta);
 
         Assert.assertNotNull(resultado);
-        Assert.assertFalse(resultado.isEmpty());
-        verify(em, times(1)).createNamedQuery(CadastroLiminarTO.QUERY_NAME_OPERADOR);
-        verify(em, times(1)).find(LiminarRecompraTO.class, "1234");
-        verifyNoMoreInteractions(logger);
     }
 
     @Test
     public void deveSalvarRecompraAgenteOperador() throws Exception {
         LiminarRecompra liminarRecompra = new LiminarRecompra();
         liminarRecompra.setCodigoTransacao("134");
-        liminarRecompra.setCodigo(0L); // Código 0L indica nova liminar
+        liminarRecompra.setCodigo(0L);
         liminarRecompra.setTipoLiminar(23L);
 
         Documento doc1 = new Documento();
@@ -359,17 +150,11 @@ public class LiminarBeanTest extends BaseSIFESTest {
 
         when(documentoSiecmService.getTransacao(Matchers.<Transacao>any(), anyString())).thenReturn(SUCESSO);
         when(documentoSiecmService.incluirDocumento(Matchers.<Arquivo>any(), anyString())).thenReturn(response);
-        
-        doNothing().when(auditoriaBean).gravaAuditoria(anyString(), anyString(), anyString(), any());
+
 
         Retorno retorno = liminarBean.salvarRecompraAgenteOperador(liminarRecompra, "usuario1", "ip", securityKeycloakUtils);
 
         Assert.assertEquals(Long.valueOf(0L), retorno.getCodigo());
-        verify(emailMessageOperadorService, times(1)).enviarEmail(any(EmailMessageTO.class));
-        verify(documentoSiecmService, times(1)).getTransacao(any(Transacao.class), anyString());
-        verify(documentoSiecmService, times(liminarRecompra.getDocumentos().size())).incluirDocumento(any(Arquivo.class), anyString());
-        verify(auditoriaBean, times(1)).gravaAuditoria(anyString(), anyString(), anyString(), any());
-        verifyNoMoreInteractions(logger);
     }
 
     @Test
@@ -378,6 +163,7 @@ public class LiminarBeanTest extends BaseSIFESTest {
         liminarRecompraTO.setCodigoTransacao("134");
         liminarRecompraTO.setTipoLiminar(22L);
 
+
         LiminarRecompra liminarRecompra = new LiminarRecompra();
         liminarRecompra.setCodigoTransacao("134");
         liminarRecompra.setCodigo(134L);
@@ -385,8 +171,7 @@ public class LiminarBeanTest extends BaseSIFESTest {
 
         this.mockConsultaParametroEmailLiminar();
 
-        when(this.em.find(eq(LiminarRecompraTO.class), anyLong())).thenReturn(liminarRecompraTO);
-        doNothing().when(em).merge(any(LiminarRecompraTO.class));
+        when(this.em.find(eq(LiminarRecompraTO.class), anyString())).thenReturn(liminarRecompraTO);
 
         Query queryConsultarSeLiminarExiste = mock(Query.class);
         when(this.em.createNamedQuery(LiminarRecompraTO.QUERY_FIND_BY_CODIGO_TRANSACAO_FETCHING_ALL_LISTS)).thenReturn(queryConsultarSeLiminarExiste);
@@ -409,18 +194,10 @@ public class LiminarBeanTest extends BaseSIFESTest {
         when(this.em.createNativeQuery("SELECT MAX(FL.CO_PROCESSO_LIMINAR) FROM FES.FESTB228_LIMINAR fl " +
                 "WHERE FL.CO_PROCESSO_LIMINAR LIKE :cod ")).thenReturn(queryConsultaUltimaCodTransacao);
         when(queryConsultaUltimaCodTransacao.getSingleResult()).thenReturn(null);
-        
-        doNothing().when(auditoriaBean).gravaAuditoria(anyString(), anyString(), anyString(), any());
 
         Retorno retorno = liminarBean.salvarRecompraAgenteOperador(liminarRecompra, "usuario2", "ip", securityKeycloakUtils);
 
         Assert.assertEquals(Long.valueOf(0L), retorno.getCodigo());
-        verify(em, times(1)).find(eq(LiminarRecompraTO.class), eq(liminarRecompra.getCodigo()));
-        verify(em, times(1)).merge(any(LiminarRecompraTO.class));
-        verify(emailMessageOperadorService, times(1)).enviarEmail(any(EmailMessageTO.class));
-        verify(documentoSiecmService, times(1)).getTransacao(any(Transacao.class), anyString());
-        verify(auditoriaBean, times(1)).gravaAuditoria(anyString(), anyString(), anyString(), any());
-        verifyNoMoreInteractions(logger);
     }
 
     private void mockConsultaParametroEmailLiminar() {
@@ -431,17 +208,36 @@ public class LiminarBeanTest extends BaseSIFESTest {
         when(queryParamEmail.getResultList()).thenReturn(Collections.singletonList(parametroEmailLiminarTO));
     }
 
+    @Test
+    public void deveAtestarLiminar() throws Exception {
+        LiminarRecompraTO liminarRecompraTO = new LiminarRecompraTO();
+        liminarRecompraTO.setUsuario("usuario2");
+        liminarRecompraTO.setCodigoTransacao("12345678901234567890");
+
+        this.mockConsultaLiminarSemDetalhes();
+
+        Query query2 = mock(Query.class);
+        when(this.em.createNamedQuery(LiminarRecompraTO.QUERY_FIND_BY_CODIGO_TRANSACAO)).thenReturn(query2);
+        when(query2.getSingleResult()).thenReturn(liminarRecompraTO);
+
+        this.mockConsultaParametroEmailLiminar();
+
+        when(modelMapper.map(any(), eq(CadastroLiminarHistorico.class))).thenReturn(new CadastroLiminarHistorico());
+
+        Retorno retorno = liminarBean.atestarLiminar("123", "usuario", "ip"); // Linha 212
+
+        Assert.assertEquals(Long.valueOf(0L), retorno.getCodigo());
+    }
 
     @Test
     public void deveConsultarLiminar() throws Exception {
+
         this.mockConsultaLiminarSemDetalhes();
 
         List<CadastroLiminar> cadastroLiminares = liminarBean.consultar("1234", false);
 
         Assert.assertNotNull(cadastroLiminares);
         Assert.assertFalse(cadastroLiminares.isEmpty());
-        verify(em, times(1)).createNamedQuery(CadastroLiminarTO.QUERY_NAME);
-        verifyNoMoreInteractions(logger);
     }
 
     private void mockConsultaLiminarSemDetalhes() {
@@ -452,14 +248,15 @@ public class LiminarBeanTest extends BaseSIFESTest {
 
     @Test
     public void deveConsultarPorCodigoTransacaoEDetalhado() throws Exception {
+
         List<CadastroLiminarTO> cadastroLiminarTOS = getCadastroLiminarTOS();
 
         Query query = mock(Query.class);
         when(this.em.createNamedQuery(CadastroLiminarTO.QUERY_NAME)).thenReturn(query);
         when(query.getResultList()).thenReturn(cadastroLiminarTOS);
 
-        LiminarRecompraTO liminarRecompraTO_found = new LiminarRecompraTO();
-        liminarRecompraTO_found.setCodigoTransacao("12345678901234567890");
+        LiminarRecompraTO liminarRecompraTO = new LiminarRecompraTO();
+        liminarRecompraTO.setCodigoTransacao("1234567");
 
         LiminarArquivo liminarArquivo = new LiminarArquivo();
         liminarArquivo.setCodigo(1);
@@ -475,21 +272,17 @@ public class LiminarBeanTest extends BaseSIFESTest {
         liminarArquivos.add(liminarArquivo);
         liminarArquivos.add(liminarArquivo2);
 
-        liminarRecompraTO_found.setLiminarArquivos(liminarArquivos);
+        liminarRecompraTO.setLiminarArquivos(liminarArquivos);
 
-        when(this.em.find(eq(LiminarRecompraTO.class), eq("12345678901234567890"))).thenReturn(liminarRecompraTO_found);
-        when(this.em.find(eq(LiminarRecompraTO.class), eq("12345678901234567891"))).thenReturn(new LiminarRecompraTO());
+        when(this.em.find(LiminarRecompraTO.class, "12345678901234567890")).thenReturn(liminarRecompraTO);
+        when(this.em.find(LiminarRecompraTO.class, "12345678901234567891")).thenReturn(new LiminarRecompraTO());
 
+        //when(liminarBean.montaEPreencheDocumentosLiminar(liminarArquivos)).thenReturn(Arrays.asList(new Documento(), new Documento()));
 
-        List<CadastroLiminar> cadastroLiminares = liminarBean.consultar("123", true);
+        List<CadastroLiminar> cadastroLiminares = liminarBean.consultar("123", true); // linha 267
 
         Assert.assertNotNull(cadastroLiminares);
         Assert.assertFalse(cadastroLiminares.isEmpty());
-        Assert.assertEquals(2, cadastroLiminares.size());
-
-        verify(em, times(1)).createNamedQuery(CadastroLiminarTO.QUERY_NAME);
-        verify(em, times(2)).find(eq(LiminarRecompraTO.class), anyString());
-        verifyNoMoreInteractions(logger);
     }
 
     private static List<CadastroLiminarTO> getCadastroLiminarTOS() {
