@@ -13,502 +13,1968 @@ FES.FESSPU20_VINCULA_LIBERACAO
 
     Objetivo: Vincular as liberações de contrato a seus respectivos aditamentos ou contratos iniciais, marcando o tipo de transação e a participação do candidato. Além disso, a SP insere retenções para liberações que não conseguem ser vinculadas.
 
-package br.gov.caixa.fes.negocio;
-
-import br.gov.caixa.fes.BaseSIFESTest;
-import br.gov.caixa.fes.dominio.*;
-import br.gov.caixa.fes.dominio.documento.Documento;
-import br.gov.caixa.fes.dominio.recompra.LiminarArquivo;
-import br.gov.caixa.fes.dominio.recompra.LiminarRecompraTO;
-import br.gov.caixa.fes.dominio.recompra.ParametroEmailLiminarTO;
-import br.gov.caixa.fes.dominio.transicao.CadastroLiminarTO;
-import br.gov.caixa.fes.dominio.transicao.MantenedoraNovoFiesTO;
-import br.gov.caixa.fes.dto.contrato.EmailMessageTO;
-import br.gov.caixa.fes.siecm.dominio.DocumentoSiecmService;
-import br.gov.caixa.fes.siecm.dominio.model.*;
-import br.gov.caixa.fes.siecm.dominio.model.Arquivo;
-import br.gov.caixa.fes.siecm.dominio.model.Transacao;
-import br.gov.caixa.fes.util.SecurityKeycloakUtils;
-import br.gov.caixa.fes.negocio.exception.FESException;
-import br.gov.caixa.fes.util.MensagemUtil;
-import br.gov.caixa.fes.util.Constantes;
-
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import org.apache.commons.lang3.SerializationUtils;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
-import org.mockito.Matchers;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.mockito.Spy;
-import org.mockito.runners.MockitoJUnitRunner;
-import org.modelmapper.ModelMapper;
-
-import javax.persistence.Query;
-import javax.persistence.NoResultException;
-import javax.persistence.NonUniqueResultException;
-
-import java.util.*;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import static org.mockito.Mockito.*;
-
-@RunWith(MockitoJUnitRunner.class)
-public class LiminarBeanTest extends BaseSIFESTest {
-
-    private static final String SUCESSO = "sucesso";
-
-    private static final String CODIGO_TRANSACAO_PARAM_NAME = "codigoProcesso";
-    private static final String TABELA_LIMINAR = "FESTB_LIMINAR";
-
-    @Mock
-    private AuditoriaBean auditoriaBean;
-
-    @Mock
-    private EmailMessageOperadorService emailMessageOperadorService;
-
-    @Mock
-    private ModelMapper modelMapper;
-
-    @Mock
-    private SecurityKeycloakUtils securityKeycloakUtils;
-
-    @Mock
-    private DocumentoSiecmService documentoSiecmService;
-
-    @Mock
-    private Logger logger;
-
-    private final Gson gson = new GsonBuilder().create();
-
-    @InjectMocks
-    @Spy
-    private LiminarBean liminarBean;
-
-    @Before
-    public void setUp() {
-        MockitoAnnotations.initMocks(this);
-        liminarBean.setEm(this.em);
-        liminarBean.setGson(gson);
-        liminarBean.setModelMapper(modelMapper);
-
-        try {
-            java.lang.reflect.Field loggerField = LiminarBean.class.getDeclaredField("logger");
-            loggerField.setAccessible(true);
-            loggerField.set(liminarBean, logger);
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            // Log this if it's a critical error for your setup, otherwise ignore.
-        }
-    }
-
-    // --- MÉTODOS AUXILIARES (mantidos e ajustados) ---
-
-    private LiminarRecompraTO criarLiminarRecompraTO(String codigoTransacao, String usuarioAtestado) {
-        LiminarRecompraTO liminar = new LiminarRecompraTO();
-        liminar.setCodigoTransacao(codigoTransacao);
-        liminar.setUsuario(usuarioAtestado);
-        liminar.setTpSituacao("P"); // Exemplo: Estado pendente inicial
-        return liminar;
-    }
-
-    // Adicionado para criar um CadastroLiminar (similar a LiminarRecompraTO, mas para o método consultar)
-    private CadastroLiminar criarCadastroLiminar(String codigoTransacao, String tpSituacao) {
-        CadastroLiminar liminar = new CadastroLiminar();
-        liminar.setCodigoTransacao(codigoTransacao);
-        liminar.setTpSituacao(tpSituacao);
-        // Adicione outros campos necessários que o SerializationUtils possa precisar
-        return liminar;
-    }
-
-    private ParametroEmailLiminarTO criarParametroEmailLiminarTO() {
-        ParametroEmailLiminarTO parametroEmailLiminarTO = new ParametroEmailLiminarTO();
-        return parametroEmailLiminarTO;
-    }
-
-    private void mockBuscaLiminarParaAtestar(LiminarRecompraTO retornoLiminar, Class<? extends Throwable> exceptionType) {
-        Query queryMock = mock(Query.class);
-        when(this.em.createNamedQuery(LiminarRecompraTO.QUERY_FIND_BY_CODIGO_TRANSACAO)).thenReturn(queryMock);
-        when(queryMock.setParameter(eq(CODIGO_TRANSACAO_PARAM_NAME), anyString())).thenReturn(queryMock);
-
-        if (exceptionType != null) {
-            if (exceptionType.equals(NoResultException.class)) {
-                when(queryMock.getSingleResult()).thenThrow(new NoResultException("Liminar não encontrada no banco de dados."));
-            } else if (exceptionType.equals(NonUniqueResultException.class)) {
-                when(queryMock.getSingleResult()).thenThrow(new NonUniqueResultException("Mais de uma liminar encontrada."));
-            } else {
-                try {
-                    when(queryMock.getSingleResult()).thenThrow(exceptionType.newInstance());
-                } catch (InstantiationException | IllegalAccessException e) {
-                    throw new RuntimeException("Erro ao instanciar exceção mock.", e);
-                }
-            }
-        } else {
-            when(queryMock.getSingleResult()).thenReturn(retornoLiminar);
-        }
-    }
-
-    private void mockRetornaUltimaConfiguracaoEmailValida(ParametroEmailLiminarTO param) throws FESException {
-        doReturn(param).when(liminarBean).retornaUltimaConfiguracaoEmailValida();
-    }
-
-    private void mockVerificaSeUsuarioAtualPodeAtestarLiminar(boolean podeAtestar) throws FESException {
-        if (podeAtestar) {
-            doNothing().when(liminarBean).verificaSeUsuarioAtualPodeAtestarLiminar(any(LiminarRecompraTO.class), anyString());
-        } else {
-            doThrow(new FESException("O mesmo usuário que criou a liminar não pode atesta-la."))
-                .when(liminarBean).verificaSeUsuarioAtualPodeAtestarLiminar(any(LiminarRecompraTO.class), anyString());
-        }
-    }
-
-    private void mockSalvaLiminarHistorico() throws Exception {
-        doNothing().when(liminarBean).salvaLiminarHistorico(
-            any(CadastroLiminar.class), any(CadastroLiminar.class), anyString(), anyString(), anyString()
-        );
-    }
-
-    private void mockEnviarEmailNotificacaoLiminar() throws FESException {
-        doNothing().when(liminarBean).enviarEmailNotificacaoLiminar(anyString(), anyString(), anyString(), any(ParametroEmailLiminarTO.class));
-    }
-
-    private void mockGravaAuditoria() throws FESException {
-        doNothing().when(auditoriaBean).gravaAuditoria(anyString(), eq(TABELA_LIMINAR), eq(Constantes.ALTERACAO), any());
-    }
-    
-    // Método auxiliar para mockar `this.consultar(codigoTransacao, false)`
-    private void mockConsultarInterno(String codigoTransacao, CadastroLiminar retorno) throws Exception {
-        // Mocking a call to `this.consultar` within the @Spy `liminarBean` instance
-        // This is crucial because `atestarLiminarEgravarHistorico` calls `this.consultar`
-        doReturn(Collections.singletonList(retorno))
-            .when(liminarBean).consultar(eq(codigoTransacao), eq(false));
-    }
-
-
-    // --- TESTES DE CENÁRIOS PRINCIPAIS ---
-
-    @Test
-    public void deveAtestarLiminarComSucesso() throws Exception {
-        String codigoProcesso = "12345678901234567890";
-        String usuario = "usuarioTeste"; 
-        String ip = "192.168.1.1";
-
-        LiminarRecompraTO liminarRecompraTO = criarLiminarRecompraTO(codigoProcesso, "usuarioCriador"); 
-        // Apenas adicionei esta linha e a que usa o mockConsultarInterno logo abaixo
-        CadastroLiminar objOriginalParaClone = criarCadastroLiminar(codigoProcesso, "P"); 
-
-        // 1. Configurar Mocks
-        mockBuscaLiminarParaAtestar(liminarRecompraTO, null); 
-        mockRetornaUltimaConfiguracaoEmailValida(criarParametroEmailLiminarTO());
-        mockVerificaSeUsuarioAtualPodeAtestarLiminar(true); 
-
-        // MOCK ESSENCIAL ADICIONADO AQUI:
-        // Mock da chamada interna a 'this.consultar' para retornar um objeto real.
-        // Isso garante que 'SerializationUtils.clone' tenha um objeto válido para trabalhar,
-        // permitindo que objAlterado.setTpSituacao seja chamado sem erros.
-        mockConsultarInterno(codigoTransacao, objOriginalParaClone);
-        
-        // Mocks para as chamadas subsequentes dentro de atestarLiminarEgravarHistorico
-        doNothing().when(em).persist(any(LiminarRecompraTO.class)); 
-        mockSalvaLiminarHistorico(); 
-
-        // Mocks para o resto do fluxo
-        mockEnviarEmailNotificacaoLiminar();
-        mockGravaAuditoria();
-
-        // 2. Executar o método sob teste
-        Retorno retorno = liminarBean.atestarLiminar(codigoProcesso, usuario, ip);
-
-        // 3. Verificar as asserções do retorno
-        Assert.assertEquals(Long.valueOf(0L), retorno.getCodigo());
-        Assert.assertEquals("Liminar Atestada com sucesso.", retorno.getMensagem());
-        Assert.assertEquals(MensagemUtil.TipoMensagem.SUCESSO, retorno.getTipoMensagem());
-
-        // 4. Verificar as interações com os mocks (verificações importantes)
-        verify(liminarBean, times(1)).consultar(eq(codigoProcesso), eq(false)); 
-        verify(em, times(1)).persist(liminarRecompraTO); 
-
-        // Capturar argumentos para verificar o historico
-        ArgumentCaptor<CadastroLiminar> originalCaptor = ArgumentCaptor.forClass(CadastroLiminar.class);
-        ArgumentCaptor<CadastroLiminar> alteradoCaptor = ArgumentCaptor.forClass(CadastroLiminar.class);
-        verify(liminarBean, times(1)).salvaLiminarHistorico(
-            originalCaptor.capture(), alteradoCaptor.capture(), eq(usuario), eq(LiminarBean.OPERACAO_ALTERACAO), eq(ip)
-        );
-
-        CadastroLiminar historicoOriginal = originalCaptor.getValue();
-        CadastroLiminar historicoAlterado = alteradoCaptor.getValue();
-
-        // Verifique o estado do histórico:
-        Assert.assertEquals("P", historicoOriginal.getTpSituacao()); 
-        Assert.assertEquals(LiminarRecompraTO.SITUACAO_ATESTADA, historicoAlterado.getTpSituacao()); 
-        Assert.assertEquals(liminarRecompraTO.getTpSituacao(), LiminarRecompraTO.SITUACAO_ATESTADA); 
-
-        verify(liminarBean, times(1)).enviarEmailNotificacaoLiminar(codigoProcesso, usuario, "ATESTAR", any(ParametroEmailLiminarTO.class));
-        verify(auditoriaBean, times(1)).gravaAuditoria(usuario, TABELA_LIMINAR, Constantes.ALTERACAO, liminarRecompraTO);
-        verifyNoMoreInteractions(logger); 
-    }
-
-    @Test
-    public void deveLancarFESExceptionQuandoUsuarioMesmoCriadorNaoPodeAtestar() throws Exception {
-        // Cenário: O usuário que tenta atestar é o mesmo que criou a liminar.
-
-        String codigoProcesso = "12345678901234567890";
-        String usuario = "usuarioCriador"; 
-        String ip = "192.168.1.100";
-
-        LiminarRecompraTO liminarMock = criarLiminarRecompraTO(codigoProcesso, usuario); 
-
-        mockBuscaLiminarParaAtestar(liminarMock, null);
-        mockRetornaUltimaConfiguracaoEmailValida(criarParametroEmailLiminarTO());
-        mockVerificaSeUsuarioAtualPodeAtestarLiminar(false); 
-
-        try {
-            liminarBean.atestarLiminar(codigoProcesso, usuario, ip);
-            Assert.fail("Esperava FESException 'O mesmo usuário que criou a liminar não pode atesta-la.' mas nenhuma foi lançada.");
-        } catch (FESException e) {
-            Assert.assertEquals("A mensagem da exceção deve indicar que o usuário é o criador.", "O mesmo usuário que criou a liminar não pode atesta-la.", e.getMessage());
-        }
-
-        verify(logger, times(1)).log(eq(Level.SEVERE), eq("O mesmo usuário que criou a liminar não pode atesta-la."), any(FESException.class));
-        verify(liminarBean, never()).atestarLiminarEgravarHistorico(any(LiminarRecompraTO.class), anyString(), anyString());
-        verify(em, never()).persist(any());
-        verify(liminarBean, never()).salvaLiminarHistorico(any(), any(), anyString(), anyString(), anyString());
-        verify(liminarBean, never()).enviarEmailNotificacaoLiminar(anyString(), anyString(), anyString(), any(ParametroEmailLiminarTO.class));
-        verify(auditoriaBean, never()).gravaAuditoria(anyString(), anyString(), anyString(), any());
-    }
-
-    // --- Outros testes da sua classe original (mantidos) ---
-    // ... (rest of your test methods) ...
-
-    @Test
-    public void deveConsultarDadosOperador() throws Exception {
-        CadastroLiminarConsulta liminarConsulta = new CadastroLiminarConsulta();
-        CadastroLiminarTO liminarTO = new CadastroLiminarTO();
-        liminarTO.setCodigoTransacao("1234");
-        liminarTO.setTransacao("RCO");
-        liminarTO.setTipoLiminar(22);
-        liminarTO.setAbrangencia("N");
-        liminarTO.setCodigoAbrangencia(5);
-
-        List<CadastroLiminarTO> liminarTOS = new ArrayList<>();
-        liminarTOS.add(liminarTO);
-
-        MantenedoraNovoFiesTO mantenedoraNovoFiesTO = new MantenedoraNovoFiesTO(1L, "teste1");
-        mantenedoraNovoFiesTO.setCnpj("05369688000103");
-
-        LiminarRecompraTO liminarRecompraTO = new LiminarRecompraTO();
-        liminarRecompraTO.setCodigoTransacao("1234");
-        liminarRecompraTO.setMantenedoras(Arrays.asList(mantenedoraNovoFiesTO));
-
-        Query query = mock(Query.class);
-        when(this.em.createNamedQuery(CadastroLiminarTO.QUERY_NAME_OPERADOR)).thenReturn(query);
-        when(query.getResultList()).thenReturn(liminarTOS);
-        when(this.em.find(LiminarRecompraTO.class, "1234")).thenReturn(liminarRecompraTO);
-
-        List<CadastroLiminar> resultado = liminarBean.consultar(liminarConsulta);
-
-        Assert.assertNotNull(resultado);
-        Assert.assertFalse(resultado.isEmpty());
-        verify(em, times(1)).createNamedQuery(CadastroLiminarTO.QUERY_NAME_OPERADOR);
-        verify(em, times(1)).find(LiminarRecompraTO.class, "1234");
-        verifyNoMoreInteractions(logger);
-    }
-
-    @Test
-    public void deveSalvarRecompraAgenteOperador() throws Exception {
-        LiminarRecompra liminarRecompra = new LiminarRecompra();
-        liminarRecompra.setCodigoTransacao("134");
-        liminarRecompra.setCodigo(0L); // Código 0L indica nova liminar
-        liminarRecompra.setTipoLiminar(23L);
-
-        Documento doc1 = new Documento();
-        doc1.setExtensaoArquivo("pdf");
-
-        Documento doc2 = new Documento();
-        doc2.setExtensaoArquivo("txt");
-
-        liminarRecompra.setDocumentos(Arrays.asList(doc1, doc2));
-
-        ParametroEmailLiminarTO parametroEmailLiminarTO = new ParametroEmailLiminarTO();
-
-        Query queryParamEmail = mock(Query.class);
-        when(this.em.createNamedQuery(ParametroEmailLiminarTO.QUERY_BUSCAR_ULTIMA_CONFIG_VALIDA)).thenReturn(queryParamEmail);
-        when(queryParamEmail.getResultList()).thenReturn(Collections.singletonList(parametroEmailLiminarTO));
-
-        Query queryConsultarSeLiminarExiste = mock(Query.class);
-        when(this.em.createNamedQuery(LiminarRecompraTO.QUERY_FIND_BY_CODIGO_TRANSACAO_FETCHING_ALL_LISTS)).thenReturn(queryConsultarSeLiminarExiste);
-        when(queryConsultarSeLiminarExiste.getResultList()).thenReturn(Collections.emptyList());
-
-        doNothing().when(emailMessageOperadorService).enviarEmail(Matchers.<EmailMessageTO>any());
-
-        DocumentoResponse documentoResponse = new DocumentoResponse();
-        documentoResponse.setAtributos(new AtributosResponse());
-
-        IncluirResponse response = new IncluirResponse();
-        response.setCodigoRetorno(0);
-        response.setMensagem(SUCESSO);
-        response.setDocumento(documentoResponse);
-
-        when(documentoSiecmService.getTransacao(Matchers.<Transacao>any(), anyString())).thenReturn(SUCESSO);
-        when(documentoSiecmService.incluirDocumento(Matchers.<Arquivo>any(), anyString())).thenReturn(response);
-        
-        doNothing().when(auditoriaBean).gravaAuditoria(anyString(), anyString(), anyString(), any());
-
-        Retorno retorno = liminarBean.salvarRecompraAgenteOperador(liminarRecompra, "usuario1", "ip", securityKeycloakUtils);
-
-        Assert.assertEquals(Long.valueOf(0L), retorno.getCodigo());
-        verify(emailMessageOperadorService, times(1)).enviarEmail(any(EmailMessageTO.class));
-        verify(documentoSiecmService, times(1)).getTransacao(any(Transacao.class), anyString());
-        verify(documentoSiecmService, times(liminarRecompra.getDocumentos().size())).incluirDocumento(any(Arquivo.class), anyString());
-        verify(auditoriaBean, times(1)).gravaAuditoria(anyString(), anyString(), anyString(), any());
-        verifyNoMoreInteractions(logger);
-    }
-
-    @Test
-    public void deveSalvarRecompraAgenteOperadorEditandoLiminar() throws Exception {
-        LiminarRecompraTO liminarRecompraTO = new LiminarRecompraTO();
-        liminarRecompraTO.setCodigoTransacao("134");
-        liminarRecompraTO.setTipoLiminar(22L);
-
-        LiminarRecompra liminarRecompra = new LiminarRecompra();
-        liminarRecompra.setCodigoTransacao("134");
-        liminarRecompra.setCodigo(134L);
-        liminarRecompra.setTipoLiminar(23L);
-
-        this.mockConsultaParametroEmailLiminar();
-
-        when(this.em.find(eq(LiminarRecompraTO.class), anyLong())).thenReturn(liminarRecompraTO);
-        doNothing().when(em).merge(any(LiminarRecompraTO.class));
-
-        Query queryConsultarSeLiminarExiste = mock(Query.class);
-        when(this.em.createNamedQuery(LiminarRecompraTO.QUERY_FIND_BY_CODIGO_TRANSACAO_FETCHING_ALL_LISTS)).thenReturn(queryConsultarSeLiminarExiste);
-        when(queryConsultarSeLiminarExiste.getResultList()).thenReturn(Arrays.asList(liminarRecompraTO));
-
-        doNothing().when(emailMessageOperadorService).enviarEmail(Matchers.<EmailMessageTO>any());
-
-        DocumentoResponse documentoResponse = new DocumentoResponse();
-        documentoResponse.setAtributos(new AtributosResponse());
-
-        IncluirResponse response = new IncluirResponse();
-        response.setCodigoRetorno(0);
-        response.setMensagem(SUCESSO);
-        response.setDocumento(documentoResponse);
-
-        when(documentoSiecmService.getTransacao(Matchers.<Transacao>any(), anyString())).thenReturn(SUCESSO);
-        when(documentoSiecmService.incluirDocumento(Matchers.<Arquivo>any(), anyString())).thenReturn(response);
-
-        Query queryConsultaUltimaCodTransacao = mock(Query.class);
-        when(this.em.createNativeQuery("SELECT MAX(FL.CO_PROCESSO_LIMINAR) FROM FES.FESTB228_LIMINAR fl " +
-                "WHERE FL.CO_PROCESSO_LIMINAR LIKE :cod ")).thenReturn(queryConsultaUltimaCodTransacao);
-        when(queryConsultaUltimaCodTransacao.getSingleResult()).thenReturn(null);
-        
-        doNothing().when(auditoriaBean).gravaAuditoria(anyString(), anyString(), anyString(), any());
-
-        Retorno retorno = liminarBean.salvarRecompraAgenteOperador(liminarRecompra, "usuario2", "ip", securityKeycloakUtils);
-
-        Assert.assertEquals(Long.valueOf(0L), retorno.getCodigo());
-        verify(em, times(1)).find(eq(LiminarRecompraTO.class), eq(liminarRecompra.getCodigo()));
-        verify(em, times(1)).merge(any(LiminarRecompraTO.class));
-        verify(emailMessageOperadorService, times(1)).enviarEmail(any(EmailMessageTO.class));
-        verify(documentoSiecmService, times(1)).getTransacao(any(Transacao.class), anyString());
-        verify(auditoriaBean, times(1)).gravaAuditoria(anyString(), anyString(), anyString(), any());
-        verifyNoMoreInteractions(logger);
-    }
-
-    private void mockConsultaParametroEmailLiminar() {
-        ParametroEmailLiminarTO parametroEmailLiminarTO = new ParametroEmailLiminarTO();
-
-        Query queryParamEmail = mock(Query.class);
-        when(this.em.createNamedQuery(ParametroEmailLiminarTO.QUERY_BUSCAR_ULTIMA_CONFIG_VALIDA)).thenReturn(queryParamEmail);
-        when(queryParamEmail.getResultList()).thenReturn(Collections.singletonList(parametroEmailLiminarTO));
-    }
-
-
-    @Test
-    public void deveConsultarLiminar() throws Exception {
-        this.mockConsultaLiminarSemDetalhes();
-
-        List<CadastroLiminar> cadastroLiminares = liminarBean.consultar("1234", false);
-
-        Assert.assertNotNull(cadastroLiminares);
-        Assert.assertFalse(cadastroLiminares.isEmpty());
-        verify(em, times(1)).createNamedQuery(CadastroLiminarTO.QUERY_NAME);
-        verifyNoMoreInteractions(logger);
-    }
-
-    private void mockConsultaLiminarSemDetalhes() {
-        Query query = mock(Query.class);
-        when(this.em.createNamedQuery(CadastroLiminarTO.QUERY_NAME)).thenReturn(query);
-        when(query.getResultList()).thenReturn(getCadastroLiminarTOS());
-    }
-
-    @Test
-    public void deveConsultarPorCodigoTransacaoEDetalhado() throws Exception {
-        List<CadastroLiminarTO> cadastroLiminarTOS = getCadastroLiminarTOS();
-
-        Query query = mock(Query.class);
-        when(this.em.createNamedQuery(CadastroLiminarTO.QUERY_NAME)).thenReturn(query);
-        when(query.getResultList()).thenReturn(cadastroLiminarTOS);
-
-        LiminarRecompraTO liminarRecompraTO_found = new LiminarRecompraTO();
-        liminarRecompraTO_found.setCodigoTransacao("12345678901234567890");
-
-        LiminarArquivo liminarArquivo = new LiminarArquivo();
-        liminarArquivo.setCodigo(1);
-        liminarArquivo.setNomeArquivo("arquivoTeste.txt");
-        liminarArquivo.setEndereco("link-baixar-arquivo.site");
-
-        LiminarArquivo liminarArquivo2 = new LiminarArquivo();
-        liminarArquivo2.setCodigo(2);
-        liminarArquivo2.setNomeArquivo("arquivoTeste2.txt");
-        liminarArquivo2.setEndereco("link-baixar-arquivo2.site");
-
-        Set<LiminarArquivo> liminarArquivos = new HashSet<>();
-        liminarArquivos.add(liminarArquivo);
-        liminarArquivos.add(liminarArquivo2);
-
-        liminarRecompraTO_found.setLiminarArquivos(liminarArquivos);
-
-        when(this.em.find(eq(LiminarRecompraTO.class), eq("12345678901234567890"))).thenReturn(liminarRecompraTO_found);
-        when(this.em.find(eq(LiminarRecompraTO.class), eq("12345678901234567891"))).thenReturn(new LiminarRecompraTO());
-
-
-        List<CadastroLiminar> cadastroLiminares = liminarBean.consultar("123", true);
-
-        Assert.assertNotNull(cadastroLiminares);
-        Assert.assertFalse(cadastroLiminares.isEmpty());
-        Assert.assertEquals(2, cadastroLiminares.size());
-
-        verify(em, times(1)).createNamedQuery(CadastroLiminarTO.QUERY_NAME);
-        verify(em, times(2)).find(eq(LiminarRecompraTO.class), anyString());
-        verifyNoMoreInteractions(logger);
-    }
-
-    private static List<CadastroLiminarTO> getCadastroLiminarTOS() {
-        List<CadastroLiminarTO> cadastroLiminarTOS = new ArrayList<>();
-
-        CadastroLiminarTO liminarTO = new CadastroLiminarTO();
-        liminarTO.setCodigoTransacao("12345678901234567890");
-        liminarTO.setTransacao("RCO");
-        liminarTO.setTipoLiminar(22);
-        liminarTO.setAbrangencia("N");
-        liminarTO.setCodigoAbrangencia(5);
-
-        CadastroLiminarTO liminarTO2 = new CadastroLiminarTO();
-        liminarTO2.setCodigoTransacao("12345678901234567891");
-        liminarTO2.setTransacao("RCO");
-        liminarTO2.setTipoLiminar(22);
-        liminarTO2.setAbrangencia("S");
-
-        cadastroLiminarTOS.add(liminarTO);
-        cadastroLiminarTOS.add(liminarTO2);
-        return cadastroLiminarTOS;
-    }
-}
+openapi: 3.0.1
+info:
+  version: 1.0.0
+  title: API Aditamento transferencia curso  - SIFES
+  description: >-
+    ## *Orientações*
+
+    API utilizada para permitir aos estudantes inscritos no programa de
+    financiamento estudantil FIES realizarem o aditamento de dilatação de seus
+    contratos junto à Caixa.
+
+
+    Para cada um dos paths desta API, além dos escopos (`scopes`) indicados
+    existem (`permissions`) que deverão ser observadas:
+
+
+    ### `/personal/identifications`
+      - permissions:
+        - GET: **CUSTOMERS_PERSONAL_IDENTIFICATIONS_READ**
+    ### `/personal/qualifications`
+      - permissions: **CUSTOMERS_PERSONAL_ADITTIONALINFO_READ**
+    ### `/personal/financial-relations`
+
+
+    ### `- API Segurança Nível III`
+
+
+    `- Timeout no API Manager:` **3 segundos**
+
+
+    `- Timeout no Middleware` **_____ milissegundos**
+
+
+    `- Timeout no Backend:`** 865 milissegundos**
+
+
+    `- Equipe de Desenvolvimento Responsável: `**CESOB220**
+
+
+    `- Equipe Gestora Negocial (Dono do Produto): `**GEFET**
+
+
+    `- Nº do RTC de Validação do Swagger: `**20961817**
+     
+  contact:
+    name: Equipe de Desenvolvimento (cesob220@caixa.gov.br)
+    email: sudeXXX@caixa.gov.br
+servers:
+  - url: >-
+      https://api.des.caixa:8446/fes-web/servicos/contratacao/encerramentoContrato
+    description: ''
+paths:
+  '/v1/buscar-estudante-transferencia/{cpf}':
+    get:
+      summary: >-
+        Busca informações do contrato FIES do estudante por CPF (via query
+        parameters)
+      description: >
+        Este endpoint permite consultar os detalhes do contrato do Fundo de
+        Financiamento Estudantil (FIES)
+
+        de um estudante específico, utilizando o seu número de Cadastro de
+        Pessoa Física (CPF).
+
+        Os parâmetros são enviados na URL como query parameters.
+      parameters:
+        - in: path
+          name: cpf
+          schema:
+            type: string
+            pattern: '^[0-9]{11}$'
+          description: CPF do estudante a ser consultado (apenas números).
+          required: true
+          example: '70966798120'
+      responses:
+        '200':
+          description: Resposta bem-sucedida com os detalhes do contrato do estudante.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensagem:
+                    type: string
+                    description: >-
+                      Mensagem informativa (geralmente vazia em caso de
+                      sucesso).
+                    nullable: true
+                    example: ''
+                  codigo:
+                    type: string
+                    description: Código de retorno (geralmente nulo em caso de sucesso).
+                    nullable: true
+                    example: null
+                  tipo:
+                    type: string
+                    description: Tipo da mensagem (geralmente nulo em caso de sucesso).
+                    nullable: true
+                    example: null
+                  editavel:
+                    type: boolean
+                    description: Indica se os dados são editáveis.
+                    nullable: true
+                    example: null
+                  agencia:
+                    type: integer
+                    description: Código da agência bancária do contrato.
+                    example: 4736
+                  estudante:
+                    type: object
+                    description: Informações detalhadas do estudante.
+                    properties:
+                      mensagem:
+                        type: string
+                        nullable: true
+                        example: ''
+                        codigo:
+                          type: string
+                          nullable: true
+                          example: null
+                        tipo:
+                          type: string
+                          nullable: true
+                          example: null
+                        editavel:
+                          type: boolean
+                          nullable: true
+                          example: null
+                        cpf:
+                          type: string
+                          description: CPF do estudante.
+                          example: '70966798120'
+                        dependenteCPF:
+                          type: integer
+                          description: CPF do dependente (se houver).
+                          example: 0
+                        nome:
+                          type: string
+                          description: Nome completo do estudante.
+                          example: LUANA GARCIA FERREIRA
+                        dataNascimento:
+                          type: string
+                          format: date
+                          description: Data de nascimento do estudante (DD/MM/AAAA).
+                          example: 20/02/2002
+                        ric:
+                          type: string
+                          nullable: true
+                          description: Registro de Identidade Civil (RIC).
+                          example: null
+                        nacionalidade:
+                          type: string
+                          nullable: true
+                          description: Nacionalidade do estudante.
+                          example: null
+                        identidade:
+                          type: object
+                          description: Detalhes da identidade do estudante.
+                          properties:
+                            identidade:
+                              type: string
+                              description: Número da identidade.
+                              example: '4116034'
+                            orgaoExpedidor:
+                              type: object
+                              properties:
+                                codigo:
+                                  type: integer
+                                  example: 10
+                                nome:
+                                  type: string
+                                  example: Secretaria de Segurança Pública(SSP)
+                                uf:
+                                  type: object
+                                  properties:
+                                    mensagem:
+                                      type: string
+                                      nullable: true
+                                      example: ''
+                                    codigo:
+                                      type: string
+                                      nullable: true
+                                      example: null
+                                    tipo:
+                                      type: string
+                                      nullable: true
+                                      example: null
+                                    editavel:
+                                      type: boolean
+                                      nullable: true
+                                      example: null
+                                    sigla:
+                                      type: string
+                                      example: GO
+                                    descricao:
+                                      type: string
+                                      example: ''
+                                    regiao:
+                                      type: string
+                                      nullable: true
+                                      example: null
+                                dataExpedicaoIdentidade:
+                                  type: string
+                                  format: date
+                                  example: 16/03/2017
+                        estadoCivil:
+                          type: object
+                          properties:
+                            codigo:
+                              type: integer
+                              example: 1
+                            nome:
+                              type: string
+                              example: Solteiro(a)
+                            possuiConjuge:
+                              type: boolean
+                              example: false
+                        regimeBens:
+                          type: string
+                          nullable: true
+                          example: null
+                        endereco:
+                          type: object
+                          properties:
+                            endereco:
+                              type: string
+                              example: Rua 02qd B LT 03 00
+                            numero:
+                              type: string
+                              nullable: true
+                              example: null
+                            bairro:
+                              type: string
+                              example: boa vista
+                            cep:
+                              type: string
+                              example: '75620000'
+                            cidade:
+                              type: object
+                              properties:
+                                codigoCidade:
+                                  type: integer
+                                  example: 1770
+                                nome:
+                                  type: string
+                                  example: BRASILIA
+                                uf:
+                                  type: object
+                                  properties:
+                                    mensagem:
+                                      type: string
+                                      nullable: true
+                                      example: ''
+                                    codigo:
+                                      type: string
+                                      nullable: true
+                                      example: null
+                                    tipo:
+                                      type: string
+                                      nullable: true
+                                      example: null
+                                    editavel:
+                                      type: boolean
+                                      nullable: true
+                                      example: null
+                                    sigla:
+                                      type: string
+                                      example: GO
+                                    descricao:
+                                      type: string
+                                      example: ''
+                                    regiao:
+                                      type: string
+                                      nullable: true
+                                      example: null
+                        contato:
+                          type: object
+                          properties:
+                            email:
+                              type: string
+                              format: email
+                              example: priscilaini@yahoo.com.br
+                            telefoneResidencial:
+                              type: object
+                              properties:
+                                ddd:
+                                  type: string
+                                  example: '62'
+                                numero:
+                                  type: string
+                                  example: '99930009'
+                            telefoneCelular:
+                              type: object
+                              properties:
+                                ddd:
+                                  type: string
+                                  example: '61'
+                                numero:
+                                  type: string
+                                  example: '999930007'
+                            telefoneComercial:
+                              type: object
+                              properties:
+                                ddd:
+                                  type: string
+                                  nullable: true
+                                  example: null
+                                numero:
+                                  type: string
+                                  example: (61)3445-5888
+                        vinculacao:
+                          type: string
+                          nullable: true
+                          example: null
+                        codigoFies:
+                          type: integer
+                          example: 20242515
+                        sexo:
+                          type: object
+                          properties:
+                            sexo:
+                              type: string
+                              example: M
+                            sexoDetalhe:
+                              type: string
+                              example: Masculino
+                        pis:
+                          type: string
+                          example: ''
+                        conjuge:
+                          type: string
+                          nullable: true
+                          example: null
+                        responsavelLegal:
+                          type: string
+                          nullable: true
+                          example: null
+                        emancipado:
+                          type: object
+                          properties:
+                            codigo:
+                              type: string
+                              example: ''
+                            descricao:
+                              type: string
+                              nullable: true
+                              example: null
+                            nome:
+                              type: string
+                              example: ''
+                        nomeCandidato:
+                          type: string
+                          nullable: true
+                          example: null
+                        nomeCurso:
+                          type: string
+                          example: ENFERMAGEM
+                        idCampus:
+                          type: integer
+                          example: 27693
+                        nomeCampus:
+                          type: string
+                          example: >-
+                            Centro Universitário Euro-Americano - Unidade Asa
+                            Sul
+                        numeroCandidato:
+                          type: string
+                          nullable: true
+                          example: null
+                        descricaoMunicipio:
+                          type: string
+                          nullable: true
+                          example: null
+                        nomeIes:
+                          type: string
+                          example: CENTRO UNIVERSITÁRIO EURO-AMERICANO
+                        ufCampus:
+                          type: string
+                          nullable: true
+                          example: null
+                        contaCorrente:
+                          type: string
+                          nullable: true
+                          example: null
+                        permiteLiquidar:
+                          type: string
+                          example: 'N'
+                        voucher:
+                          type: string
+                          nullable: true
+                          example: null
+                        dataValidadeVoucher:
+                          type: string
+                          nullable: true
+                          example: null
+                        motivoImpeditivo:
+                          type: string
+                          nullable: true
+                          example: null
+                        inadimplente:
+                          type: string
+                          nullable: true
+                          example: null
+                        atrasado:
+                          type: string
+                          nullable: true
+                          example: null
+                        liquidado:
+                          type: string
+                          nullable: true
+                          example: null
+                        rendaFamiliar:
+                          type: string
+                          nullable: true
+                          example: null
+                        recebeSms:
+                          type: string
+                          nullable: true
+                          example: null
+                        vinculoSolidario:
+                          type: integer
+                          example: 0
+                        contratoEstudante:
+                          type: string
+                          nullable: true
+                          example: null
+                    ies:
+                      type: object
+                      description: Informações da Instituição de Ensino Superior (IES).
+                    codigoStatusContrato:
+                      type: integer
+                      description: Código do status do contrato.
+                      example: 5
+                    numeroOperacaoSIAPI:
+                      type: integer
+                      description: Número da operação no SIAPI.
+                      example: 187
+                    statusContrato:
+                      type: string
+                      description: Status do contrato.
+                      example: CONTRATO ENVIADO AO SIAPI
+                    situacaoContrato:
+                      type: string
+                      description: Situação do contrato.
+                      example: ''
+                    dataLimiteContratacao:
+                      type: string
+                      format: date
+                      description: Data limite para contratação.
+                      example: 04/12/2020
+                    valorMensalidade:
+                      type: number
+                      format: float
+                      description: Valor da mensalidade.
+                      example: 635.74
+                    valorContrato:
+                      type: number
+                      format: float
+                      description: Valor total do contrato.
+                      example: 3814.45
+                    dataAssinatura:
+                      type: string
+                      format: date
+                      description: Data de assinatura do contrato.
+                      example: 01/01/2024
+                    percentualFinanciamento:
+                      type: integer
+                      description: Percentual de financiamento.
+                      example: 50
+                    numeroContrato:
+                      type: string
+                      description: Número do contrato.
+                      example: 08.4736.187.0000058-00
+                    diaVencimento:
+                      type: string
+                      description: Dia do vencimento da parcela.
+                      example: '15'
+                    codigoTipoGarantia:
+                      type: integer
+                      description: Código do tipo de garantia.
+                      example: 81
+                    descricaoTipoGarantia:
+                      type: string
+                      description: Descrição do tipo de garantia.
+                      example: Fiança Simples/FG-FIES
+                    valorGarantia:
+                      type: number
+                      format: float
+                      description: Valor da garantia.
+                      example: 3814.45
+                    codCurso:
+                      type: string
+                      nullable: true
+                      description: Código do curso.
+                      example: null
+                    semestreCursados:
+                      type: integer
+                      description: Semestres já cursados.
+                      example: 1
+                    estudanteCurso:
+                      type: object
+                      description: Informações do estudante no curso.
+                    valorAditamento:
+                      type: integer
+                      description: Valor do aditamento.
+                      example: 0
+                    unidadeCaixa:
+                      type: string
+                      nullable: true
+                      description: Unidade da Caixa.
+                      example: null
+                    prazoContratoMec:
+                      type: integer
+                      description: Prazo do contrato no MEC.
+                      example: 7
+                    semestreReferencia:
+                      type: integer
+                      description: Semestre de referência.
+                      example: 2
+                    anoReferencia:
+                      type: integer
+                      description: Ano de referência.
+                      example: 2023
+                    bloqueioMec:
+                      type: integer
+                      description: Código de bloqueio no MEC.
+                      example: 0
+                    permiteContratacao:
+                      type: string
+                      description: Indica se permite contratação.
+                      example: S
+                    recebeInformacao:
+                      type: string
+                      description: Indica se recebe informação.
+                      example: ''
+                    recebeSms:
+                      type: string
+                      description: Indica se recebe SMS.
+                      example: A
+                    localExtrato:
+                      type: integer
+                      description: Local do extrato.
+                      example: 3
+                    prouni:
+                      type: string
+                      description: Indica se é PROUNI.
+                      example: 'N'
+                    contaCorrente:
+                      type: object
+                      description: Detalhes da conta corrente.
+                      properties:
+                        agencia:
+                          type: integer
+                          example: 4736
+                        operacao:
+                          type: integer
+                          example: 13
+                        dv:
+                          type: integer
+                          example: 1
+                        nsgd:
+                          type: string
+                          nullable: true
+                          example: null
+                        contaCorrente:
+                          type: integer
+                          example: 6365
+                    quantidadeAditamentos:
+                      type: integer
+                      description: Quantidade de aditamentos.
+                      example: 1
+                    quantidadePreAditamentos:
+                      type: integer
+                      description: Quantidade de pré-aditamentos.
+                      example: 0
+                    sipesListaBanco:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          cpf:
+                            type: string
+                            example: 709.667.981-20
+                          tipo:
+                            type: string
+                            example: C
+                          dataPesquisa:
+                            type: string
+                            nullable: true
+                            example: null
+                          restricao:
+                            type: string
+                            nullable: true
+                            example: 'N'
+                    idSeguradora:
+                      type: integer
+                      description: ID da seguradora.
+                      example: 104
+                    indContratoNovoFies:
+                      type: boolean
+                      description: Indica se é um contrato novo FIES.
+                      example: true
+                    taxaJuros:
+                      type: integer
+                      description: Taxa de juros.
+                      example: 0
+                    existeTarifaContrato:
+                      type: boolean
+                      description: Indica se existe tarifa de contrato.
+                      example: true
+                    vrCoParticipacao:
+                      type: number
+                      format: float
+                      description: Valor da co-participação.
+                      example: 144.21
+                    valorSeguro:
+                      type: number
+                      format: float
+                      description: Valor do seguro.
+                      example: 4.6
+                    numeroProcessoSeletivo:
+                      type: integer
+                examples:
+                  OperacaoIndisponivelContrato:
+                    summary: Operação não disponível para este contrato.
+                    value:
+                      mensagem: >-
+                        Já existe solicitação de transferencia para este
+                        semestre.
+                      tipo: null
+                      codigo: 2
+                      possuiDilatacaoAberta: true
+                      uf: MG
+                      editavel: false
+                  CalendarioFechado:
+                    summary: >-
+                      Operação não disponível para este contrato. (calendario
+                      fechado)
+                    value:
+                      mensagem: Operação não disponível para este contrato.
+                      codigo: 2
+                      possuiDilatacaoAberta: false
+                      uf: MG
+                  PeriodoEmUtilizacao:
+                    summary: >-
+                      Dilatação não permitida, ainda existe período de
+                      utilização
+                    value:
+                      mensagem: Operação não disponível para este contrato.
+                      codigo: 2
+                      possuiDilatacaoAberta: false
+                      uf: MG
+        '401':
+          description: >-
+            Identificação provida pelo token aponta para usuário não autorizado
+            a utilizar a API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 401
+                    mensagem: O token fornecido para acesso à API é inválido.
+                    tipo: Erro
+                    editavel: false
+        '404':
+          description: Não foi localizado um contrato para o código Fies fornecido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 404
+                    mensagem: >-
+                      Não foi localizado um contrato para o código Fies
+                      fornecido.
+                    tipo: Erro
+                    editavel: false
+        '412':
+          description: Erro negocial ou estrutural na chamada da API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 412
+                    mensagem: Os dados fornecidos não são válidos.
+                    tipo: Erro
+                    editavel: false
+        '500':
+          description: Erro interno do servidor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 500
+                    mensagem: Erro na execução da funcionalidade no backend.
+                    tipo: Erro
+                    editavel: false
+        security:
+          - Internet:
+              - scope
+            APIKey: []
+  '/v1/buscar-estudante/{CPF}':
+    get:
+      summary: >-
+        Busca informações do contrato FIES do estudante por CPF (via query
+        parameters)
+      description: >
+        Este endpoint permite consultar os detalhes do contrato do Fundo de
+        Financiamento Estudantil (FIES)
+      parameters:
+        - in: path
+          name: cpf
+          schema:
+            type: string
+            pattern: '^[0-9]{11}$'
+          description: CPF do estudante a ser consultado (apenas números).
+          required: true
+          example: '70966798120'
+      responses:
+        '200':
+          description: Sucesso - Retorna os detalhes do estudante.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensagem:
+                    type: string
+                    example: ''
+                  codigo:
+                    type: integer
+                    example: 0
+                  tipo:
+                    type: string
+                    nullable: true
+                    example: null
+                  editavel:
+                    nullable: true
+                    example: null
+                  idTransferencia:
+                    type: string
+                    nullable: true
+                    example: null
+                  codFies:
+                    type: integer
+                    example: 20242515
+                  cpfCandidato:
+                    type: string
+                    example: '70966798120'
+                  nomeCandidato:
+                    type: string
+                    example: LUANA GARCIA FERREIRA
+                  tipoTransferencia:
+                    type: string
+                    nullable: true
+                    example: null
+                  idIes:
+                    type: integer
+                    example: 1113
+                  nuMantenedora:
+                    type: integer
+                    example: 770
+                  nuCampus:
+                    type: integer
+                    example: 27693
+                  nuCurso:
+                    type: integer
+                    example: 73537
+                  nuTurno:
+                    type: integer
+                    example: 1
+                  nomeIes:
+                    type: string
+                    example: CENTRO UNIVERSITÁRIO EURO-AMERICANO
+                  nomeMantenedora:
+                    type: string
+                    example: Instituto Euro Americano De Educacao Ciencia Tecnologia
+                  turnoDescDestino:
+                    type: string
+                    nullable: true
+                    example: Matutino
+                  uf:
+                    type: string
+                    example: DF
+                  municipio:
+                    type: string
+                    example: BRASILIA
+                  endereco:
+                    type: string
+                    example: SCES Trecho 0 - Conjunto 5
+                  nomeCampus:
+                    type: string
+                    example: Centro Universitário Euro-Americano - Unidade Asa Sul
+                  nomeCurso:
+                    type: string
+                    example: ENFERMAGEM
+                  duracaoRegularCurso:
+                    type: integer
+                    example: 10
+                  nuSemestresCursados:
+                    type: integer
+                    example: 1
+                  qtSemestresDilatado:
+                    type: integer
+                    example: 0
+                  qtSemestresSuspenso:
+                    type: integer
+                    example: 0
+                  iesDestino:
+                    type: string
+                    nullable: true
+                    example: null
+                  nuMantenedoraDestino:
+                    type: integer
+                    nullable: true
+                    example: null
+                  campusDestino:
+                    type: integer
+                    nullable: true
+                    example: null
+                  cursoDestino:
+                    type: integer
+                    nullable: true
+                    example: null
+                  turnoDestino:
+                    type: integer
+                    nullable: true
+                    example: null
+                  nomeIesDestino:
+                    type: string
+                    nullable: true
+                    example: null
+                  nomeMantenedoraDestino:
+                    type: string
+                    nullable: true
+                    example: null
+                  ufDestino:
+                    type: string
+                    nullable: true
+                    example: null
+                  municipioDestino:
+                    type: string
+                    nullable: true
+                    example: null
+                  enderecoDestino:
+                    type: string
+                    nullable: true
+                    example: null
+                  nomeCampusDestino:
+                    type: string
+                    nullable: true
+                    example: null
+                  nomeCursoDestino:
+                    type: string
+                    nullable: true
+                    example: null
+                  transferenciasRealizadas:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        idTransferencia:
+                          type: integer
+                          example: 58024
+                        dataSolicitacao:
+                          type: integer
+                          example: 1747228434000
+                        tipoTransferencia:
+                          type: integer
+                          example: 2
+                        status:
+                          type: integer
+                          example: 10
+                        mensagem:
+                          type: string
+                          nullable: true
+                          example: ''
+                        codigo:
+                          type: string
+                          nullable: true
+                          example: null
+                        tipo:
+                          type: string
+                          nullable: true
+                          example: null
+                        editavel:
+                          nullable: true
+                          example: null
+                        habilitarCancelarEstudante:
+                          type: boolean
+                          example: false
+                        tipoDesc:
+                          type: string
+                          example: IES
+                        statusDesc:
+                          type: string
+                          example: Cancelado
+                  icCondicaoFuncionamento:
+                    type: string
+                    example: 'N'
+                  icSituacaoContrato:
+                    type: string
+                    example: U
+                  icSituacaoIES:
+                    type: string
+                    example: L
+                  nuOperacaoSiapi:
+                    type: integer
+                    example: 187
+                  totalSemestresContratados:
+                    type: integer
+                    example: 7
+                  totalSemestresUtilizados:
+                    type: integer
+                    example: 2
+                  totalSemestresDestino:
+                    type: integer
+                    nullable: true
+                    example: null
+                  habilitarSolicitacao:
+                    type: boolean
+                    example: true
+                  numeroSemestresCursar:
+                    type: integer
+                    example: 7
+                  descTunoOrigem:
+                    type: string
+                    nullable: true
+                    example: Matutino
+                  semestreReferencia:
+                    type: integer
+                    example: 1
+                  anoReferencia:
+                    type: integer
+                    example: 2025
+                  notaEnemCandidato:
+                    type: number
+                    example: 495.34
+                  anoReferenciaNotaEnem:
+                    type: integer
+                    example: 2020
+                  jsonRetornoConsultaEnem:
+                    type: string
+                    example: >-
+                      {"nuCpf":"70966798120","vlNotaEnemConsiderada":"495.34","nuSemestreReferencia":"22020","coInscricao":6614627,"nuAnoEnem":"2019"}
+                  estudantePodeTransfCurso:
+                    type: string
+                    example: S
+                  totalSemestresDisponiveis:
+                    type: integer
+                    example: 5
+        '401':
+          description: >-
+            Identificação provida pelo token aponta para usuário não autorizado
+            a utilizar a API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 401
+                    mensagem: O token fornecido para acesso à API é inválido.
+                    tipo: Erro
+                    editavel: false
+        '404':
+          description: Não foi localizado um contrato para o código Fies fornecido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 404
+                    mensagem: >-
+                      Não foi localizado um contrato para o código Fies
+                      fornecido.
+                    tipo: Erro
+                    editavel: false
+        '412':
+          description: Erro negocial ou estrutural na chamada da API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 412
+                    mensagem: Os dados fornecidos não são válidos.
+                    tipo: Erro
+                    editavel: false
+        '500':
+          description: Erro interno do servidor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 500
+                    mensagem: Erro na execução da funcionalidade no backend.
+                    tipo: Erro
+                    editavel: false
+        security:
+          - Internet:
+              - scope
+            APIKey: []
+  '/v1/buscar-combo-todas-ies/{nomeIes}':
+    get:
+      summary: Busca informações de Instituições de Ensino (IES)
+      description: Retorna uma lista de IES com base nos critérios de busca.
+      parameters:
+        - in: path
+          name: nomeIes
+          schema:
+            type: string
+          description: Filtra IES por nome (parcial ou completo).
+      responses:
+        '200':
+          description: Sucesso - Retorna a lista de IES encontradas.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  codigo:
+                    type: string
+                    nullable: true
+                  mensagem:
+                    type: string
+                    nullable: true
+                  tipo:
+                    type: string
+                    nullable: true
+                  listaRetorno:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        mensagem:
+                          type: string
+                          nullable: true
+                        codigo:
+                          type: string
+                          nullable: true
+                          example: null
+                        tipo:
+                          type: string
+                          nullable: true
+                          example: null
+                        editavel:
+                          type: boolean
+                          nullable: true
+                        dominioCombo:
+                          type: string
+                          nullable: true
+                        id:
+                          type: string
+                          example: 9945
+                        descricao:
+                          type: string
+                          example: 9945
+                        atributo:
+                          type: string
+                          nullable: true
+                          example: null
+        '401':
+          description: >-
+            Identificação provida pelo token aponta para usuário não autorizado
+            a utilizar a API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 401
+                    mensagem: O token fornecido para acesso à API é inválido.
+                    tipo: Erro
+                    editavel: false
+        '404':
+          description: Não foi localizado um contrato para o código Fies fornecido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 404
+                    mensagem: >-
+                      Não foi localizado um contrato para o código Fies
+                      fornecido.
+                    tipo: Erro
+                    editavel: false
+        '412':
+          description: Erro negocial ou estrutural na chamada da API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 412
+                    mensagem: Os dados fornecidos não são válidos.
+                    tipo: Erro
+                    editavel: false
+        '500':
+          description: Erro interno do servidor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 500
+                    mensagem: Erro na execução da funcionalidade no backend.
+                    tipo: Erro
+                    editavel: false
+        security:
+          - Internet:
+              - scope
+            APIKey: []
+  '/v1/consultar-campus-transferencia{ies}/{semestreReferencia}/{anoReferencia}':
+    get:
+      summary: >-
+        Busca campus de transferência para uma IES, semestre e ano de
+        referência.
+      description: >-
+        Retorna uma lista de campus disponíveis para transferência com base nos
+        parâmetros fornecidos.
+      parameters:
+        - in: path
+          name: ies
+          schema:
+            type: string
+          description: Código da Instituição de Ensino (IES).
+          required: true
+        - in: path
+          name: semestreReferencia
+          schema:
+            type: integer
+            enum:
+              - 1
+              - 2
+          description: Semestre de referência para a busca.
+          required: true
+        - in: path
+          name: anoReferencia
+          schema:
+            type: integer
+            format: int32
+          description: Ano de referência para a busca.
+          required: true
+      responses:
+        '200':
+          description: Sucesso - Retorna a lista de campus de transferência encontrados.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  codigo:
+                    type: string
+                    nullable: true
+                  mensagem:
+                    type: string
+                    nullable: true
+                  tipo:
+                    type: string
+                    nullable: true
+                  listaRetorno:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        mensagem:
+                          type: string
+                          nullable: true
+                        codigo:
+                          type: string
+                          nullable: true
+                        tipo:
+                          type: string
+                          nullable: true
+                        editavel:
+                          type: boolean
+                          nullable: true
+                        dominioCombo:
+                          type: string
+                          nullable: true
+                        id:
+                          type: string
+                        descricao:
+                          type: string
+                        atributo:
+                          type: string
+                          nullable: true
+        '401':
+          description: >-
+            Identificação provida pelo token aponta para usuário não autorizado
+            a utilizar a API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 401
+                    mensagem: O token fornecido para acesso à API é inválido.
+                    tipo: Erro
+                    editavel: false
+        '404':
+          description: Não foi localizado um contrato para o código Fies fornecido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 404
+                    mensagem: >-
+                      Não foi localizado um contrato para o código Fies
+                      fornecido.
+                    tipo: Erro
+                    editavel: false
+        '412':
+          description: Erro negocial ou estrutural na chamada da API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 412
+                    mensagem: Os dados fornecidos não são válidos.
+                    tipo: Erro
+                    editavel: false
+        '500':
+          description: Erro interno do servidor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 500
+                    mensagem: Erro na execução da funcionalidade no backend.
+                    tipo: Erro
+                    editavel: false
+        security:
+          - Internet:
+              - scope
+            APIKey: []
+  /v1/consultar-curso-campus-oferta:
+    get:
+      summary: Busca cursos disponíveis em um campus de oferta para transferência.
+      description: >-
+        Retorna uma lista de cursos disponíveis para transferência com base nos
+        parâmetros fornecidos.
+      parameters:
+        - in: query
+          name: nuCampus
+          schema:
+            type: string
+          description: Número do campus de oferta.
+          required: true
+        - in: query
+          name: nuCurso
+          schema:
+            type: string
+          description: Número do curso de oferta.
+          required: true
+        - in: query
+          name: nuTurno
+          schema:
+            type: integer
+          description: Número do turno do curso de oferta.
+          required: true
+        - in: query
+          name: nuCampusDestino
+          schema:
+            type: string
+          description: Número do campus de destino para a transferência.
+          required: true
+        - in: query
+          name: semestre
+          schema:
+            type: integer
+            enum:
+              - 1
+              - 2
+          description: Semestre de referência.
+          required: true
+        - in: query
+          name: ano
+          schema:
+            type: integer
+            format: int32
+          description: Ano de referência.
+          required: true
+      responses:
+        '200':
+          description: Sucesso - Retorna a lista de cursos disponíveis para transferência.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  codigo:
+                    type: string
+                    nullable: true
+                  mensagem:
+                    type: string
+                    nullable: true
+                  tipo:
+                    type: string
+                    nullable: true
+                  listaRetorno:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        mensagem:
+                          type: string
+                          nullable: true
+                        codigo:
+                          type: string
+                          nullable: true
+                        tipo:
+                          type: string
+                          nullable: true
+                        editavel:
+                          type: boolean
+                          nullable: true
+                        dominioCombo:
+                          type: string
+                          nullable: true
+                        id:
+                          type: string
+                        descricao:
+                          type: string
+                        atributo:
+                          type: string
+                          nullable: true
+        '401':
+          description: >-
+            Identificação provida pelo token aponta para usuário não autorizado
+            a utilizar a API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 401
+                    mensagem: O token fornecido para acesso à API é inválido.
+                    tipo: Erro
+                    editavel: false
+        '404':
+          description: Não foi localizado um contrato para o código Fies fornecido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 404
+                    mensagem: >-
+                      Não foi localizado um contrato para o código Fies
+                      fornecido.
+                    tipo: Erro
+                    editavel: false
+        '412':
+          description: Erro negocial ou estrutural na chamada da API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 412
+                    mensagem: Os dados fornecidos não são válidos.
+                    tipo: Erro
+                    editavel: false
+        '500':
+          description: Erro interno do servidor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 500
+                    mensagem: Erro na execução da funcionalidade no backend.
+                    tipo: Erro
+                    editavel: false
+        security:
+          - Internet:
+              - scope
+            APIKey: []
+  /v1/consultar-turnos:
+    get:
+      summary: Busca turnos disponíveis para um curso em um campus de destino.
+      description: >-
+        Retorna uma lista de turnos disponíveis com base nos parâmetros
+        fornecidos.
+      parameters:
+        - in: query
+          name: nuCampus
+          schema:
+            type: string
+          description: Número do campus de oferta (pode ser '0' para indicar todos).
+          required: true
+        - in: query
+          name: nuCurso
+          schema:
+            type: string
+          description: Número do curso de oferta (pode ser '0' para indicar todos).
+          required: true
+        - in: query
+          name: nuTurno
+          schema:
+            type: string
+          description: Número do turno de oferta (pode ser '0' para indicar todos).
+          required: true
+        - in: query
+          name: coCurso
+          schema:
+            type: string
+          description: Código do curso de destino.
+          required: true
+        - in: query
+          name: nuCampusDestino
+          schema:
+            type: string
+          description: Número do campus de destino.
+          required: true
+        - in: query
+          name: semestre
+          schema:
+            type: integer
+            enum:
+              - 1
+              - 2
+          description: Semestre de referência.
+          required: true
+        - in: query
+          name: ano
+          schema:
+            type: integer
+            format: int32
+          description: Ano de referência.
+          required: true
+      responses:
+        '200':
+          description: Sucesso - Retorna a lista de turnos disponíveis.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  codigo:
+                    type: string
+                    nullable: true
+                  mensagem:
+                    type: string
+                    nullable: true
+                  tipo:
+                    type: string
+                    nullable: true
+                  listaRetorno:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        mensagem:
+                          type: string
+                          nullable: true
+                        codigo:
+                          type: string
+                          nullable: true
+                        tipo:
+                          type: string
+                          nullable: true
+                        editavel:
+                          type: boolean
+                          nullable: true
+                        dominioCombo:
+                          type: string
+                          nullable: true
+                        id:
+                          type: string
+                        descricao:
+                          type: string
+                        atributo:
+                          type: string
+                          nullable: true
+        '401':
+          description: >-
+            Identificação provida pelo token aponta para usuário não autorizado
+            a utilizar a API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 401
+                    mensagem: O token fornecido para acesso à API é inválido.
+                    tipo: Erro
+                    editavel: false
+        '404':
+          description: Não foi localizado um contrato para o código Fies fornecido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 404
+                    mensagem: >-
+                      Não foi localizado um contrato para o código Fies
+                      fornecido.
+                    tipo: Erro
+                    editavel: false
+        '412':
+          description: Erro negocial ou estrutural na chamada da API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 412
+                    mensagem: Os dados fornecidos não são válidos.
+                    tipo: Erro
+                    editavel: false
+        '500':
+          description: Erro interno do servidor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 500
+                    mensagem: Erro na execução da funcionalidade no backend.
+                    tipo: Erro
+                    editavel: false
+        security:
+          - Internet:
+              - scope
+            APIKey: []
+  /v1/buscar-curso-destino:
+    get:
+      summary: Busca informações do curso de destino para transferência de contrato.
+      description: >-
+        Retorna detalhes sobre o curso de destino com base nos parâmetros
+        fornecidos.
+      parameters:
+        - in: query
+          name: cpf
+          schema:
+            type: string
+          description: CPF do estudante.
+          required: true
+        - in: query
+          name: nuCampus
+          schema:
+            type: string
+          description: Número do campus de origem.
+          required: true
+        - in: query
+          name: nuCurso
+          schema:
+            type: string
+          description: Número do curso de origem.
+          required: true
+        - in: query
+          name: nuTurno
+          schema:
+            type: integer
+          description: Número do turno de origem.
+          required: true
+        - in: query
+          name: nuCampusDestino
+          schema:
+            type: string
+          description: >-
+            Número do campus de destino (pode ser '0' para indicar algum
+            critério).
+          required: true
+        - in: query
+          name: semestrePendencia
+          schema:
+            type: integer
+            enum:
+              - 1
+              - 2
+          description: Semestre da pendência.
+          required: true
+        - in: query
+          name: anoPendencia
+          schema:
+            type: integer
+            format: int32
+          description: Ano da pendência.
+          required: true
+      responses:
+        '200':
+          description: Sucesso - Retorna os detalhes do curso de destino.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensagem:
+                    type: string
+                  codigo:
+                    type: integer
+                  tipo:
+                    type: string
+                    nullable: true
+                  editavel:
+                    type: boolean
+                    nullable: true
+                  campusDest:
+                    type: string
+                  cursoDest:
+                    type: string
+                  mantenedoraDest:
+                    type: string
+                  ufDest:
+                    type: string
+                  municipioDest:
+                    type: string
+                  iesDest:
+                    type: string
+                  numeroIesDestino:
+                    type: integer
+                  enderecoDest:
+                    type: string
+                  duracaoCursoDest:
+                    type: integer
+                  codigoCursoHabilitacao:
+                    type: string
+                  numeroCursoDestino:
+                    type: integer
+                  semestreReferenciaDest:
+                    type: string
+                  numeroCampusDestino:
+                    type: integer
+                  numeroMantenedoraDestino:
+                    type: integer
+                  numeroTurnoDestino:
+                    type: integer
+                  descTurnoDestino:
+                    type: string
+                  notaEnem:
+                    type: number
+                  jsonRetornoConsultaEnem:
+                    type: string
+                  possuiLiminarNotaDeCorte:
+                    type: boolean
+        '400':
+          description: Requisição inválida - Algum parâmetro está ausente ou incorreto.
+        '500':
+          description: Erro interno do servidor.
+  /v1/confirmar-solicitacao-estudante:
+    post:
+      summary: Confirma a solicitação de transferência do estudante.
+      description: Confirma a solicitação de transferência com os dados fornecidos.
+      parameters:
+        - in: query
+          name: numeroSemestresCursar
+          schema:
+            type: integer
+          description: Número de semestres a cursar.
+          required: true
+        - in: query
+          name: dtDesligamento
+          schema:
+            type: string
+            format: date
+          description: Data de desligamento (formato DD/MM/YYYY).
+          required: true
+        - in: query
+          name: codFies
+          schema:
+            type: string
+          description: Código FIES do contrato.
+          required: true
+        - in: query
+          name: tipoTransferencia
+          schema:
+            type: integer
+          description: Tipo da transferência.
+          required: true
+        - in: query
+          name: nuCurso
+          schema:
+            type: string
+          description: Número do curso de origem.
+          required: true
+        - in: query
+          name: numeroCursoDestino
+          schema:
+            type: string
+          description: Número do curso de destino.
+          required: true
+        - in: query
+          name: numeroCampusDestino
+          schema:
+            type: string
+          description: Número do campus de destino.
+          required: true
+        - in: query
+          name: nuCampus
+          schema:
+            type: string
+          description: Número do campus de origem.
+          required: true
+        - in: query
+          name: nuTurno
+          schema:
+            type: integer
+          description: Número do turno de origem.
+          required: true
+        - in: query
+          name: campusDestino
+          schema:
+            type: string
+          description: Código do campus de destino.
+          required: true
+        - in: query
+          name: cursoDestino
+          schema:
+            type: string
+          description: Código do curso de destino.
+          required: true
+        - in: query
+          name: turnoDestino
+          schema:
+            type: integer
+          description: Código do turno de destino.
+          required: true
+      responses:
+        '200':
+          description: Sucesso - Operação realizada com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensagem:
+                    type: string
+                  codigo:
+                    type: integer
+                  tipo:
+                    type: string
+                  editavel:
+                    nullable: true
+        '400':
+          description: Requisição inválida - Algum parâmetro está ausente ou incorreto.
+        '500':
+          description: Erro interno do servidor.
+  /v1/cancelar-solicitacao-transferencia:
+    post:
+      summary: Busca turnos disponíveis para um curso em um campus de destino.
+      description: >-
+        Retorna uma lista de turnos disponíveis com base nos parâmetros
+        fornecidos.
+      parameters:
+        - in: query
+          name: codFies
+          schema:
+            type: string
+          description: Código FIES do estudante.
+          required: true
+          example: '20242515'
+        - in: query
+          name: idSolicitacao
+          schema:
+            type: integer
+          description: ID da solicitação de encerramento.
+          required: true
+          example: 57984
+      responses:
+        '200':
+          description: Operação realizada com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensagem:
+                    type: string
+                    example: Operação realizada com sucesso.
+                  codigo:
+                    type: integer
+                    example: 0
+                  tipo:
+                    type: string
+                    example: alert-success
+                  editavel:
+                    nullable: true
+                    example: null
+        '401':
+          description: >-
+            Identificação provida pelo token aponta para usuário não autorizado
+            a utilizar a API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 401
+                    mensagem: O token fornecido para acesso à API é inválido.
+                    tipo: Erro
+                    editavel: false
+        '404':
+          description: Não foi localizado um contrato para o código Fies fornecido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 404
+                    mensagem: >-
+                      Não foi localizado um contrato para o código Fies
+                      fornecido.
+                    tipo: Erro
+                    editavel: false
+        '412':
+          description: Erro negocial ou estrutural na chamada da API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 412
+                    mensagem: Os dados fornecidos não são válidos.
+                    tipo: Erro
+                    editavel: false
+        '500':
+          description: Erro interno do servidor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 500
+                    mensagem: Erro na execução da funcionalidade no backend.
+                    tipo: Erro
+                    editavel: false
+        security:
+          - Internet:
+              - scope
+            APIKey: []
+components:
+  schemas:
+    RetornoErro:
+      title: RetornoErro
+      description: Mensagens de retorno relacionadas a situações de erro.
+      type: object
+      properties:
+        mensagem:
+          type: string
+        codigo:
+          type: integer
+          format: int64
+        tipo:
+          type: string
+        editavel:
+          type: boolean
+          default: false
+      example:
+        mensagem: O token fornecido para acesso à API é inválido.
+        codigo: 401
+        tipo: Erro
+        editavel: false
+    RetornoSucesso:
+      title: RetornoSucesso
+      description: Mensagens de retorno relacionadas a situações de sucesso.
+      type: object
+      properties:
+        mensagem:
+          type: string
+        codigo:
+          type: integer
+          format: int64
+        tipo:
+          type: string
+        editavel:
+          type: boolean
+          default: false
+      example:
+        mensagem: Solicitação de dilatação confirmada com sucesso..
+        codigo: 200
+        tipo: Sucesso
+        editavel: false
+  securitySchemes:
+    Internet:
+      flows:
+        password:
+          tokenUrl: >-
+            https://logindes.caixa/auth/realms/intranet/protocol/openid-connect/token
+          refreshUrl: >-
+            https://logindes.caixa/auth/realms/intranet/protocol/openid-connect/token
+          scopes:
+            scope: ''
+      type: oauth2
+      description: Tokens emitidos pelo realm INTRANET
+    APIKey:
+      type: apiKey
+      description: API Key do sistema que está chamando esta API.
+      name: APIKey
+      in: header
+security:
+  - APIKey: []
+    Internet:
+      - scope
+
 
 
 <pre>
