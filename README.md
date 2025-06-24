@@ -8,22 +8,30 @@
 <h2>1. Estrutura dos Microsserviços</h2>
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
 Perfeito! Com base nas informações que você forneceu, aqui está um resumo da motivação e das circunstâncias de criação das Stored Procedures (SPs) mencionadas, bem como o impacto delas no fluxo Javaweb e na rotina Java batch FES.REPASSE:
+openapi: 3.0.0
+info:
+  title: API de Busca de Estudante para Transferência FIES
+  version: 1.0.0
+  description: API para buscar informações de estudante e detalhes do contrato FIES para processo de transferência.
+
+servers:
+  - url: http://localhost:8080/api
+
 paths:
   /v1/buscar-estudante-transferencia/{cpf}:
     get:
-      summary: Busca informações do contrato FIES do estudante por CPF (via query parameters)
+      summary: Busca informações do contrato FIES do estudante por CPF
       description: |
         Este endpoint permite consultar os detalhes do contrato do Fundo de Financiamento Estudantil (FIES)
         de um estudante específico, utilizando o seu número de Cadastro de Pessoa Física (CPF).
-        Os parâmetros são enviados na URL como query parameters.
       parameters:
         - in: path
           name: cpf
           schema:
             type: string
             pattern: '^[0-9]{11}$'
-          description: CPF do estudante a ser consultado (apenas números).
           required: true
+          description: CPF do estudante a ser consultado (apenas números).
           example: "70966798120"
       responses:
         '200':
@@ -31,54 +39,662 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BuscarEstudanteTransferenciaResponse'
+                $ref: '#/components/schemas/EstudanteFiesResponse'
               examples:
-                exemploSucesso:
-                  summary: Exemplo de resposta de sucesso
+                successExample:
+                  summary: Exemplo de resposta de sucesso para contrato FIES
                   value:
                     mensagem: ""
                     codigo: null
                     tipo: null
-                    editavel: true
+                    editavel: null
                     agencia: 4736
                     estudante:
                       mensagem: ""
                       codigo: null
-                      nome: "João da Silva"
+                      tipo: null
+                      editavel: null
                       cpf: "70966798120"
+                      dependenteCPF: null
+                      nome: "FULANO DE TAL DA SILVA"
+                      dataNascimento: "1995-01-15"
+                      ric: null
+                      nacionalidade: "BRASILEIRA"
+                      identidade: "MG-12345678"
+                      estadoCivil: "SOLTEIRO"
+                      regimeBens: null
+                      endereco:
+                        cep: "30000-000"
+                        logradouro: "RUA PRINCIPAL"
+                        numero: "123"
+                        complemento: "APTO 101"
+                        bairro: "CENTRO"
+                        cidade: "BELO HORIZONTE"
+                        uf: "MG"
+                      contato:
+                        email: "fulano.silva@email.com"
+                        telefoneFixo: "3133333333"
+                        telefoneCelular: "31999999999"
+                      vinculacao: "NOVO_FIES"
+                      codigoFies: "F0000000001"
+                      sexo: "MASCULINO"
+                      pis: "123.45678.90-1"
+                      conjuge: null
+                      responsavelLegal: null
+                      emancipado: false
+                      nomeCandidato: "FULANO DE TAL DA SILVA"
+                      nomeCurso: "ENGENHARIA DE COMPUTAÇÃO"
+                      idCampus: 1234
+                      nomeCampus: "CAMPUS CENTRAL"
+                      numeroCandidato: "C000001"
+                      descricaoMunicipio: "BELO HORIZONTE"
+                      nomeIes: "UNIVERSIDADE FICTICIA"
+                      ufCampus: "MG"
+                      contaCorrente:
+                        codigoBanco: 104
+                        nomeBanco: "CAIXA ECONOMICA FEDERAL"
+                        agencia: "0400"
+                        dvAgencia: "0"
+                        conta: "0000000001"
+                        dvConta: "0"
+                        tipoConta: "CONTA_CORRENTE"
+                      permiteLiquidar: true
+                      voucher: null
+                      dataValidadeVoucher: null
+                      motivoImpeditivo: null
+                      inadimplente: false
+                      atrasado: false
+                      liquidado: false
+                      rendaFamiliar: 5000.00
+                      recebeSms: true
+                      vinculoSolidario: false
+                      contratoEstudante:
+                        ies: null
+                        codigoStatusContrato: "ATIVO"
+                        numeroOperacaoSIAPI: "1234567"
+                        statusContrato: "ATIVO"
+                        situacaoContrato: "ATIVO"
+                        dataLimiteContratacao: "2025-12-31"
+                        valorMensalidade: 800.00
+                        valorContrato: 50000.00
+                        dataAssinatura: "2023-08-01"
+                        percentualFinanciamento: 0.8
+                        numeroContrato: "C0000000001"
+                        diaVencimento: 10
+                        codigoTipoGarantia: "FGP"
+                        descricaoTipoGarantia: "Fundo Garantidor de Operações"
+                        valorGarantia: 1000.00
+                        codCurso: 123
+                        semestreCursados: 4
+                        estudanteCurso: null
+                        valorAditamento: 2000.00
+                        unidadeCaixa: "UNIDADE CENTRAL"
+                        prazoContratoMec: 8
+                        semestreReferencia: "2023.2"
+                        anoReferencia: 2023
+                        bloqueioMec: false
+                        permiteContratacao: true
+                        recebeInformacao: true
+                        recebeSms: true
+                        localExtrato: "ONLINE"
+                        prouni: false
+                        contaCorrente: null
+                        quantidadeAditamentos: 2
+                        quantidadePreAditamentos: 1
+                        sipesListaBanco: []
+                        idSeguradora: null
+                        indContratoNovoFies: true
+                        taxaJuros: 0.03
+                        existeTarifaContrato: false
+                        vrCoParticipacao: 50.00
+                        valorSeguro: 20.00
+                        numeroProcessoSeletivo: "PS2023.2"
+
+        '400':
+          description: Requisição inválida (ex: CPF em formato incorreto).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidCpf:
+                  summary: Erro de CPF inválido
+                  value:
+                    message: "CPF inválido. O CPF deve conter 11 dígitos numéricos."
+        '404':
+          description: Estudante não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                notFound:
+                  summary: Estudante não encontrado
+                  value:
+                    message: "Estudante com o CPF informado não foi encontrado."
+        '500':
+          description: Erro interno do servidor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                internalError:
+                  summary: Erro interno do servidor
+                  value:
+                    message: "Ocorreu um erro inesperado no servidor."
+
+---
 components:
   schemas:
-    BuscarEstudanteTransferenciaResponse:
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Mensagem de erro.
+          example: "Ocorreu um erro."
+
+    EstudanteFiesResponse:
+      type: object
+      properties:
+        mensagem:
+          type: string
+          description: Mensagem informativa (geralmente vazia em caso de sucesso).
+          nullable: true
+          example: ""
+        codigo:
+          type: string
+          description: Código de retorno (geralmente nulo em caso de sucesso).
+          nullable: true
+          example: null
+        tipo:
+          type: string
+          description: Tipo da mensagem (geralmente nulo em caso de sucesso).
+          nullable: true
+          example: null
+        editavel:
+          type: boolean
+          description: Indica se os dados são editáveis.
+          nullable: true
+          example: null
+        agencia:
+          type: integer
+          description: Código da agência bancária do contrato.
+          example: 4736
+        estudante:
+          $ref: '#/components/schemas/EstudanteFies'
+      required:
+        - estudante
+
+    EstudanteFies:
       type: object
       properties:
         mensagem:
           type: string
           nullable: true
+          example: ""
         codigo:
           type: string
           nullable: true
+          example: null
         tipo:
           type: string
           nullable: true
+          example: null
         editavel:
           type: boolean
           nullable: true
-        agencia:
+          example: null
+        cpf:
+          type: string
+          description: CPF do estudante.
+          example: "70966798120"
+        dependenteCPF:
+          type: string
+          nullable: true
+          example: null
+        nome:
+          type: string
+          example: "FULANO DE TAL DA SILVA"
+        dataNascimento:
+          type: string
+          format: date
+          example: "1995-01-15"
+        ric:
+          type: string
+          nullable: true
+          example: null
+        nacionalidade:
+          type: string
+          example: "BRASILEIRA"
+        identidade:
+          type: string
+          example: "MG-12345678"
+        estadoCivil:
+          type: string
+          example: "SOLTEIRO"
+        regimeBens:
+          type: string
+          nullable: true
+          example: null
+        endereco:
+          $ref: '#/components/schemas/Endereco'
+        contato:
+          $ref: '#/components/schemas/Contato'
+        vinculacao:
+          type: string
+          example: "NOVO_FIES"
+        codigoFies:
+          type: string
+          example: "F0000000001"
+        sexo:
+          type: string
+          example: "MASCULINO"
+        pis:
+          type: string
+          example: "123.45678.90-1"
+        conjuge:
+          $ref: '#/components/schemas/Conjuge'
+          nullable: true
+        responsavelLegal:
+          $ref: '#/components/schemas/ResponsavelLegal'
+          nullable: true
+        emancipado:
+          type: boolean
+          example: false
+        nomeCandidato:
+          type: string
+          example: "FULANO DE TAL DA SILVA"
+        nomeCurso:
+          type: string
+          example: "ENGENHARIA DE COMPUTAÇÃO"
+        idCampus:
           type: integer
-        estudante:
-          type: object
-          description: Informações detalhadas do estudante.
-          properties:
-            mensagem:
-              type: string
-              nullable: true
-            codigo:
-              type: string
-              nullable: true
-            nome:
-              type: string
-            cpf:
-              type: string
+          example: 1234
+        nomeCampus:
+          type: string
+          example: "CAMPUS CENTRAL"
+        numeroCandidato:
+          type: string
+          example: "C000001"
+        descricaoMunicipio:
+          type: string
+          example: "BELO HORIZONTE"
+        nomeIes:
+          type: string
+          example: "UNIVERSIDADE FICTICIA"
+        ufCampus:
+          type: string
+          example: "MG"
+        contaCorrente:
+          $ref: '#/components/schemas/ContaCorrente'
+        permiteLiquidar:
+          type: boolean
+          example: true
+        voucher:
+          type: string
+          nullable: true
+          example: null
+        dataValidadeVoucher:
+          type: string
+          format: date
+          nullable: true
+          example: null
+        motivoImpeditivo:
+          type: string
+          nullable: true
+          example: null
+        inadimplente:
+          type: boolean
+          example: false
+        atrasado:
+          type: boolean
+          example: false
+        liquidado:
+          type: boolean
+          example: false
+        rendaFamiliar:
+          type: number
+          format: float
+          example: 5000.00
+        recebeSms:
+          type: boolean
+          example: true
+        vinculoSolidario:
+          type: boolean
+          example: false
+        contratoEstudante:
+          $ref: '#/components/schemas/ContratoEstudante'
+      required:
+        - cpf
+        - nome
+        - dataNascimento
+        - nacionalidade
+        - identidade
+        - estadoCivil
+        - endereco
+        - contato
+        - vinculacao
+        - codigoFies
+        - sexo
+        - pis
+        - emancipado
+        - nomeCandidato
+        - nomeCurso
+        - idCampus
+        - nomeCampus
+        - numeroCandidato
+        - descricaoMunicipio
+        - nomeIes
+        - ufCampus
+        - contaCorrente
+        - permiteLiquidar
+        - inadimplente
+        - atrasado
+        - liquidado
+        - rendaFamiliar
+        - recebeSms
+        - vinculoSolidario
+        - contratoEstudante
+
+    Endereco:
+      type: object
+      properties:
+        cep:
+          type: string
+          example: "30000-000"
+        logradouro:
+          type: string
+          example: "RUA PRINCIPAL"
+        numero:
+          type: string
+          example: "123"
+        complemento:
+          type: string
+          nullable: true
+          example: "APTO 101"
+        bairro:
+          type: string
+          example: "CENTRO"
+        cidade:
+          type: string
+          example: "BELO HORIZONTE"
+        uf:
+          type: string
+          example: "MG"
+      required:
+        - cep
+        - logradouro
+        - numero
+        - bairro
+        - cidade
+        - uf
+
+    Contato:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          example: "fulano.silva@email.com"
+        telefoneFixo:
+          type: string
+          nullable: true
+          example: "3133333333"
+        telefoneCelular:
+          type: string
+          example: "31999999999"
+      required:
+        - email
+        - telefoneCelular
+
+    Conjuge:
+      type: object
+      properties:
+        cpf:
+          type: string
+          example: "11122233344"
+        nome:
+          type: string
+          example: "CICLANA DE TAL"
+        dataNascimento:
+          type: string
+          format: date
+          example: "1996-05-20"
+      required:
+        - cpf
+        - nome
+        - dataNascimento
+
+    ResponsavelLegal:
+      type: object
+      properties:
+        cpf:
+          type: string
+          example: "55566677788"
+        nome:
+          type: string
+          example: "BELTRANO DE TAL"
+        tipo:
+          type: string
+          example: "PAI"
+      required:
+        - cpf
+        - nome
+        - tipo
+
+    ContaCorrente:
+      type: object
+      properties:
+        codigoBanco:
+          type: integer
+          example: 104
+        nomeBanco:
+          type: string
+          example: "CAIXA ECONOMICA FEDERAL"
+        agencia:
+          type: string
+          example: "0400"
+        dvAgencia:
+          type: string
+          example: "0"
+        conta:
+          type: string
+          example: "0000000001"
+        dvConta:
+          type: string
+          example: "0"
+        tipoConta:
+          type: string
+          enum: ["CONTA_CORRENTE", "CONTA_POUPANCA"]
+          example: "CONTA_CORRENTE"
+      required:
+        - codigoBanco
+        - nomeBanco
+        - agencia
+        - conta
+        - dvConta
+        - tipoConta
+
+    ContratoEstudante:
+      type: object
+      properties:
+        ies:
+          type: string
+          nullable: true
+          example: null
+        codigoStatusContrato:
+          type: string
+          example: "ATIVO"
+        numeroOperacaoSIAPI:
+          type: string
+          example: "1234567"
+        statusContrato:
+          type: string
+          example: "ATIVO"
+        situacaoContrato:
+          type: string
+          example: "ATIVO"
+        dataLimiteContratacao:
+          type: string
+          format: date
+          example: "2025-12-31"
+        valorMensalidade:
+          type: number
+          format: float
+          example: 800.00
+        valorContrato:
+          type: number
+          format: float
+          example: 50000.00
+        dataAssinatura:
+          type: string
+          format: date
+          example: "2023-08-01"
+        percentualFinanciamento:
+          type: number
+          format: float
+          example: 0.8
+        numeroContrato:
+          type: string
+          example: "C0000000001"
+        diaVencimento:
+          type: integer
+          example: 10
+        codigoTipoGarantia:
+          type: string
+          example: "FGP"
+        descricaoTipoGarantia:
+          type: string
+          example: "Fundo Garantidor de Operações"
+        valorGarantia:
+          type: number
+          format: float
+          example: 1000.00
+        codCurso:
+          type: integer
+          example: 123
+        semestreCursados:
+          type: integer
+          example: 4
+        estudanteCurso:
+          type: string
+          nullable: true
+          example: null
+        valorAditamento:
+          type: number
+          format: float
+          example: 2000.00
+        unidadeCaixa:
+          type: string
+          example: "UNIDADE CENTRAL"
+        prazoContratoMec:
+          type: integer
+          example: 8
+        semestreReferencia:
+          type: string
+          example: "2023.2"
+        anoReferencia:
+          type: integer
+          example: 2023
+        bloqueioMec:
+          type: boolean
+          example: false
+        permiteContratacao:
+          type: boolean
+          example: true
+        recebeInformacao:
+          type: boolean
+          example: true
+        recebeSms:
+          type: boolean
+          example: true
+        localExtrato:
+          type: string
+          example: "ONLINE"
+        prouni:
+          type: boolean
+          example: false
+        contaCorrente:
+          # Se este campo for a mesma estrutura de ContaCorrente, referencie-o
+          # Caso contrário, defina inline ou crie um novo schema
+          type: string # Mantido como string no exemplo, mas poderia ser $ref: '#/components/schemas/ContaCorrente'
+          nullable: true
+          example: null
+        quantidadeAditamentos:
+          type: integer
+          example: 2
+        quantidadePreAditamentos:
+          type: integer
+          example: 1
+        sipesListaBanco:
+          type: array
+          items:
+            type: string # Exemplo: tipo de item na lista
+          example: [] # Exemplo de lista vazia
+        idSeguradora:
+          type: string
+          nullable: true
+          example: null
+        indContratoNovoFies:
+          type: boolean
+          example: true
+        taxaJuros:
+          type: number
+          format: float
+          example: 0.03
+        existeTarifaContrato:
+          type: boolean
+          example: false
+        vrCoParticipacao:
+          type: number
+          format: float
+          example: 50.00
+        valorSeguro:
+          type: number
+          format: float
+          example: 20.00
+        numeroProcessoSeletivo:
+          type: string
+          example: "PS2023.2"
+      required:
+        - codigoStatusContrato
+        - numeroOperacaoSIAPI
+        - statusContrato
+        - situacaoContrato
+        - dataLimiteContratacao
+        - valorMensalidade
+        - valorContrato
+        - dataAssinatura
+        - percentualFinanciamento
+        - numeroContrato
+        - diaVencimento
+        - codigoTipoGarantia
+        - descricaoTipoGarantia
+        - valorGarantia
+        - codCurso
+        - semestreCursados
+        - valorAditamento
+        - unidadeCaixa
+        - prazoContratoMec
+        - semestreReferencia
+        - anoReferencia
+        - bloqueioMec
+        - permiteContratacao
+        - recebeInformacao
+        - recebeSms
+        - localExtrato
+        - prouni
+        - quantidadeAditamentos
+        - quantidadePreAditamentos
+        - sipesListaBanco
+        - indContratoNovoFies
+        - taxaJuros
+        - existeTarifaContrato
+        - vrCoParticipacao
+        - valorSeguro
+        - numeroProcessoSeletivo
 
 
 Schema error at paths['/v1/buscar-estudante-transferencia/{cpf}'].get.responses['200']
