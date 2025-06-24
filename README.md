@@ -9,185 +9,652 @@
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
 Perfeito! Com base nas informações que você forneceu, aqui está um resumo da motivação e das circunstâncias de criação das Stored Procedures (SPs) mencionadas, bem como o impacto delas no fluxo Javaweb e na rotina Java batch FES.REPASSE:
 
-private void calculoPercentualMantenedoras(ParametrosIntegralizacaoTO parametro2ao5ano, ParametrosIntegralizacaoTO parametro6ao7ano) {
-        final List<IntegralizacaoAdesaoMantenedora> listaIntegralizacaoMantenedoras = new ArrayList<>();
-
-        final List<AdesaoTO> listaAdesaoMantenedoras = consultaSemestreAdesaoMantenedora();
-        for (final AdesaoTO adesao: listaAdesaoMantenedoras) {
-            final Long numeroMantenedora = adesao.getNumeroMantenedora();
-            logger.debug("***************************** Iniciando calculos mantenedora {} *****************************", numeroMantenedora);
-
-            final Date dataInicioSemestreAdesao = Utils.getDataInicioSemestre(adesao.getSemestre(), adesao.getAno());
-            final Date dataInicioSemestreRef = Utils.getDataInicioSemestre(SEMESTRE, ANO);
-            final int diffMeses = Utils.diffMesesDatas(dataInicioSemestreAdesao, dataInicioSemestreRef);
-            final int anoPosicaoMantenedora = getAnoPosicao(diffMeses);
-            final boolean isAtualizarMantenedora = isAtualizarPercentualMantenedora(diffMeses);
-            final IntegralizacaoAdesaoMantenedora integralizacao = new IntegralizacaoAdesaoMantenedora(anoPosicaoMantenedora, numeroMantenedora, adesao, parametro2ao5ano);
-
-            logger.debug(
-                "Semestre/ano adesao: {}/{}, ano posicao: {}, percentual vai atualizar: {}",
-                adesao.getSemestre(), adesao.getAno(), anoPosicaoMantenedora, isAtualizarMantenedora
-            );
-
-            /* buscar os valores pra calcular o valor de c (indice inadimplencia)
-             * c  =  __Saldo de Coparticipação em atraso superior a 90 (noventa) dias em DD/MM/AAAA__
-             *                    Saldo Total de Coparticipação em DD/MM/AAAA
-             */
-            consultaValoresCoparticipacao(integralizacao);
-            logger.debug(
-                "valor coparticipacao atraso 90: {}, valor coparticipacao: {}",
-                integralizacao.getValorSaldoCoparticipacaoInadimplente(), integralizacao.getValorSaldoCoparticipacao()
-            );
-
-            /* buscar os valores para calcular o valor de e (indice evasao)
-             * e  =  __Qte. Estudantes (Semestre 0X/20XX) com parcela em atraso não aditados em DD/MM/AAAA)__
-             *                                  Quantidade total de contratos
-             */
-            consultaQuantidadeContratos(integralizacao);
-            logger.debug(
-                "Quantidade Contatos Com Parcela Em Atraso sem adit: {}, Quantidade Total Contratos: {}",
-                integralizacao.getQuantidadeContatosComParcelaEmAtraso(), integralizacao.getQuantidadeTotalContratos()
-            );
-
-            /* calcular o valor de x
-             * x = α x c + ß * e
-             */
-            BigDecimal x = parametro2ao5ano.getValorPesoAlfa().multiply(integralizacao.getIndiceInadimplencia());
-            x = x.add( parametro2ao5ano.getValorPesoBeta().multiply(integralizacao.getIndiceEvasao()) );
-            integralizacao.setX(x);
-            logger.debug(
-                "indice inadimplencia (c): {}, indice evasao (e): {}, valor de x: {}",
-                integralizacao.getIndiceInadimplencia(), integralizacao.getIndiceEvasao(), x
-            );
-
-            /* salvar na FESTB842
-             * obs: se o cadastro da mantenedora for só para controle, salvar o ano posição negativo
-             * esse ano posição negativo deve ser ignorado pela tela de consulta
-             */
-            IntegralizacaoAdesaoMantenedoraTO integralizacaoTO = new IntegralizacaoAdesaoMantenedoraTO(integralizacao, isAtualizarMantenedora);
-            entityManager.merge(integralizacaoTO);
-
-            listaIntegralizacaoMantenedoras.add(integralizacao);
-        }
-
-        // inclui no banco as alteracoes
-        entityManager.flush();
-
-        /* calcular média mantenedoras da data de movimento */
-        /* calcular desvio padrão mantenedoras da data de movimento */
-        cacularMediaEDesvioPadraoDeX(listaIntegralizacaoMantenedoras);
-        logger.debug("Media valor de X: {}, Valor desvio padrao de X: {}", this.valorMedioX, this.valorDesvioPadraoX);
-
-        for (IntegralizacaoAdesaoMantenedora integralizacao: listaIntegralizacaoMantenedoras) {
-            /* calcular percentual integralização das mantenedoras do 2 ao 5 ano */
-            if (integralizacao.getAnoPosicaoAdesaoMantenedora().equals(1)) {
-                // percentual fixo no primeiro ano de integralizacao
-                atualizarPercentualMantenedora(integralizacao.getNumeroMantenedora(), PC_INTEGRALIZACAO_PRIMEIRO_ANO);
-            } else if (integralizacao.getAnoPosicaoAdesaoMantenedora().compareTo(2) >= 0 && integralizacao.getAnoPosicaoAdesaoMantenedora().compareTo(5) <= 0) {
-                calcularPercentualIntegralizacao(integralizacao, parametro2ao5ano);
-                IntegralizacaoAdesaoMantenedoraID id = new IntegralizacaoAdesaoMantenedoraID(integralizacao.getAnoPosicaoAdesaoMantenedora(), integralizacao.getNumeroMantenedora());
-                IntegralizacaoAdesaoMantenedoraTO to = entityManager.find(IntegralizacaoAdesaoMantenedoraTO.class, id);
-
-                to.setPercentualIntegralizacao(integralizacao.getPercentualIntegralizacao());
-                entityManager.merge(to);
-
-                // ATUALIZAR PERCENTUAL NA FESTB156
-                atualizarPercentualMantenedora(integralizacao.getNumeroMantenedora(), integralizacao.getPercentualIntegralizacao());
-            } else if (integralizacao.getAnoPosicaoAdesaoMantenedora().compareTo(6) >= 0 && integralizacao.getAnoPosicaoAdesaoMantenedora().compareTo(7) <= 0) {
-                calcularPercentualIntegralizacao6ao7Ano(integralizacao, parametro6ao7ano);
-                IntegralizacaoAdesaoMantenedoraID id = new IntegralizacaoAdesaoMantenedoraID(integralizacao.getAnoPosicaoAdesaoMantenedora(), integralizacao.getNumeroMantenedora());
-                IntegralizacaoAdesaoMantenedoraTO to = entityManager.find(IntegralizacaoAdesaoMantenedoraTO.class, id);
-
-                to.setPercentualIntegralizacao(integralizacao.getPercentualIntegralizacao());
-                entityManager.merge(to);
-
-                // ATUALIZAR PERCENTUAL NA FESTB156
-                atualizarPercentualMantenedora(integralizacao.getNumeroMantenedora(), integralizacao.getPercentualIntegralizacao());
-            }
-        }
-
-    }
-
-
-private void consultaValoresCoparticipacao(final IntegralizacaoAdesaoMantenedora integralizacao) {
-        StringBuilder sb = new StringBuilder();
-
-        // COPARTICIPACAO INADIMPLENTE
-        sb.append("SELECT NVL(SUM( ");
-        sb.append(" NVL(T36.VR_COPARTICIPACAO, 0) * ");
-        sb.append("  (SELECT COUNT(1) ");
-        sb.append("     FROM FES.FESTB069_EXTRATO_SIAPI T69 ");
-        sb.append("    WHERE T69.NU_SUREG_AGENCIA_CNTRO_FK62 = T62.NU_SUREG_AGENCIA_CONTRATO ");
-        sb.append("      AND T69.NU_UNIDADE_CONTRATO_FK62 = T62.NU_UNIDADE_CONTRATO_FK25 ");
-        sb.append("      AND T69.NU_OPERACAO_SIAPI_FK62 = T62.NU_OPERACAO_SIAPI ");
-        sb.append("      AND T69.NU_CONTRATO_FK62 = T62.NU_CONTRATO ");
-        sb.append("      AND T69.NU_DV_CONTRATO_FK62 = T62.NU_DV_CONTRATO ");
-        sb.append("      AND T69.NU_SITUACAO_EXTRATO_FK82 = 1 "); // EXTRATOS NAO PAGOS
-        sb.append("      AND T69.DT_VENCIMENTO < SYSDATE) "); // APENAS VENCIDAS
-        sb.append(" ), 0) ");
-        sb.append( montaQueryFromComum() );
-        sb.append("   AND T62.QT_DIA_ATRASO > 0 "); // alterado no ultimo escopo 05/02/2021, não é mais 90 dias
-
-        Query qr = entityManager.createNativeQuery(sb.toString());
-        qr.setParameter("numeroMantenedora", integralizacao.getNumeroMantenedora());
-        BigDecimal valorCopartipacaoInadimplente = (BigDecimal) qr.getSingleResult();
-
-        // COPARTICIPACAO ADIMPLENTE
-        sb = new StringBuilder();
-        sb.append("SELECT NVL(SUM(T69.VR_COPARTICIPACAO_IES), 0) ");
-        sb.append("  FROM FES.FESTB036_CONTRATO_FIES T36, FES.FESTB011_CNDDO_CURSO_IES T11, ");
-        sb.append("       FES.FESVW003_IES_MANTENEDORA_CMPS V3, FES.FESTB062_CONTRATO_SIAPI T62, ");
-        sb.append("       FES.FESTB069_EXTRATO_SIAPI T69 ");
-        sb.append(" WHERE T11.NU_CANDIDATO_FK10 = T36.NU_CANDIDATO_FK11 ");
-        sb.append("   AND V3.NU_CAMPUS = T11.NU_CAMPUS_FK170 ");
-        sb.append("   AND T62.NU_SUREG_AGENCIA_CONTRATO = T36.NU_SUREG_AGENCIA_CONTRATO ");
-        sb.append("   AND T62.NU_UNIDADE_CONTRATO_FK25 = T36.NU_UNIDADE_CONTRATO_FK25 ");
-        sb.append("   AND T62.NU_OPERACAO_SIAPI = T36.NU_OPERACAO_SIAPI ");
-        sb.append("   AND T62.NU_CONTRATO = T36.NU_CONTRATO ");
-        sb.append("   AND T62.NU_DV_CONTRATO = T36.NU_DV_CONTRATO ");
-        sb.append("   AND T69.NU_SUREG_AGENCIA_CNTRO_FK62 = T62.NU_SUREG_AGENCIA_CONTRATO ");
-        sb.append("   AND T69.NU_UNIDADE_CONTRATO_FK62 = T62.NU_UNIDADE_CONTRATO_FK25 ");
-        sb.append("   AND T69.NU_OPERACAO_SIAPI_FK62 = T62.NU_OPERACAO_SIAPI ");
-        sb.append("   AND T69.NU_CONTRATO_FK62 = T62.NU_CONTRATO ");
-        sb.append("   AND T69.NU_DV_CONTRATO_FK62 = T62.NU_DV_CONTRATO ");
-        sb.append("   AND T36.NU_CANDIDATO_FK11 > 20000000 "); // APENAS CONTRATOS DA 187
-        sb.append("   AND V3.NU_MANTENEDORA = :numeroMantenedora ");
-        sb.append("   AND T36.NU_STATUS_CONTRATO IN (4,5) ");
-        sb.append("   AND T62.QT_DIA_ATRASO = 0 "); // APENAS ADIMPLENTES
-        sb.append("   AND T69.NU_SITUACAO_EXTRATO_FK82 = 2 "); // EXTRATOS PAGOS
-
-        qr = entityManager.createNativeQuery(sb.toString());
-        qr.setParameter("numeroMantenedora", integralizacao.getNumeroMantenedora());
-        BigDecimal valorCopartipacaoAdimplente = (BigDecimal) qr.getSingleResult();
-
-        integralizacao.setValorSaldoCoparticipacaoInadimplente( valorCopartipacaoInadimplente == null ? BigDecimal.ZERO : valorCopartipacaoInadimplente );
-
-        BigDecimal valorCoparticipacaoTotal = valorCopartipacaoAdimplente == null ? BigDecimal.ZERO : valorCopartipacaoAdimplente;
-        valorCoparticipacaoTotal = valorCoparticipacaoTotal.add( integralizacao.getValorSaldoCoparticipacaoInadimplente() );
-        integralizacao.setValorSaldoCoparticipacao( valorCoparticipacaoTotal );
-    }
-private boolean isAtualizarPercentualMantenedora(int diffMeses) {
-        return (diffMeses % 12) == 0;
-    }
-
-    private String montaQueryFromComum() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("  FROM FES.FESTB036_CONTRATO_FIES T36, FES.FESTB011_CNDDO_CURSO_IES T11, ");
-        sb.append("       FES.FESVW003_IES_MANTENEDORA_CMPS V3, FES.FESTB062_CONTRATO_SIAPI T62 ");
-        sb.append(" WHERE T11.NU_CANDIDATO_FK10 = T36.NU_CANDIDATO_FK11 ");
-        sb.append("   AND V3.NU_CAMPUS = T11.NU_CAMPUS_FK170 ");
-        sb.append("   AND T62.NU_SUREG_AGENCIA_CONTRATO = T36.NU_SUREG_AGENCIA_CONTRATO ");
-        sb.append("   AND T62.NU_UNIDADE_CONTRATO_FK25 = T36.NU_UNIDADE_CONTRATO_FK25 ");
-        sb.append("   AND T62.NU_OPERACAO_SIAPI = T36.NU_OPERACAO_SIAPI ");
-        sb.append("   AND T62.NU_CONTRATO = T36.NU_CONTRATO ");
-        sb.append("   AND T62.NU_DV_CONTRATO = T36.NU_DV_CONTRATO ");
-        sb.append("   AND T36.NU_CANDIDATO_FK11 > 20000000 "); // APENAS CONTRATOS DA 187
-        sb.append("   AND V3.NU_MANTENEDORA = :numeroMantenedora ");
-        sb.append("   AND T36.NU_STATUS_CONTRATO IN (4,5) ");
-
-        return sb.toString();
-    }
-
+paths:
+  '/v1/buscar-estudante-transferencia/{cpf}':
+   get:
+    summary: Busca informações do contrato FIES do estudante por CPF (via query parameters)
+    description: |
+      Este endpoint permite consultar os detalhes do contrato do Fundo de Financiamento Estudantil (FIES)
+      de um estudante específico, utilizando o seu número de Cadastro de Pessoa Física (CPF).
+      Os parâmetros são enviados na URL como query parameters.
+    parameters:
+      - in : path
+        name: cpf
+        schema:
+          type: string
+          pattern: '^[0-9]{11}$'
+        description: CPF do estudante a ser consultado (apenas números).
+        required: true
+        example: "70966798120"
+      
+    responses:
+      '200':
+        description: Resposta bem-sucedida com os detalhes do contrato do estudante.
+        content:
+          application/json:
+            schema:
+              $ref:'#'
+              type: object
+              properties:
+                mensagem:
+                  type: string
+                  description: Mensagem informativa (geralmente vazia em caso de sucesso).
+                  nullable: true
+                  example: ""
+                codigo:
+                  type: string
+                  description: Código de retorno (geralmente nulo em caso de sucesso).
+                  nullable: true
+                  example: null
+                tipo:
+                  type: string
+                  description: Tipo da mensagem (geralmente nulo em caso de sucesso).
+                  nullable: true
+                  example: null
+                editavel:
+                  type: boolean
+                  description: Indica se os dados são editáveis.
+                  nullable: true
+                  example: null
+                agencia:
+                  type: integer
+                  description: Código da agência bancária do contrato.
+                  example: 4736
+                estudante:
+                  type: object
+                  description: Informações detalhadas do estudante.
+                  properties:
+                    mensagem:
+                      type: string
+                      nullable: true
+                      example: ""
+                      codigo:
+                        type: string
+                        nullable: true
+                        example: null
+                      tipo:
+                        type: string
+                        nullable: true
+                        example: null
+                      editavel:
+                        type: boolean
+                        nullable: true
+                        example: null
+                      cpf:
+                        type: string
+                        description: CPF do estudante.
+                        example: "70966798120"
+                      dependenteCPF:
+                        type: integer
+                        description: CPF do dependente (se houver).
+                        example: 0
+                      nome:
+                        type: string
+                        description: Nome completo do estudante.
+                        example: "LUANA GARCIA FERREIRA"
+                      dataNascimento:
+                        type: string
+                        format: date
+                        description: Data de nascimento do estudante (DD/MM/AAAA).
+                        example: "20/02/2002"
+                      ric:
+                        type: string
+                        nullable: true
+                        description: Registro de Identidade Civil (RIC).
+                        example: null
+                      nacionalidade:
+                        type: string
+                        nullable: true
+                        description: Nacionalidade do estudante.
+                        example: null
+                      identidade:
+                        type: object
+                        description: Detalhes da identidade do estudante.
+                        properties:
+                          identidade:
+                            type: string
+                            description: Número da identidade.
+                            example: "4116034"
+                          orgaoExpedidor:
+                            type: object
+                            properties:
+                              codigo:
+                                type: integer
+                                example: 10
+                              nome:
+                                type: string
+                                example: "Secretaria de Segurança Pública(SSP)"
+                              uf:
+                                type: object
+                                properties:
+                                  mensagem:
+                                    type: string
+                                    nullable: true
+                                    example: ""
+                                  codigo:
+                                    type: string
+                                    nullable: true
+                                    example: null
+                                  tipo:
+                                    type: string
+                                    nullable: true
+                                    example: null
+                                  editavel:
+                                    type: boolean
+                                    nullable: true
+                                    example: null
+                                  sigla:
+                                    type: string
+                                    example: "GO"
+                                  descricao:
+                                    type: string
+                                    example: ""
+                                  regiao:
+                                    type: string
+                                    nullable: true
+                                    example: null
+                              dataExpedicaoIdentidade:
+                                type: string
+                                format: date
+                                example: "16/03/2017"
+                      estadoCivil:
+                        type: object
+                        properties:
+                          codigo:
+                            type: integer
+                            example: 1
+                          nome:
+                            type: string
+                            example: "Solteiro(a)"
+                          possuiConjuge:
+                            type: boolean
+                            example: false
+                      regimeBens:
+                        type: string
+                        nullable: true
+                        example: null
+                      endereco:
+                        type: object
+                        properties:
+                          endereco:
+                            type: string
+                            example: "Rua 02qd B LT 03 00"
+                          numero:
+                            type: string
+                            nullable: true
+                            example: null
+                          bairro:
+                            type: string
+                            example: "boa vista"
+                          cep:
+                            type: string
+                            example: "75620000"
+                          cidade:
+                            type: object
+                            properties:
+                              codigoCidade:
+                                type: integer
+                                example: 1770
+                              nome:
+                                type: string
+                                example: "BRASILIA"
+                              uf:
+                                type: object
+                                properties:
+                                  mensagem:
+                                    type: string
+                                    nullable: true
+                                    example: ""
+                                  codigo:
+                                    type: string
+                                    nullable: true
+                                    example: null
+                                  tipo:
+                                    type: string
+                                    nullable: true
+                                    example: null
+                                  editavel:
+                                    type: boolean
+                                    nullable: true
+                                    example: null
+                                  sigla:
+                                    type: string
+                                    example: "GO"
+                                  descricao:
+                                    type: string
+                                    example: ""
+                                  regiao:
+                                    type: string
+                                    nullable: true
+                                    example: null
+                      contato:
+                        type: object
+                        properties:
+                          email:
+                            type: string
+                            format: email
+                            example: "priscilaini@yahoo.com.br"
+                          telefoneResidencial:
+                            type: object
+                            properties:
+                              ddd:
+                                type: string
+                                example: "62"
+                              numero:
+                                type: string
+                                example: "99930009"
+                          telefoneCelular:
+                            type: object
+                            properties:
+                              ddd:
+                                type: string
+                                example: "61"
+                              numero:
+                                type: string
+                                example: "999930007"
+                          telefoneComercial:
+                            type: object
+                            properties:
+                              ddd:
+                                type: string
+                                nullable: true
+                                example: null
+                              numero:
+                                type: string
+                                example: "(61)3445-5888"
+                      vinculacao:
+                        type: string
+                        nullable: true
+                        example: null
+                      codigoFies:
+                        type: integer
+                        example: 20242515
+                      sexo:
+                        type: object
+                        properties:
+                          sexo:
+                            type: string
+                            example: "M"
+                          sexoDetalhe:
+                            type: string
+                            example: "Masculino"
+                      pis:
+                        type: string
+                        example: ""
+                      conjuge:
+                        type: string
+                        nullable: true
+                        example: null
+                      responsavelLegal:
+                        type: string
+                        nullable: true
+                        example: null
+                      emancipado:
+                        type: object
+                        properties:
+                          codigo:
+                            type: string
+                            example: ""
+                          descricao:
+                            type: string
+                            nullable: true
+                            example: null
+                          nome:
+                            type: string
+                            example: ""
+                      nomeCandidato:
+                        type: string
+                        nullable: true
+                        example: null
+                      nomeCurso:
+                        type: string
+                        example: "ENFERMAGEM"
+                      idCampus:
+                        type: integer
+                        example: 27693
+                      nomeCampus:
+                        type: string
+                        example: "Centro Universitário Euro-Americano - Unidade Asa Sul"
+                      numeroCandidato:
+                        type: string
+                        nullable: true
+                        example: null
+                      descricaoMunicipio:
+                        type: string
+                        nullable: true
+                        example: null
+                      nomeIes:
+                        type: string
+                        example: "CENTRO UNIVERSITÁRIO EURO-AMERICANO"
+                      ufCampus:
+                        type: string
+                        nullable: true
+                        example: null
+                      contaCorrente:
+                        type: string
+                        nullable: true
+                        example: null
+                      permiteLiquidar:
+                        type: string
+                        example: "N"
+                      voucher:
+                        type: string
+                        nullable: true
+                        example: null
+                      dataValidadeVoucher:
+                        type: string
+                        nullable: true
+                        example: null
+                      motivoImpeditivo:
+                        type: string
+                        nullable: true
+                        example: null
+                      inadimplente:
+                        type: string
+                        nullable: true
+                        example: null
+                      atrasado:
+                        type: string
+                        nullable: true
+                        example: null
+                      liquidado:
+                        type: string
+                        nullable: true
+                        example: null
+                      rendaFamiliar:
+                        type: string
+                        nullable: true
+                        example: null
+                      recebeSms:
+                        type: string
+                        nullable: true
+                        example: null
+                      vinculoSolidario:
+                        type: integer
+                        example: 0
+                      contratoEstudante:
+                        type: string
+                        nullable: true
+                        example: null
+                  ies:
+                    type: object
+                    description: Informações da Instituição de Ensino Superior (IES).
+                  codigoStatusContrato:
+                    type: integer
+                    description: Código do status do contrato.
+                    example: 5
+                  numeroOperacaoSIAPI:
+                    type: integer
+                    description: Número da operação no SIAPI.
+                    example: 187
+                  statusContrato:
+                    type: string
+                    description: Status do contrato.
+                    example: "CONTRATO ENVIADO AO SIAPI"
+                  situacaoContrato:
+                    type: string
+                    description: Situação do contrato.
+                    example: ""
+                  dataLimiteContratacao:
+                    type: string
+                    format: date
+                    description: Data limite para contratação.
+                    example: "04/12/2020"
+                  valorMensalidade:
+                    type: number
+                    format: float
+                    description: Valor da mensalidade.
+                    example: 635.74
+                  valorContrato:
+                    type: number
+                    format: float
+                    description: Valor total do contrato.
+                    example: 3814.45
+                  dataAssinatura:
+                    type: string
+                    format: date
+                    description: Data de assinatura do contrato.
+                    example: "01/01/2024"
+                  percentualFinanciamento:
+                    type: integer
+                    description: Percentual de financiamento.
+                    example: 50
+                  numeroContrato:
+                    type: string
+                    description: Número do contrato.
+                    example: "08.4736.187.0000058-00"
+                  diaVencimento:
+                    type: string
+                    description: Dia do vencimento da parcela.
+                    example: "15"
+                  codigoTipoGarantia:
+                    type: integer
+                    description: Código do tipo de garantia.
+                    example: 81
+                  descricaoTipoGarantia:
+                    type: string
+                    description: Descrição do tipo de garantia.
+                    example: "Fiança Simples/FG-FIES"
+                  valorGarantia:
+                    type: number
+                    format: float
+                    description: Valor da garantia.
+                    example: 3814.45
+                  codCurso:
+                    type: string
+                    nullable: true
+                    description: Código do curso.
+                    example: null
+                  semestreCursados:
+                    type: integer
+                    description: Semestres já cursados.
+                    example: 1
+                  estudanteCurso:
+                    type: object
+                    description: Informações do estudante no curso.
+                    
+                  valorAditamento:
+                    type: integer
+                    description: Valor do aditamento.
+                    example: 0
+                  unidadeCaixa:
+                    type: string
+                    nullable: true
+                    description: Unidade da Caixa.
+                    example: null
+                  prazoContratoMec:
+                    type: integer
+                    description: Prazo do contrato no MEC.
+                    example: 7
+                  semestreReferencia:
+                    type: integer
+                    description: Semestre de referência.
+                    example: 2
+                  anoReferencia:
+                    type: integer
+                    description: Ano de referência.
+                    example: 2023
+                  bloqueioMec:
+                    type: integer
+                    description: Código de bloqueio no MEC.
+                    example: 0
+                  permiteContratacao:
+                    type: string
+                    description: Indica se permite contratação.
+                    example: "S"
+                  recebeInformacao:
+                    type: string
+                    description: Indica se recebe informação.
+                    example: ""
+                  recebeSms:
+                    type: string
+                    description: Indica se recebe SMS.
+                    example: "A"
+                  localExtrato:
+                    type: integer
+                    description: Local do extrato.
+                    example: 3
+                  prouni:
+                    type: string
+                    description: Indica se é PROUNI.
+                    example: "N"
+                  contaCorrente:
+                    type: object
+                    description: Detalhes da conta corrente.
+                    properties:
+                      agencia:
+                        type: integer
+                        example: 4736
+                      operacao:
+                        type: integer
+                        example: 13
+                      dv:
+                        type: integer
+                        example: 1
+                      nsgd:
+                        type: string
+                        nullable: true
+                        example: null
+                      contaCorrente:
+                        type: integer
+                        example: 6365
+                  quantidadeAditamentos:
+                    type: integer
+                    description: Quantidade de aditamentos.
+                    example: 1
+                  quantidadePreAditamentos:
+                    type: integer
+                    description: Quantidade de pré-aditamentos.
+                    example: 0
+                  sipesListaBanco:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        cpf:
+                          type: string
+                          example: "709.667.981-20"
+                        tipo:
+                          type: string
+                          example: "C"
+                        dataPesquisa:
+                          type: string
+                          nullable: true
+                          example: null
+                        restricao:
+                          type: string
+                          nullable: true
+                          example: "N"
+                  idSeguradora:
+                    type: integer
+                    description: ID da seguradora.
+                    example: 104
+                  indContratoNovoFies:
+                    type: boolean
+                    description: Indica se é um contrato novo FIES.
+                    example: true
+                  taxaJuros:
+                    type: integer
+                    description: Taxa de juros.
+                    example: 0
+                  existeTarifaContrato:
+                    type: boolean
+                    description: Indica se existe tarifa de contrato.
+                    example: true
+                  vrCoParticipacao:
+                    type: number
+                    format: float
+                    description: Valor da co-participação.
+                    example: 144.21
+                  valorSeguro:
+                    type: number
+                    format: float
+                    description: Valor do seguro.
+                    example: 4.6
+                  numeroProcessoSeletivo:
+                    type: integer
+              examples:
+                OperacaoIndisponivelContrato:
+                  summary: Operação não disponível para este contrato.
+                  value:
+                    mensagem: "Já existe solicitação de transferencia para este semestre."
+                    tipo :
+                    codigo: 2
+                    possuiDilatacaoAberta: true
+                    uf: "MG"
+                    editavel : false 
+                CalendarioFechado:
+                  summary: Operação não disponível para este contrato. (calendario fechado)
+                  value:
+                    mensagem: "Operação não disponível para este contrato."
+                    codigo: 2
+                    possuiDilatacaoAberta: false
+                    uf: "MG"
+                PeriodoEmUtilizacao:
+                  summary: Dilatação não permitida, ainda existe período de utilização
+                  value:
+                    mensagem: "Operação não disponível para este contrato."
+                    codigo: 2
+                    possuiDilatacaoAberta: false
+                    uf: "MG"
+                
+      '401':
+          description: >-
+            Identificação provida pelo token aponta para usuário não autorizado
+            a utilizar a API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 401
+                    mensagem: O token fornecido para acesso à API é inválido.
+                    tipo: Erro
+                    editavel: false
+      '404':
+          description: Não foi localizado um contrato para o código Fies fornecido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 404
+                    mensagem: >-
+                      Não foi localizado um contrato para o código Fies
+                      fornecido.
+                    tipo: Erro
+                    editavel: false
+      '412':
+          description: Erro negocial ou estrutural na chamada da API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 412
+                    mensagem: Os dados fornecidos não são válidos.
+                    tipo: Erro
+                    editavel: false
+      '500':
+          description: Erro interno do servidor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 500
+                    mensagem: Erro na execução da funcionalidade no backend.
+                    tipo: Erro
+                    editavel: false
+     
 
 
 
