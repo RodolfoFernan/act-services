@@ -13,130 +13,82 @@ FES.FESSPU20_VINCULA_LIBERACAO
 
     Objetivo: Vincular as liberações de contrato a seus respectivos aditamentos ou contratos iniciais, marcando o tipo de transação e a participação do candidato. Além disso, a SP insere retenções para liberações que não conseguem ser vinculadas.
 
-Quando Rodamos a rotina fesTotal (ela dropa e recria os Índices de algumas tabelas ) , porem tivemos problemas em carregar um indeci especifico de uma tabela mencionada a baixo , porém essa oitra tabela é um usado em um processo de batch que não sabíamos a conexão com a festotal , o processo de calculo de integralização
-essas são as três tabelas e gostariasmo de entender para que ela é usada e oque o método faz , qual a sua necessidade no processo . 
-Tabelas:
-FESTB062_CONTRATO_SIAPI
-CalculaPercentualIntegralizacaoImpl
-  isAtualizarPercentualMantenedora-----usado no calculo Percentual Mantenedoras que serve para ?
-  consultaValoresCoparticipacao
-  COPARTICIPACAO ADIMPLENTE
+Entendendo as Tabelas e o Processo de Integralização
 
+O problema que você teve ao carregar um índice da FESTB069_EXTRATO_SIAPI durante a execução da rotina fesTotal é um sintoma claro de uma dependência. Mesmo que a fesTotal não faça algo "diretamente" com a tabela, se ela dropa e recria índices, e o FESTB069_EXTRATO_SIAPI é fundamental para um processo de batch que roda em paralelo ou logo depois, a performance e a integridade dos dados podem ser comprometidas.
 
-=================================
-FESTB069_EXTRATO_SIAPI-----Não carregou ontem quando rodou com 
-utilizada em :
- CalculaPercentualIntegralizacaoImpl
-   consultaValoresCoparticipacao
-     COPARTICIPACAO ADIMPLENTE
+Vamos detalhar cada tabela e os métodos mencionados:
+1. FESTB062_CONTRATO_SIAPI
 
+    Finalidade da Tabela: Esta tabela é central para armazenar informações de contratos SIAPI. O SIAPI (Sistema Integrado de Acompanhamento e Pagamento de Incentivos) é provavelmente o sistema que gerencia os pagamentos, aditamentos e o status geral dos contratos de financiamento estudantil. Nela você encontraria detalhes como número do contrato, valores, datas de assinatura, prazos, dados das mantenedoras e dos estudantes vinculados a cada contrato. É a fonte primária de dados contratuais.
+    Conexão com fesTotal: A fesTotal pode não manipular dados diretamente nesta tabela, mas ao drop e recriar índices, ela afeta a performance de qualquer consulta ou operação que use esses contratos, incluindo o processo de cálculo de integralização.
+    CalculaPercentualIntegralizacaoImpl: Esta classe é responsável por implementar a lógica de cálculo do percentual de integralização. Ela, muito provavelmente, consulta a FESTB062_CONTRATO_SIAPI para obter os dados base de cada contrato que serão usados nos cálculos de índices de inadimplência e evasão.
 
+        isAtualizarPercentualMantenedora:
+            Uso: Pelo contexto do método calculoPercentualMantenedoras e o debug que você forneceu, essa função determina se o percentual de integralização de uma mantenedora específica deve ser atualizado no momento. Isso é crucial porque o percentual pode não precisar ser recalculado para todas as mantenedoras em todos os semestres.
+            Necessidade: Ela verifica a posição do ano da mantenedora (anoPosicaoMantenedora) em relação ao semestre de adesão e ao semestre de referência atual (SEMESTRE, ANO). Isso indica que existem regras específicas sobre quando um percentual de integralização é válido para atualização, evitando recálculos desnecessários ou indevidos. Por exemplo, pode haver uma lógica de que o percentual só é atualizado após um certo número de meses ou anos da adesão inicial da mantenedora.
 
-consulta.qtde.inadimplencia=SELECT COUNT(DISTINCT T69.CO_CPF_CNPJ) FROM FES.FESTB069_EXTRATO_SIAPI T69, FES.FESTB036_CONTRATO_FIES T36, FES.FESTB011_CNDDO_CURSO_IES T11, FES.FESVW003_IES_MANTENEDORA_CMPS T03 WHERE T69.NU_SUREG_AGENCIA_CNTRO_FK62 = T36.NU_SUREG_AGENCIA_CONTRATO AND T69.NU_UNIDADE_CONTRATO_FK62 = T36.NU_UNIDADE_CONTRATO_FK25 AND T69.NU_OPERACAO_SIAPI_FK62 = T36.NU_OPERACAO_SIAPI AND T69.NU_CONTRATO_FK62 = T36.NU_CONTRATO AND T69.NU_DV_CONTRATO_FK62 = T36.NU_DV_CONTRATO AND T36.NU_CANDIDATO_FK11 = T11.NU_CANDIDATO_FK10 AND T11.NU_CAMPUS_FK170 = T03.NU_CAMPUS AND T69.NU_SITUACAO_EXTRATO_FK82 = 1 AND T03.NU_MANTENEDORA = ? AND T36.NU_OPERACAO_SIAPI = 187
+        consultaValoresCoparticipacao:
+            Uso: Conforme o comentário no código, este método busca os valores necessários para calcular o índice de inadimplência (c). Ele obtém o "Saldo de Coparticipação em atraso superior a 90 (noventa) dias" e o "Saldo Total de Coparticipação".
+            COPARTICIPACAO ADIMPLENTE: Este termo parece ser uma query ou constante que define a lógica para buscar os valores de coparticipação (a parcela que o estudante paga diretamente à instituição de ensino). "Adimplente" se refere a pagamentos em dia, enquanto "inadimplente" se refere a pagamentos atrasados. A proporção desses valores define o índice 'c'.
 
-===================================
-FESTB071_LIBERACAO_SIAPI ==========Nada no Batch
+2. FESTB069_EXTRATO_SIAPI
 
+    Finalidade da Tabela: Esta tabela armazena dados de extrato de movimentações financeiras relacionadas aos contratos SIAPI. Cada registro representa uma transação, pagamento, liberação, ou outro evento financeiro de um contrato. É aqui que se rastreia o histórico de pagamentos e dívidas.
 
+    Problema de Carregamento: O fato de não ter carregado o índice durante o fesTotal aponta para um problema sério. Se o índice não foi recriado ou foi corrompido, consultas que dependem dele (como a de inadimplência) terão performance degradada ou poderão falhar.
 
-private void calculoPercentualMantenedoras(ParametrosIntegralizacaoTO parametro2ao5ano, ParametrosIntegralizacaoTO parametro6ao7ano) {
-        final List<IntegralizacaoAdesaoMantenedora> listaIntegralizacaoMantenedoras = new ArrayList<>();
+    Utilização em CalculaPercentualIntegralizacaoImpl:
+        consultaValoresCoparticipacao: Conforme o problema da fesTotal, esta é a principal conexão. A query consulta.qtde.inadimplencia que você forneceu claramente usa a FESTB069_EXTRATO_SIAPI (T69) para contar a quantidade de CPFs/CNPJs inadimplentes.
+        COPARTICIPACAO ADIMPLENTE: Reforça o uso desta tabela para segregar dados de coparticipação em dia ou em atraso.
 
-        final List<AdesaoTO> listaAdesaoMantenedoras = consultaSemestreAdesaoMantenedora();
-        for (final AdesaoTO adesao: listaAdesaoMantenedoras) {
-            final Long numeroMantenedora = adesao.getNumeroMantenedora();
-            logger.debug("***************************** Iniciando calculos mantenedora {} *****************************", numeroMantenedora);
+    Necessidade no Processo de Cálculo de Integralização: Esta tabela é CRÍTICA para calcular o índice de inadimplência (c). Ela fornece os dados sobre quais estudantes estão com saldo de coparticipação em atraso. Sem dados consistentes e acessíveis via índice da FESTB069_EXTRATO_SIAPI, o cálculo do índice 'c' será incorreto ou ineficiente, impactando diretamente o Percentual Integralização das Mantenedoras.
 
-            final Date dataInicioSemestreAdesao = Utils.getDataInicioSemestre(adesao.getSemestre(), adesao.getAno());
-            final Date dataInicioSemestreRef = Utils.getDataInicioSemestre(SEMESTRE, ANO);
-            final int diffMeses = Utils.diffMesesDatas(dataInicioSemestreAdesao, dataInicioSemestreRef);
-            final int anoPosicaoMantenedora = getAnoPosicao(diffMeses);
-            final boolean isAtualizarMantenedora = isAtualizarPercentualMantenedora(diffMeses);
-            final IntegralizacaoAdesaoMantenedora integralizacao = new IntegralizacaoAdesaoMantenedora(anoPosicaoMantenedora, numeroMantenedora, adesao, parametro2ao5ano);
+3. FESTB071_LIBERACAO_SIAPI
 
-            logger.debug(
-                "Semestre/ano adesao: {}/{}, ano posicao: {}, percentual vai atualizar: {}",
-                adesao.getSemestre(), adesao.getAno(), anoPosicaoMantenedora, isAtualizarMantenedora
-            );
+    Finalidade da Tabela: Esta tabela provavelmente registra as liberações de valores ou parcelas dos financiamentos SIAPI. Pode conter informações sobre as datas de liberação, os valores liberados e o contrato associado.
+    Conexão com fesTotal e Batch: A anotação "Nada no Batch" e "Nada no Batch" significa que esta tabela não está diretamente envolvida nos processos de batch ou na rotina calculoPercentualMantenedoras que você detalhou. Se a fesTotal está dropando e recriando índices dela, mas ela não é usada nos processos que você está investigando, pode ser uma tabela de um módulo diferente que é afetado pela rotina de manutenção de índices.
+    Necessidade no Processo: Pelas informações fornecidas, a FESTB071_LIBERACAO_SIAPI não é necessária para o cálculo do percentual de integralização que você descreveu. No entanto, ela pode ser vital para outros processos de acompanhamento do financiamento, como o pagamento de parcelas ou a visualização do histórico de desembolsos para o estudante ou a IES.
 
-            /* buscar os valores pra calcular o valor de c (indice inadimplencia)
-             * c  =  __Saldo de Coparticipação em atraso superior a 90 (noventa) dias em DD/MM/AAAA__
-             *                    Saldo Total de Coparticipação em DD/MM/AAAA
-             */
-            consultaValoresCoparticipacao(integralizacao);
-            logger.debug(
-                "valor coparticipacao atraso 90: {}, valor coparticipacao: {}",
-                integralizacao.getValorSaldoCoparticipacaoInadimplente(), integralizacao.getValorSaldoCoparticipacao()
-            );
+O Processo de Cálculo de Integralização (calculoPercentualMantenedoras)
 
-            /* buscar os valores para calcular o valor de e (indice evasao)
-             * e  =  __Qte. Estudantes (Semestre 0X/20XX) com parcela em atraso não aditados em DD/MM/AAAA)__
-             *                                  Quantidade total de contratos
-             */
-            consultaQuantidadeContratos(integralizacao);
-            logger.debug(
-                "Quantidade Contatos Com Parcela Em Atraso sem adit: {}, Quantidade Total Contratos: {}",
-                integralizacao.getQuantidadeContatosComParcelaEmAtraso(), integralizacao.getQuantidadeTotalContratos()
-            );
+O método calculoPercentualMantenedoras que você compartilhou é a orquestração central para a qual todas essas tabelas e métodos convergem.
 
-            /* calcular o valor de x
-             * x = α x c + ß * e
-             */
-            BigDecimal x = parametro2ao5ano.getValorPesoAlfa().multiply(integralizacao.getIndiceInadimplencia());
-            x = x.add( parametro2ao5ano.getValorPesoBeta().multiply(integralizacao.getIndiceEvasao()) );
-            integralizacao.setX(x);
-            logger.debug(
-                "indice inadimplencia (c): {}, indice evasao (e): {}, valor de x: {}",
-                integralizacao.getIndiceInadimplencia(), integralizacao.getIndiceEvasao(), x
-            );
+    Iteração por Mantenedora: O método percorre uma listaAdesaoMantenedoras, o que significa que o cálculo é feito individualmente para cada mantenedora que aderiu ao programa.
+    Determinação do Ano/Semestre: Calcula o anoPosicaoMantenedora com base na diferença de meses entre o semestre de adesão da mantenedora e o semestre de referência atual. Isso é fundamental para aplicar regras de cálculo específicas para cada "ano de vida" da adesão da mantenedora.
+    isAtualizarPercentualMantenedora: Decide se o cálculo será persistido ou não, baseado na elegibilidade da mantenedora para atualização naquele momento. Isso evita que os percentuais sejam atualizados com muita frequência ou em momentos inadequados.
+    Cálculo do Índice de Inadimplência (c): Chama consultaValoresCoparticipacao (que usa FESTB069_EXTRATO_SIAPI) para obter os dados de coparticipação em atraso e total, e com isso calcula o indiceInadimplencia.
+    Cálculo do Índice de Evasão (e): Chama consultaQuantidadeContratos (provavelmente usando FESTB062_CONTRATO_SIAPI ou tabelas relacionadas a alunos/cursos) para obter a "quantidade de estudantes com parcela em atraso não aditados" e a "quantidade total de contratos". Com isso, calcula o indiceEvasao.
+    Cálculo do Valor x: Aplica uma fórmula x = α x c + ß * e, onde α (alfa) e ß (beta) são pesos definidos nos ParametrosIntegralizacaoTO. Este valor x é um indicador composto da saúde financeira da mantenedora em relação aos financiamentos.
+    Persistência (FESTB842): O IntegralizacaoAdesaoMantenedoraTO é persistido/atualizado na tabela FESTB842. Esta tabela armazena os resultados dos cálculos para cada mantenedora em cada período, incluindo o valor de x e o percentual de integralização final. O anoPosicaoMantenedora negativo para "controle" é uma flag para indicar que não é um cálculo oficial para acompanhamento da tela.
+    Cálculo de Média e Desvio Padrão de x: Após calcular x para todas as mantenedoras, o sistema calcula a média e o desvio padrão de x para o conjunto. Isso pode ser usado para normalizar ou comparar o desempenho das mantenedoras.
+    Cálculo e Atualização do Percentual de Integralização Final:
+        Para o primeiro ano, o percentual é fixo (PC_INTEGRALIZACAO_PRIMEIRO_ANO).
+        Para os anos 2 a 5, calcularPercentualIntegralizacao é chamado.
+        Para os anos 6 a 7, calcularPercentualIntegralizacao6ao7Ano é chamado.
+        O percentual calculado é então atualizado na FESTB842 (via entityManager.merge) e também na FESTB156 (via atualizarPercentualMantenedora), que provavelmente é uma tabela de cadastro da mantenedora que precisa ter o percentual atualizado.
 
-            /* salvar na FESTB842
-             * obs: se o cadastro da mantenedora for só para controle, salvar o ano posição negativo
-             * esse ano posição negativo deve ser ignorado pela tela de consulta
-             */
-            IntegralizacaoAdesaoMantenedoraTO integralizacaoTO = new IntegralizacaoAdesaoMantenedoraTO(integralizacao, isAtualizarMantenedora);
-            entityManager.merge(integralizacaoTO);
+Conexão fesTotal e o Índice FESTB069_EXTRATO_SIAPI
 
-            listaIntegralizacaoMantenedoras.add(integralizacao);
-        }
+A fesTotal é uma rotina de manutenção crítica. Se ela dropa e recria índices, e o índice da FESTB069_EXTRATO_SIAPI não está sendo recriado corretamente ou há um conflito de concorrência com o batch de integralização, isso explica por que você teve problemas.
 
-        // inclui no banco as alteracoes
-        entityManager.flush();
+Motivo do problema:
+O processo de cálculo de integralização (seu batch) é altamente dependente da FESTB069_EXTRATO_SIAPI para o cálculo da inadimplência. Se a fesTotal deixa essa tabela sem um índice ou com um índice corrompido, as consultas dela se tornam extremamente lentas ou falham (ex: NoResultException, TooManyRowsException ou apenas timeouts de query), impactando o cálculo subsequente.
 
-        /* calcular média mantenedoras da data de movimento */
-        /* calcular desvio padrão mantenedoras da data de movimento */
-        cacularMediaEDesvioPadraoDeX(listaIntegralizacaoMantenedoras);
-        logger.debug("Media valor de X: {}, Valor desvio padrao de X: {}", this.valorMedioX, this.valorDesvioPadraoX);
+Necessidade da fesTotal para o processo:
+A rotina fesTotal é necessária para a saúde e performance geral do banco de dados. Índices ficam fragmentados, dados mudam, e a recriação deles é uma prática comum de DBA para otimizar o acesso. A questão não é se ela deve rodar, mas como ela interage com processos dependentes.
 
-        for (IntegralizacaoAdesaoMantenedora integralizacao: listaIntegralizacaoMantenedoras) {
-            /* calcular percentual integralização das mantenedoras do 2 ao 5 ano */
-            if (integralizacao.getAnoPosicaoAdesaoMantenedora().equals(1)) {
-                // percentual fixo no primeiro ano de integralizacao
-                atualizarPercentualMantenedora(integralizacao.getNumeroMantenedora(), PC_INTEGRALIZACAO_PRIMEIRO_ANO);
-            } else if (integralizacao.getAnoPosicaoAdesaoMantenedora().compareTo(2) >= 0 && integralizacao.getAnoPosicaoAdesaoMantenedora().compareTo(5) <= 0) {
-                calcularPercentualIntegralizacao(integralizacao, parametro2ao5ano);
-                IntegralizacaoAdesaoMantenedoraID id = new IntegralizacaoAdesaoMantenedoraID(integralizacao.getAnoPosicaoAdesaoMantenedora(), integralizacao.getNumeroMantenedora());
-                IntegralizacaoAdesaoMantenedoraTO to = entityManager.find(IntegralizacaoAdesaoMantenedoraTO.class, id);
+Solução para o problema:
+É fundamental investigar por que o índice da FESTB069_EXTRATO_SIAPI não está sendo carregado corretamente pela fesTotal ou por que há um conflito. As possíveis causas podem ser:
 
-                to.setPercentualIntegralizacao(integralizacao.getPercentualIntegralizacao());
-                entityManager.merge(to);
+    Erro na fesTotal: Bug na rotina de recriação de índice para essa tabela específica.
+    Concorrência: O batch de cálculo de integralização pode estar tentando acessar a tabela enquanto a fesTotal está manipulando os índices, causando bloqueios ou leituras incompletas.
+    Recursos: Falta de recursos (memória, CPU, I/O) no servidor de banco de dados durante a execução da fesTotal, impedindo a conclusão da recriação do índice.
 
-                // ATUALIZAR PERCENTUAL NA FESTB156
-                atualizarPercentualMantenedora(integralizacao.getNumeroMantenedora(), integralizacao.getPercentualIntegralizacao());
-            } else if (integralizacao.getAnoPosicaoAdesaoMantenedora().compareTo(6) >= 0 && integralizacao.getAnoPosicaoAdesaoMantenedora().compareTo(7) <= 0) {
-                calcularPercentualIntegralizacao6ao7Ano(integralizacao, parametro6ao7ano);
-                IntegralizacaoAdesaoMantenedoraID id = new IntegralizacaoAdesaoMantenedoraID(integralizacao.getAnoPosicaoAdesaoMantenedora(), integralizacao.getNumeroMantenedora());
-                IntegralizacaoAdesaoMantenedoraTO to = entityManager.find(IntegralizacaoAdesaoMantenedoraTO.class, id);
+Recomendação:
+Verifique os logs da execução da fesTotal especificamente para a FESTB069_EXTRATO_SIAPI. Coordenar os horários de execução do fesTotal e do batch de integralização pode ser necessário, talvez rodando o fesTotal em um período de menor carga ou garantindo que o batch só inicie após a conclusão da manutenção de índices.
 
-                to.setPercentualIntegralizacao(integralizacao.getPercentualIntegralizacao());
-                entityManager.merge(to);
-
-                // ATUALIZAR PERCENTUAL NA FESTB156
-                atualizarPercentualMantenedora(integralizacao.getNumeroMantenedora(), integralizacao.getPercentualIntegralizacao());
-            }
-        }
-
-    }
+Espero que essa análise ajude a clarear as conexões e a importância de cada parte do seu sistema!
 
 
 
