@@ -13,6 +13,1265 @@ info:
   title: API de Busca de Estudante para Transferência FIES
   version: 1.0.0
   description: API para buscar informações de estudante e detalhes do contrato FIES para processo de transferência.
+
+servers:
+  - url: http://localhost:8080/api # Ajuste esta URL se necessário
+
+paths:
+  /v1/buscar-estudante-transferencia/{cpf}:
+    get:
+      summary: Busca informações do contrato FIES do estudante por CPF
+      description: |
+        Este endpoint permite consultar os detalhes do contrato do Fundo de Financiamento Estudantil (FIES)
+        de um estudante específico, utilizando o seu número de Cadastro de Pessoa Física (CPF).
+        Os parâmetros são enviados na URL como path parameters.
+      parameters:
+        - in: path
+          name: cpf
+          required: true
+          schema:
+            type: string
+            pattern: '^[0-9]{11}$'
+          description: CPF do estudante a ser consultado (apenas números).
+          example: "70966798120"
+      responses:
+        '200':
+          description: Resposta bem-sucedida com os detalhes do contrato do estudante.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FiesContractResponse'
+              examples:
+                successExample:
+                  summary: Exemplo de resposta de sucesso para contrato FIES
+                  value:
+                    mensagem: ""
+                    codigo: null
+                    tipo: null
+                    editavel: null
+                    agencia: 2
+                    estudante:
+                      mensagem: ""
+                      codigo: null
+                      tipo: null
+                      editavel: null
+                      cpf: "46762781870"
+                      dependenteCPF: 0
+                      nome: "CANDIDATO_20006508"
+                      dataNascimento: "22/05/2008"
+                      ric: null
+                      nacionalidade: null
+                      identidade:
+                        identidade: "04021849457"
+                        orgaoExpedidor:
+                          codigo: 10
+                          nome: "Secretaria de Segurança Pública(SSP)"
+                        uf:
+                          mensagem: ""
+                          codigo: null
+                          tipo: null
+                          editavel: null
+                          sigla: "DF"
+                          descricao: ""
+                          regiao: null
+                        dataExpedicaoIdentidade: "16/02/2020"
+                      estadoCivil:
+                        codigo: 1
+                        nome: "Solteiro(a)"
+                        possuiConjuge: false
+                      regimeBens: null
+                      endereco:
+                        endereco: "Rua Boa esperança, Bloco 13, apto 03"
+                        numero: null
+                        bairro: "Turu"
+                        cep: "65066190"
+                        cidade:
+                          codigoCidade: 10
+                          nome: "PARACATU"
+                          uf:
+                            mensagem: ""
+                            codigo: null
+                            tipo: null
+                            editavel: null
+                            sigla: "MA"
+                            descricao: ""
+                            regiao: null
+                      contato:
+                        email: "fred_teste_01@gmail.com"
+                        telefoneResidencial:
+                          ddd: "98"
+                          numero: "984157414"
+                        telefoneCelular:
+                          ddd: "98"
+                          numero: "984157414"
+                        telefoneComercial:
+                          ddd: null
+                          numero: "0"
+                      vinculacao: null
+                      codigoFies: 20006508
+                      sexo:
+                        sexo: "M"
+                        sexoDetalhe: "Masculino"
+                      pis: ""
+                      conjuge: null
+                      responsavelLegal: null
+                      emancipado:
+                        codigo: ""
+                        descricao: null
+                        nome: ""
+                      nomeCandidato: null
+                      nomeCurso: "MEDICINA"
+                      idCampus: 1038222
+                      nomeCampus: "Unidade I"
+                      numeroCandidato: null
+                      descricaoMunicipio: null
+                      nomeIes: "CENTRO UNIVERSITÁRIO ATENAS"
+                      ufCampus: null
+                      contaCorrente: null
+                      permiteLiquidar: "N"
+                      voucher: null
+                      dataValidadeVoucher: null
+                      motivoImpeditivo: null
+                      inadimplente: null
+                      atrasado: null
+                      liquidado: null
+                      rendaFamiliar: null
+                      recebeSms: null
+                      vinculoSolidario: 0
+                      contratoEstudante: null
+                    ies:
+                      mensagem: ""
+                      codigo: 2579
+                      tipo: null
+                      editavel: null
+                      nome: "CENTRO UNIVERSITÁRIO ATENAS"
+                      sigla: "UniAtenas"
+                      cnpj: "01428030000166"
+                      percentIntegalizacao: null
+                      contaCorrente: null
+                      siglaUF: null
+                      condigoMunicipio: null
+                      mantenedora:
+                        mensagem: ""
+                        codigo: 1675
+                        tipo: null
+                        editavel: null
+                        nome: "Centro Educacional Hyarte-Ml Ltda"
+                        sigla: "SEM SIGLA"
+                        cnpj: "01428030000166"
+                        percentIntegalizacao: null
+                        contaCorrente: null
+                        siglaUF: null
+                        condigoMunicipio: null
+                      endereco:
+                        endereco: "Rua Euridamas Avelino de Barros"
+                        numero: null
+                        bairro: "Prado"
+                        cep: "38602002"
+                        cidade:
+                          codigoCidade: 4700
+                          nome: "PARACATU"
+                          uf:
+                            mensagem: ""
+                            codigo: null
+                            tipo: null
+                            editavel: null
+                            sigla: "MG"
+                            descricao: "MG"
+                            regiao: null
+                      complemento: null
+                      contato:
+                        email: "fred_teste_01@gmail.com"
+                        telefoneResidencial:
+                          ddd: "98"
+                          numero: "984157414"
+                        telefoneCelular:
+                          ddd: "98"
+                          numero: "984157414"
+                        telefoneComercial:
+                          ddd: null
+                          numero: "0"
+                      nomeContato: "Lily Datko"
+                      nomeResponsavel: "Jamie Vajnar"
+                      cpfResponsavel: "38432664828"
+                      emailResponsavel: "Ivana.Ache@OregonSteelMillsInc.com"
+                      gestao: null
+                      naturezaJuridica:
+                        codigo: null
+                        nome: "Sociedade Civil com Fins Lucra"
+                      personalidadeJuridica:
+                        codigo: "80.30-6"
+                        nome: "EDUCAÇÃO SUPERIOR"
+                      condicaoFuncionamento: "N"
+                      prouni: "S"
+                      nuContaNSGD: null
+                      nuContaSidec: 138003006720043
+                      icBloqueio: null
+                      codigoMantenedora: null
+                      icContaPadrao: "S"
+                    codigoStatusContrato: 5
+                    numeroOperacaoSIAPI: 187
+                    statusContrato: "CONTRATO ENVIADO AO SIAPI"
+                    situacaoContrato: ""
+                    dataLimiteContratacao: "30/05/2025"
+                    valorMensalidade: 987.53
+                    valorContrato: 47402.27
+                    dataAssinatura: "23/01/2024"
+                    percentualFinanciamento: 90.94
+                    numeroContrato: "04.0002.187.0024436-78"
+                    diaVencimento: "15"
+                    codigoTipoGarantia: 80
+                    descricaoTipoGarantia: "FG-FIES"
+                    valorGarantia: 47402.27
+                    codCurso: null
+                    semestreCursados: 1
+                    estudanteCurso:
+                      mensagem: ""
+                      codigo: null
+                      tipo: null
+                      editavel: null
+                      indiceClassificacao: 0.0
+                      classificacao: 0
+                      estudante: null
+                      curso:
+                        nome: "MEDICINA"
+                        campus:
+                          mensagem: ""
+                          codigo: null
+                          tipo: null
+                          editavel: null
+                          nome: "Unidade I"
+                          ies: null
+                    valorAditamento: 0.0
+                    unidadeCaixa: null
+                    prazoContratoMec: 6
+                    semestreReferencia: 1
+                    anoReferencia: 2024
+                    bloqueioMec: 0
+                    permiteContratacao: "S"
+                    recebeInformacao: ""
+                    recebeSms: "A"
+                    localExtrato: 3
+                    prouni: "N"
+                    contaCorrente:
+                      agencia: 269
+                      operacao: 1
+                      dv: 4
+                      nsgd: null
+                      contaCorrente: 92
+                    quantidadeAditamentos: 1
+                    quantidadePreAditamentos: 0
+                    sipesListaBanco:
+                      - cpf: "467.627.818-70"
+                        tipo: "C"
+                        dataPesquisa: null
+                        restricao: "N"
+                    idSeguradora: 104
+                    indContratoNovoFies: true
+                    taxaJuros: 0
+                    existeTarifaContrato: true
+                    vrCoParticipacao: 100
+                    valorSeguro: 12.9
+                    numeroProcessoSeletivo: 22
+                    valorTarifaAgenteOperador: 3
+                    valorTarifaAgenteFinanceiro: 30.33
+                    valorTarifa: 33.33
+                    valorExtratoAmortizacao: null
+                    valorDescontoAmortizacao: null
+                    vrSemestralidadeDesconto: 5925.2
+                    listaContasCli: null
+                    icFaseTarifaSeguro: "U"
+                    nomeSeguradora: "CAIXA VIDA E PREVIDENCIA S/A"
+                    valorSaldoDevedor: null
+                    valorUltimaParcelaPaga: null
+                    dataUltimaParcelaPaga: null
+                    cpf: null
+                    dataInicioUtilizacao: null
+                    dataFimUtilizacao: null
+                    dataInicioAmortizacao: "15/08/2026"
+                    dataFimAmortizacao: null
+                    dataInicioCarencia: null
+                    dataFimCarencia: null
+                    dataVencimentoExtrato: null
+                    dataVencimentoPrestacao: null
+                    quantidadeSemestresContratados: null
+                    dataUltimoAditamento: null
+                    semestreAnoUltimoAditamento: null
+                    valorCoparticipacao: null
+                    icAutorizaDebitoSobreLimite: "S"
+                    icAutorizaDebitoSobreParcelaVencida: "S"
+                    situacaoContratoSIAPI: null
+                    numeroSituacaoContrato: 1
+                    faseContratacao: "1"
+                    situacaoFase: "Confirmado"
+                    dataInicio: "01/2024"
+                    dataFim: "02/2026"
+                    exigeFiador: false
+                    agenciaVinculacaoContrato: "2408"
+                    semestreAnoReferencia: "01/2024"
+
+        '400':
+          description: Requisição inválida (ex: CPF em formato incorreto).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidCpf:
+                  summary: Erro de CPF inválido
+                  value:
+                    message: "CPF inválido. O CPF deve conter 11 dígitos numéricos."
+        '404':
+          description: Estudante não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                notFound:
+                  summary: Estudante não encontrado
+                  value:
+                    message: "Estudante com o CPF informado não foi encontrado."
+        '500':
+          description: Erro interno do servidor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                internalError:
+                  summary: Erro interno do servidor
+                  value:
+                    message: "Ocorreu um erro inesperado no servidor."
+
+---
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Mensagem de erro.
+          example: "Ocorreu um erro."
+
+    FiesContractResponse:
+      type: object
+      properties:
+        mensagem:
+          type: string
+          nullable: true
+          example: ""
+        codigo:
+          type: string
+          nullable: true
+          example: null
+        tipo:
+          type: string
+          nullable: true
+          example: null
+        editavel:
+          type: boolean
+          nullable: true
+          example: null
+        agencia:
+          type: integer
+          example: 2
+        estudante:
+          $ref: '#/components/schemas/EstudanteDetails'
+        ies:
+          $ref: '#/components/schemas/IESDetails'
+        codigoStatusContrato:
+          type: integer
+          example: 5
+        numeroOperacaoSIAPI:
+          type: integer
+          example: 187
+        statusContrato:
+          type: string
+          example: "CONTRATO ENVIADO AO SIAPI"
+        situacaoContrato:
+          type: string
+          nullable: true
+          example: ""
+        dataLimiteContratacao:
+          type: string
+          format: date
+          example: "30/05/2025"
+        valorMensalidade:
+          type: number
+          format: float
+          example: 987.53
+        valorContrato:
+          type: number
+          format: float
+          example: 47402.27
+        dataAssinatura:
+          type: string
+          format: date
+          example: "23/01/2024"
+        percentualFinanciamento:
+          type: number
+          format: float
+          example: 90.94
+        numeroContrato:
+          type: string
+          example: "04.0002.187.0024436-78"
+        diaVencimento:
+          type: string # Pode ser integer se for apenas o dia numérico
+          example: "15"
+        codigoTipoGarantia:
+          type: integer
+          example: 80
+        descricaoTipoGarantia:
+          type: string
+          example: "FG-FIES"
+        valorGarantia:
+          type: number
+          format: float
+          example: 47402.27
+        codCurso:
+          type: string # Ajuste se for um tipo específico
+          nullable: true
+          example: null
+        semestreCursados:
+          type: integer
+          example: 1
+        estudanteCurso:
+          $ref: '#/components/schemas/EstudanteCurso'
+        valorAditamento:
+          type: number
+          format: float
+          example: 0.0
+        unidadeCaixa:
+          type: string
+          nullable: true
+          example: null
+        prazoContratoMec:
+          type: integer
+          example: 6
+        semestreReferencia:
+          type: integer # Ou string, dependendo do formato ex: "2024.1"
+          example: 1
+        anoReferencia:
+          type: integer
+          example: 2024
+        bloqueioMec:
+          type: integer # Ou boolean, dependendo do que 0 significa
+          example: 0
+        permiteContratacao:
+          type: string
+          example: "S"
+        recebeInformacao:
+          type: string
+          example: ""
+        recebeSms:
+          type: string
+          example: "A"
+        localExtrato:
+          type: integer
+          example: 3
+        prouni:
+          type: string
+          example: "N"
+        contaCorrente:
+          $ref: '#/components/schemas/ContractAccount'
+          nullable: true
+        quantidadeAditamentos:
+          type: integer
+          example: 1
+        quantidadePreAditamentos:
+          type: integer
+          example: 0
+        sipesListaBanco:
+          type: array
+          items:
+            $ref: '#/components/schemas/SipesBanco'
+        idSeguradora:
+          type: integer
+          example: 104
+        indContratoNovoFies:
+          type: boolean
+          example: true
+        taxaJuros:
+          type: number
+          format: float
+          example: 0
+        existeTarifaContrato:
+          type: boolean
+          example: true
+        vrCoParticipacao:
+          type: number
+          format: float
+          example: 100
+        valorSeguro:
+          type: number
+          format: float
+          example: 12.9
+        numeroProcessoSeletivo:
+          type: integer
+          example: 22
+        valorTarifaAgenteOperador:
+          type: number
+          format: float
+          example: 3
+        valorTarifaAgenteFinanceiro:
+          type: number
+          format: float
+          example: 30.33
+        valorTarifa:
+          type: number
+          format: float
+          example: 33.33
+        valorExtratoAmortizacao:
+          type: number
+          format: float
+          nullable: true
+          example: null
+        valorDescontoAmortizacao:
+          type: number
+          format: float
+          nullable: true
+          example: null
+        vrSemestralidadeDesconto:
+          type: number
+          format: float
+          example: 5925.2
+        listaContasCli:
+          type: array
+          nullable: true
+          items:
+            type: object # Ajuste o tipo do item se souber a estrutura
+          example: null
+        icFaseTarifaSeguro:
+          type: string
+          example: "U"
+        nomeSeguradora:
+          type: string
+          example: "CAIXA VIDA E PREVIDENCIA S/A"
+        valorSaldoDevedor:
+          type: number
+          format: float
+          nullable: true
+          example: null
+        valorUltimaParcelaPaga:
+          type: number
+          format: float
+          nullable: true
+          example: null
+        dataUltimaParcelaPaga:
+          type: string
+          format: date
+          nullable: true
+          example: null
+        cpf:
+          type: string
+          nullable: true
+          example: null
+        dataInicioUtilizacao:
+          type: string
+          format: date
+          nullable: true
+          example: null
+        dataFimUtilizacao:
+          type: string
+          format: date
+          nullable: true
+          example: null
+        dataInicioAmortizacao:
+          type: string
+          format: date
+          example: "15/08/2026"
+        dataFimAmortizacao:
+          type: string
+          format: date
+          nullable: true
+          example: null
+        dataInicioCarencia:
+          type: string
+          format: date
+          nullable: true
+          example: null
+        dataFimCarencia:
+          type: string
+          format: date
+          nullable: true
+          example: null
+        dataVencimentoExtrato:
+          type: string
+          format: date
+          nullable: true
+          example: null
+        dataVencimentoPrestacao:
+          type: string
+          format: date
+          nullable: true
+          example: null
+        quantidadeSemestresContratados:
+          type: integer
+          nullable: true
+          example: null
+        dataUltimoAditamento:
+          type: string
+          format: date
+          nullable: true
+          example: null
+        semestreAnoUltimoAditamento:
+          type: string
+          nullable: true
+          example: null
+        valorCoparticipacao:
+          type: number
+          format: float
+          nullable: true
+          example: null
+        icAutorizaDebitoSobreLimite:
+          type: string
+          example: "S"
+        icAutorizaDebitoSobreParcelaVencida:
+          type: string
+          example: "S"
+        situacaoContratoSIAPI:
+          type: string
+          nullable: true
+          example: null
+        numeroSituacaoContrato:
+          type: integer
+          example: 1
+        faseContratacao:
+          type: string
+          example: "1"
+        situacaoFase:
+          type: string
+          example: "Confirmado"
+        dataInicio:
+          type: string
+          example: "01/2024"
+        dataFim:
+          type: string
+          example: "02/2026"
+        exigeFiador:
+          type: boolean
+          example: false
+        agenciaVinculacaoContrato:
+          type: string
+          example: "2408"
+        semestreAnoReferencia:
+          type: string
+          example: "01/2024"
+
+    EstudanteDetails:
+      type: object
+      properties:
+        mensagem:
+          type: string
+          nullable: true
+          example: ""
+        codigo:
+          type: string
+          nullable: true
+          example: null
+        tipo:
+          type: string
+          nullable: true
+          example: null
+        editavel:
+          type: boolean
+          nullable: true
+          example: null
+        cpf:
+          type: string
+          example: "46762781870"
+        dependenteCPF:
+          type: integer
+          example: 0
+        nome:
+          type: string
+          example: "CANDIDATO_20006508"
+        dataNascimento:
+          type: string
+          format: date
+          example: "22/05/2008"
+        ric:
+          type: string
+          nullable: true
+          example: null
+        nacionalidade:
+          type: string
+          nullable: true
+          example: null
+        identidade:
+          $ref: '#/components/schemas/Identidade'
+        estadoCivil:
+          $ref: '#/components/schemas/EstadoCivil'
+        regimeBens:
+          type: string
+          nullable: true
+          example: null
+        endereco:
+          $ref: '#/components/schemas/StudentAddress'
+        contato:
+          $ref: '#/components/schemas/StudentContact'
+        vinculacao:
+          type: string
+          nullable: true
+          example: null
+        codigoFies:
+          type: integer
+          example: 20006508
+        sexo:
+          $ref: '#/components/schemas/Sexo'
+        pis:
+          type: string
+          example: ""
+        conjuge:
+          type: string # Ou $ref para Conjuge, se houver estrutura detalhada
+          nullable: true
+          example: null
+        responsavelLegal:
+          type: string # Ou $ref para ResponsavelLegal, se houver estrutura detalhada
+          nullable: true
+          example: null
+        emancipado:
+          $ref: '#/components/schemas/Emancipado'
+        nomeCandidato:
+          type: string
+          nullable: true
+          example: null
+        nomeCurso:
+          type: string
+          example: "MEDICINA"
+        idCampus:
+          type: integer
+          example: 1038222
+        nomeCampus:
+          type: string
+          example: "Unidade I"
+        numeroCandidato:
+          type: string
+          nullable: true
+          example: null
+        descricaoMunicipio:
+          type: string
+          nullable: true
+          example: null
+        nomeIes:
+          type: string
+          example: "CENTRO UNIVERSITÁRIO ATENAS"
+        ufCampus:
+          type: string
+          nullable: true
+          example: null
+        contaCorrente:
+          type: string # Ou $ref para ContaCorrente, se houver estrutura detalhada
+          nullable: true
+          example: null
+        permiteLiquidar:
+          type: string # Pode ser boolean se 'N' significa false
+          example: "N"
+        voucher:
+          type: string
+          nullable: true
+          example: null
+        dataValidadeVoucher:
+          type: string
+          format: date
+          nullable: true
+          example: null
+        motivoImpeditivo:
+          type: string
+          nullable: true
+          example: null
+        inadimplente:
+          type: boolean
+          nullable: true
+          example: null
+        atrasado:
+          type: boolean
+          nullable: true
+          example: null
+        liquidado:
+          type: boolean
+          nullable: true
+          example: null
+        rendaFamiliar:
+          type: number
+          format: float
+          nullable: true
+          example: null
+        recebeSms:
+          type: boolean
+          nullable: true
+          example: null
+        vinculoSolidario:
+          type: integer # Ou boolean
+          example: 0
+        contratoEstudante:
+          type: string # Ou $ref para ContratoEstudante, se houver estrutura detalhada
+          nullable: true
+          example: null
+
+    Identidade:
+      type: object
+      properties:
+        identidade:
+          type: string
+          example: "04021849457"
+        orgaoExpedidor:
+          type: object
+          properties:
+            codigo:
+              type: integer
+              example: 10
+            nome:
+              type: string
+              example: "Secretaria de Segurança Pública(SSP)"
+        uf:
+          $ref: '#/components/schemas/UF'
+        dataExpedicaoIdentidade:
+          type: string
+          format: date
+          example: "16/02/2020"
+
+    EstadoCivil:
+      type: object
+      properties:
+        codigo:
+          type: integer
+          example: 1
+        nome:
+          type: string
+          example: "Solteiro(a)"
+        possuiConjuge:
+          type: boolean
+          example: false
+
+    StudentAddress:
+      type: object
+      properties:
+        endereco:
+          type: string
+          example: "Rua Boa esperança, Bloco 13, apto 03"
+        numero:
+          type: string
+          nullable: true
+          example: null
+        bairro:
+          type: string
+          example: "Turu"
+        cep:
+          type: string
+          example: "65066190"
+        cidade:
+          $ref: '#/components/schemas/Cidade'
+
+    StudentContact:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          example: "fred_teste_01@gmail.com"
+        telefoneResidencial:
+          $ref: '#/components/schemas/PhoneNumber'
+        telefoneCelular:
+          $ref: '#/components/schemas/PhoneNumber'
+        telefoneComercial:
+          $ref: '#/components/schemas/PhoneNumber'
+          nullable: true
+
+    PhoneNumber:
+      type: object
+      properties:
+        ddd:
+          type: string
+          nullable: true
+          example: "98"
+        numero:
+          type: string
+          example: "984157414"
+
+    Sexo:
+      type: object
+      properties:
+        sexo:
+          type: string
+          example: "M"
+        sexoDetalhe:
+          type: string
+          example: "Masculino"
+
+    Emancipado:
+      type: object
+      properties:
+        codigo:
+          type: string
+          example: ""
+        descricao:
+          type: string
+          nullable: true
+          example: null
+        nome:
+          type: string
+          example: ""
+
+    IESDetails:
+      type: object
+      properties:
+        mensagem:
+          type: string
+          nullable: true
+          example: ""
+        codigo:
+          type: integer
+          example: 2579
+        tipo:
+          type: string
+          nullable: true
+          example: null
+        editavel:
+          type: boolean
+          nullable: true
+          example: null
+        nome:
+          type: string
+          example: "CENTRO UNIVERSITÁRIO ATENAS"
+        sigla:
+          type: string
+          example: "UniAtenas"
+        cnpj:
+          type: string
+          example: "01428030000166"
+        percentIntegalizacao:
+          type: number
+          format: float
+          nullable: true
+          example: null
+        contaCorrente:
+          type: string # Ou $ref para ContaCorrente, se houver estrutura detalhada
+          nullable: true
+          example: null
+        siglaUF:
+          type: string
+          nullable: true
+          example: null
+        condigoMunicipio:
+          type: string # Ou integer
+          nullable: true
+          example: null
+        mantenedora:
+          $ref: '#/components/schemas/Mantenedora'
+        endereco:
+          $ref: '#/components/schemas/IESAddress'
+        complemento:
+          type: string
+          nullable: true
+          example: null
+        contato:
+          $ref: '#/components/schemas/IESContact'
+        nomeContato:
+          type: string
+          example: "Lily Datko"
+        nomeResponsavel:
+          type: string
+          example: "Jamie Vajnar"
+        cpfResponsavel:
+          type: string
+          example: "38432664828"
+        emailResponsavel:
+          type: string
+          format: email
+          example: "Ivana.Ache@OregonSteelMillsInc.com"
+        gestao:
+          type: string
+          nullable: true
+          example: null
+        naturezaJuridica:
+          $ref: '#/components/schemas/NaturezaJuridica'
+        personalidadeJuridica:
+          $ref: '#/components/schemas/PersonalidadeJuridica'
+        condicaoFuncionamento:
+          type: string
+          example: "N"
+        prouni:
+          type: string
+          example: "S"
+        nuContaNSGD:
+          type: string # Ou integer
+          nullable: true
+          example: null
+        nuContaSidec:
+          type: integer
+          example: 138003006720043
+        icBloqueio:
+          type: string # Ou boolean
+          nullable: true
+          example: null
+        codigoMantenedora:
+          type: string # Ou integer
+          nullable: true
+          example: null
+        icContaPadrao:
+          type: string
+          example: "S"
+
+    Mantenedora:
+      type: object
+      properties:
+        mensagem:
+          type: string
+          nullable: true
+          example: ""
+        codigo:
+          type: integer
+          example: 1675
+        tipo:
+          type: string
+          nullable: true
+          example: null
+        editavel:
+          type: boolean
+          nullable: true
+          example: null
+        nome:
+          type: string
+          example: "Centro Educacional Hyarte-Ml Ltda"
+        sigla:
+          type: string
+          example: "SEM SIGLA"
+        cnpj:
+          type: string
+          example: "01428030000166"
+        percentIntegalizacao:
+          type: number
+          format: float
+          nullable: true
+          example: null
+        contaCorrente:
+          type: string # Ou $ref
+          nullable: true
+          example: null
+        siglaUF:
+          type: string
+          nullable: true
+          example: null
+        condigoMunicipio:
+          type: string # Ou integer
+          nullable: true
+          example: null
+
+    IESAddress:
+      type: object
+      properties:
+        endereco:
+          type: string
+          example: "Rua Euridamas Avelino de Barros"
+        numero:
+          type: string
+          nullable: true
+          example: null
+        bairro:
+          type: string
+          example: "Prado"
+        cep:
+          type: string
+          example: "38602002"
+        cidade:
+          $ref: '#/components/schemas/Cidade'
+
+    IESContact:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          example: "fred_teste_01@gmail.com"
+        telefoneResidencial:
+          $ref: '#/components/schemas/PhoneNumber'
+        telefoneCelular:
+          $ref: '#/components/schemas/PhoneNumber'
+        telefoneComercial:
+          $ref: '#/components/schemas/PhoneNumber'
+          nullable: true
+
+    NaturezaJuridica:
+      type: object
+      properties:
+        codigo:
+          type: string # Ou integer
+          nullable: true
+          example: null
+        nome:
+          type: string
+          example: "Sociedade Civil com Fins Lucra"
+
+    PersonalidadeJuridica:
+      type: object
+      properties:
+        codigo:
+          type: string
+          example: "80.30-6"
+        nome:
+          type: string
+          example: "EDUCAÇÃO SUPERIOR"
+
+    EstudanteCurso:
+      type: object
+      properties:
+        mensagem:
+          type: string
+          nullable: true
+          example: ""
+        codigo:
+          type: string
+          nullable: true
+          example: null
+        tipo:
+          type: string
+          nullable: true
+          example: null
+        editavel:
+          type: boolean
+          nullable: true
+          example: null
+        indiceClassificacao:
+          type: number
+          format: float
+          example: 0.0
+        classificacao:
+          type: integer
+          example: 0
+        estudante:
+          type: string
+          nullable: true
+          example: null
+        curso:
+          $ref: '#/components/schemas/CursoDetails'
+
+    CursoDetails:
+      type: object
+      properties:
+        nome:
+          type: string
+          example: "MEDICINA"
+        campus:
+          $ref: '#/components/schemas/CampusDetails'
+
+    CampusDetails:
+      type: object
+      properties:
+        mensagem:
+          type: string
+          nullable: true
+          example: ""
+        codigo:
+          type: string # Ou integer
+          nullable: true
+          example: null
+        tipo:
+          type: string
+          nullable: true
+          example: null
+        editavel:
+          type: boolean
+          nullable: true
+          example: null
+        nome:
+          type: string
+          example: "Unidade I"
+        ies:
+          type: string # Ou $ref para IES, se necessário
+          nullable: true
+          example: null
+
+    ContractAccount:
+      type: object
+      properties:
+        agencia:
+          type: integer
+          example: 269
+        operacao:
+          type: integer
+          example: 1
+        dv:
+          type: integer
+          example: 4
+        nsgd:
+          type: string
+          nullable: true
+          example: null
+        contaCorrente:
+          type: integer
+          example: 92
+
+    SipesBanco:
+      type: object
+      properties:
+        cpf:
+          type: string
+          example: "467.627.818-70"
+        tipo:
+          type: string
+          example: "C"
+        dataPesquisa:
+          type: string
+          format: date
+          nullable: true
+          example: null
+        restricao:
+          type: string
+          example: "N"
+
+    Cidade:
+      type: object
+      properties:
+        codigoCidade:
+          type: integer
+          example: 10
+        nome:
+          type: string
+          example: "PARACATU"
+        uf:
+          $ref: '#/components/schemas/UF'
+
+    UF:
+      type: object
+      properties:
+        mensagem:
+          type: string
+          nullable: true
+          example: ""
+        codigo:
+          type: string # Ou integer
+          nullable: true
+          example: null
+        tipo:
+          type: string
+          nullable: true
+          example: null
+        editavel:
+          type: boolean
+          nullable: true
+          example: null
+        sigla:
+          type: string
+          example: "DF"
+        descricao:
+          type: string
+          example: ""
+        regiao:
+          type: string # Ou integer
+          nullable: true
+          example: null
+
+
+
+======================================================
+openapi: 3.0.0
+info:
+  title: API de Busca de Estudante para Transferência FIES
+  version: 1.0.0
+  description: API para buscar informações de estudante e detalhes do contrato FIES para processo de transferência.
 {
     "mensagem": "",
     "codigo": null,
