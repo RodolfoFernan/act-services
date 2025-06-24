@@ -13,10 +13,1279 @@ info:
   title: API de Busca de Estudante para Transferência FIES
   version: 1.0.0
   description: API para buscar informações de estudante e detalhes do contrato FIES para processo de transferência.
+======================================================================
+'/v1/buscar-estudante/{CPF}':
+   get:
+    summary: Busca informações do contrato FIES do estudante por CPF (via query parameters)
+    description: |
+      Este endpoint permite consultar os detalhes do contrato do Fundo de Financiamento Estudantil (FIES)
+      
+    parameters:
+      - in: path
+        name: cpf
+        schema:
+          type: string
+          pattern: '^[0-9]{11}$'
+        description: CPF do estudante a ser consultado (apenas números).
+        required: true
+        example: "70966798120"
+    responses:
+      '200':
+        description: Sucesso - Retorna os detalhes do estudante.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mensagem:
+                  type: string
+                  example: ""
+                codigo:
+                  type: integer
+                  example: 0
+                tipo:
+                  type: string
+                  nullable: true
+                  example: null
+                editavel:
+                  nullable: true
+                  example: null
+                idTransferencia:
+                  type: string
+                  nullable: true
+                  example: null
+                codFies:
+                  type: integer
+                  example: 20242515
+                cpfCandidato:
+                  type: string
+                  example: "70966798120"
+                nomeCandidato:
+                  type: string
+                  example: "LUANA GARCIA FERREIRA"
+                tipoTransferencia:
+                  type: string
+                  nullable: true
+                  example: null
+                idIes:
+                  type: integer
+                  example: 1113
+                nuMantenedora:
+                  type: integer
+                  example: 770
+                nuCampus:
+                  type: integer
+                  example: 27693
+                nuCurso:
+                  type: integer
+                  example: 73537
+                nuTurno:
+                  type: integer
+                  example: 1
+                nomeIes:
+                  type: string
+                  example: "CENTRO UNIVERSITÁRIO EURO-AMERICANO"
+                nomeMantenedora:
+                  type: string
+                  example: "Instituto Euro Americano De Educacao Ciencia Tecnologia"
+                turnoDescDestino:
+                  type: string
+                  nullable: true
+                  example: "Matutino"
+                uf:
+                  type: string
+                  example: "DF"
+                municipio:
+                  type: string
+                  example: "BRASILIA"
+                endereco:
+                  type: string
+                  example: "SCES Trecho 0 - Conjunto 5"
+                nomeCampus:
+                  type: string
+                  example: "Centro Universitário Euro-Americano - Unidade Asa Sul"
+                nomeCurso:
+                  type: string
+                  example: "ENFERMAGEM"
+                duracaoRegularCurso:
+                  type: integer
+                  example: 10
+                nuSemestresCursados:
+                  type: integer
+                  example: 1
+                qtSemestresDilatado:
+                  type: integer
+                  example: 0
+                qtSemestresSuspenso:
+                  type: integer
+                  example: 0
+                iesDestino:
+                  type: string
+                  nullable: true
+                  example: null
+                nuMantenedoraDestino:
+                  type: integer
+                  nullable: true
+                  example: null
+                campusDestino:
+                  type: integer
+                  nullable: true
+                  example: null
+                cursoDestino:
+                  type: integer
+                  nullable: true
+                  example: null
+                turnoDestino:
+                  type: integer
+                  nullable: true
+                  example: null
+                nomeIesDestino:
+                  type: string
+                  nullable: true
+                  example: null
+                nomeMantenedoraDestino:
+                  type: string
+                  nullable: true
+                  example: null
+                ufDestino:
+                  type: string
+                  nullable: true
+                  example: null
+                municipioDestino:
+                  type: string
+                  nullable: true
+                  example: null
+                enderecoDestino:
+                  type: string
+                  nullable: true
+                  example: null
+                nomeCampusDestino:
+                  type: string
+                  nullable: true
+                  example: null
+                nomeCursoDestino:
+                  type: string
+                  nullable: true
+                  example: null
+                transferenciasRealizadas:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      idTransferencia:
+                        type: integer
+                        example: 58024
+                      dataSolicitacao:
+                        type: integer
+                        example: 1747228434000
+                      tipoTransferencia:
+                        type: integer
+                        example: 2
+                      status:
+                        type: integer
+                        example: 10  
+                      mensagem:
+                        type: string
+                        nullable: true
+                        example: ""
+                      codigo:
+                        type: string
+                        nullable: true
+                        example: null
+                      tipo:
+                        type: string
+                        nullable: true
+                        example: null
+                      editavel:
+                        nullable: true
+                        example: null
+    
+                      habilitarCancelarEstudante:
+                        type: boolean
+                        example: false
+                      tipoDesc:
+                        type: string
+                        example: "IES"
+                      statusDesc:
+                        type: string
+                        example: "Cancelado"
+                icCondicaoFuncionamento:
+                  type: string
+                  example: "N"
+                icSituacaoContrato:
+                  type: string
+                  example: "U"
+                icSituacaoIES:
+                  type: string
+                  example: "L"
+                nuOperacaoSiapi:
+                  type: integer
+                  example: 187
+                totalSemestresContratados:
+                  type: integer
+                  example: 7
+                totalSemestresUtilizados:
+                  type: integer
+                  example: 2
+                totalSemestresDestino:
+                  type: integer
+                  nullable: true
+                  example: null
+                habilitarSolicitacao:
+                  type: boolean
+                  example: true
+                numeroSemestresCursar:
+                  type: integer
+                  example: 7
+                descTunoOrigem:
+                  type: string
+                  nullable: true
+                  example: "Matutino"
+                semestreReferencia:
+                  type: integer
+                  example: 1
+                anoReferencia:
+                  type: integer
+                  example: 2025
+                notaEnemCandidato:
+                  type: number
+                  example: 495.34
+                anoReferenciaNotaEnem:
+                  type: integer
+                  example: 2020
+                jsonRetornoConsultaEnem:
+                  type: string
+                  example: "{\"nuCpf\":\"70966798120\",\"vlNotaEnemConsiderada\":\"495.34\",\"nuSemestreReferencia\":\"22020\",\"coInscricao\":6614627,\"nuAnoEnem\":\"2019\"}"
+                estudantePodeTransfCurso:
+                  type: string
+                  example: "S"
+                totalSemestresDisponiveis:
+                  type: integer
+                  example: 5
+      '401':
+          description: >-
+            Identificação provida pelo token aponta para usuário não autorizado
+            a utilizar a API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 401
+                    mensagem: O token fornecido para acesso à API é inválido.
+                    tipo: Erro
+                    editavel: false
+      '404':
+          description: Não foi localizado um contrato para o código Fies fornecido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 404
+                    mensagem: >-
+                      Não foi localizado um contrato para o código Fies
+                      fornecido.
+                    tipo: Erro
+                    editavel: false
+      '412':
+          description: Erro negocial ou estrutural na chamada da API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 412
+                    mensagem: Os dados fornecidos não são válidos.
+                    tipo: Erro
+                    editavel: false
+      '500':
+          description: Erro interno do servidor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 500
+                    mensagem: Erro na execução da funcionalidade no backend.
+                    tipo: Erro
+                    editavel: false
+      security:
+        - Internet:
+            - scope
+          APIKey: []
+  '/v1/buscar-combo-todas-ies':
+   get:
+    summary: Busca informações de Instituições de Ensino (IES)
+    description: Retorna uma lista de IES com base nos critérios de busca.
+    parameters:
+      - in: query
+        name: nomeIes
+        schema:
+          type: string
+        description: Filtra IES por nome (parcial ou completo).
+    responses:
+      '200':
+        description: Sucesso - Retorna a lista de IES encontradas.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                codigo:
+                  type: string
+                  nullable: true
+                mensagem:
+                  type: string
+                  nullable: true
+                tipo:
+                  type: string
+                  nullable: true
+                listaRetorno:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      mensagem:
+                        type: string
+                        nullable: true
+                      codigo:
+                        type: string
+                        nullable: true
+                        example: null
+                      tipo:
+                        type: string
+                        nullable: true
+                        example: null
+                      editavel:
+                        type: boolean
+                        nullable: true
+                      dominioCombo:
+                        type: string
+                        nullable: true
+                      id:
+                        type: string
+                        example: 9945
+                      descricao:
+                        type: string
+                        example: 9945
+                      atributo:
+                        type: string
+                        nullable: true
+                        example: null
+      '401':
+          description: >-
+            Identificação provida pelo token aponta para usuário não autorizado
+            a utilizar a API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 401
+                    mensagem: O token fornecido para acesso à API é inválido.
+                    tipo: Erro
+                    editavel: false
+      '404':
+          description: Não foi localizado um contrato para o código Fies fornecido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 404
+                    mensagem: >-
+                      Não foi localizado um contrato para o código Fies
+                      fornecido.
+                    tipo: Erro
+                    editavel: false
+      '412':
+          description: Erro negocial ou estrutural na chamada da API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 412
+                    mensagem: Os dados fornecidos não são válidos.
+                    tipo: Erro
+                    editavel: false
+      '500':
+          description: Erro interno do servidor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 500
+                    mensagem: Erro na execução da funcionalidade no backend.
+                    tipo: Erro
+                    editavel: false
+      security:
+        - Internet:
+            - scope
+          APIKey: []
+  '/v1/consultar-campus-transferencia':
+   get:
+    summary: Busca campus de transferência para uma IES, semestre e ano de referência.
+    description: Retorna uma lista de campus disponíveis para transferência com base nos parâmetros fornecidos.
+    parameters:
+      - in: query
+        name: ies
+        schema:
+          type: string
+        description: Código da Instituição de Ensino (IES).
+        required: true
+      - in: query
+        name: semestreReferencia
+        schema:
+          type: integer
+          enum: [1, 2] # Assumindo que os semestres são 1 ou 2
+        description: Semestre de referência para a busca.
+        required: true
+      - in: query
+        name: anoReferencia
+        schema:
+          type: integer
+          format: int32
+        description: Ano de referência para a busca.
+        required: true
+    responses:
+      '200':
+        description: Sucesso - Retorna a lista de campus de transferência encontrados.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                codigo:
+                  type: string
+                  nullable: true
+                mensagem:
+                  type: string
+                  nullable: true
+                tipo:
+                  type: string
+                  nullable: true
+                listaRetorno:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      mensagem:
+                        type: string
+                        nullable: true
+                      codigo:
+                        type: string
+                        nullable: true
+                      tipo:
+                        type: string
+                        nullable: true
+                      editavel:
+                        type: boolean
+                        nullable: true
+                      dominioCombo:
+                        type: string
+                        nullable: true
+                      id:
+                        type: string
+                      descricao:
+                        type: string
+                      atributo:
+                        type: string
+                        nullable: true
+      '401':
+          description: >-
+            Identificação provida pelo token aponta para usuário não autorizado
+            a utilizar a API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 401
+                    mensagem: O token fornecido para acesso à API é inválido.
+                    tipo: Erro
+                    editavel: false
+      '404':
+          description: Não foi localizado um contrato para o código Fies fornecido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 404
+                    mensagem: >-
+                      Não foi localizado um contrato para o código Fies
+                      fornecido.
+                    tipo: Erro
+                    editavel: false
+      '412':
+          description: Erro negocial ou estrutural na chamada da API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 412
+                    mensagem: Os dados fornecidos não são válidos.
+                    tipo: Erro
+                    editavel: false
+      '500':
+          description: Erro interno do servidor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 500
+                    mensagem: Erro na execução da funcionalidade no backend.
+                    tipo: Erro
+                    editavel: false
+      security:
+        - Internet:
+            - scope
+          APIKey: []
+  '/v1/consultar-curso-campus-oferta':
+   get:
+    summary: Busca cursos disponíveis em um campus de oferta para transferência.
+    description: Retorna uma lista de cursos disponíveis para transferência com base nos parâmetros fornecidos.
+    parameters:
+      - in: query
+        name: nuCampus
+        schema:
+          type: string
+        description: Número do campus de oferta.
+        required: true
+      - in: query
+        name: nuCurso
+        schema:
+          type: string
+        description: Número do curso de oferta.
+        required: true
+      - in: query
+        name: nuTurno
+        schema:
+          type: integer
+          
+        description: Número do turno do curso de oferta.
+        required: true
+      - in: query
+        name: nuCampusDestino
+        schema:
+          type: string
+        description: Número do campus de destino para a transferência.
+        required: true
+      - in: query
+        name: semestre
+        schema:
+          type: integer
+          enum: [1, 2] # Assumindo que os semestres são 1 ou 2
+        description: Semestre de referência.
+        required: true
+      - in: query
+        name: ano
+        schema:
+          type: integer
+          format: int32
+        description: Ano de referência.
+        required: true
+    responses:
+      '200':
+        description: Sucesso - Retorna a lista de cursos disponíveis para transferência.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                codigo:
+                  type: string
+                  nullable: true
+                mensagem:
+                  type: string
+                  nullable: true
+                tipo:
+                  type: string
+                  nullable: true
+                listaRetorno:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      mensagem:
+                        type: string
+                        nullable: true
+                      codigo:
+                        type: string
+                        nullable: true
+                      tipo:
+                        type: string
+                        nullable: true
+                      editavel:
+                        type: boolean
+                        nullable: true
+                      dominioCombo:
+                        type: string
+                        nullable: true
+                      id:
+                        type: string
+                      descricao:
+                        type: string
+                      atributo:
+                        type: string
+                        nullable: true
+      '401':
+          description: >-
+            Identificação provida pelo token aponta para usuário não autorizado
+            a utilizar a API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 401
+                    mensagem: O token fornecido para acesso à API é inválido.
+                    tipo: Erro
+                    editavel: false
+      '404':
+          description: Não foi localizado um contrato para o código Fies fornecido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 404
+                    mensagem: >-
+                      Não foi localizado um contrato para o código Fies
+                      fornecido.
+                    tipo: Erro
+                    editavel: false
+      '412':
+          description: Erro negocial ou estrutural na chamada da API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 412
+                    mensagem: Os dados fornecidos não são válidos.
+                    tipo: Erro
+                    editavel: false
+      '500':
+          description: Erro interno do servidor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 500
+                    mensagem: Erro na execução da funcionalidade no backend.
+                    tipo: Erro
+                    editavel: false
+      security:
+        - Internet:
+            - scope
+          APIKey: []
+  '/v1/consultar-turnos':
+   get:
+    summary: Busca turnos disponíveis para um curso em um campus de destino.
+    description: Retorna uma lista de turnos disponíveis com base nos parâmetros fornecidos.
+    parameters:
+      - in: query
+        name: nuCampus
+        schema:
+          type: string
+        description: Número do campus de oferta (pode ser '0' para indicar todos).
+        required: true
+      - in: query
+        name: nuCurso
+        schema:
+          type: string
+        description: Número do curso de oferta (pode ser '0' para indicar todos).
+        required: true
+      - in: query
+        name: nuTurno
+        schema:
+          type: string
+        description: Número do turno de oferta (pode ser '0' para indicar todos).
+        required: true
+      - in: query
+        name: coCurso
+        schema:
+          type: string
+        description: Código do curso de destino.
+        required: true
+      - in: query
+        name: nuCampusDestino
+        schema:
+          type: string
+        description: Número do campus de destino.
+        required: true
+      - in: query
+        name: semestre
+        schema:
+          type: integer
+          enum: [1, 2] # Assumindo que os semestres são 1 ou 2
+        description: Semestre de referência.
+        required: true
+      - in: query
+        name: ano
+        schema:
+          type: integer
+          format: int32
+        description: Ano de referência.
+        required: true
+    responses:
+      '200':
+        description: Sucesso - Retorna a lista de turnos disponíveis.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                codigo:
+                  type: string
+                  nullable: true
+                mensagem:
+                  type: string
+                  nullable: true
+                tipo:
+                  type: string
+                  nullable: true
+                listaRetorno:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      mensagem:
+                        type: string
+                        nullable: true
+                      codigo:
+                        type: string
+                        nullable: true
+                      tipo:
+                        type: string
+                        nullable: true
+                      editavel:
+                        type: boolean
+                        nullable: true
+                      dominioCombo:
+                        type: string
+                        nullable: true
+                      id:
+                        type: string
+                      descricao:
+                        type: string
+                      atributo:
+                        type: string
+                        nullable: true
 
-servers:
-  - url: http://localhost:8080/api # Ajuste esta URL se necessário
+      '401':
+          description: >-
+            Identificação provida pelo token aponta para usuário não autorizado
+            a utilizar a API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 401
+                    mensagem: O token fornecido para acesso à API é inválido.
+                    tipo: Erro
+                    editavel: false
+      '404':
+          description: Não foi localizado um contrato para o código Fies fornecido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 404
+                    mensagem: >-
+                      Não foi localizado um contrato para o código Fies
+                      fornecido.
+                    tipo: Erro
+                    editavel: false
+      '412':
+          description: Erro negocial ou estrutural na chamada da API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 412
+                    mensagem: Os dados fornecidos não são válidos.
+                    tipo: Erro
+                    editavel: false
+      '500':
+          description: Erro interno do servidor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 500
+                    mensagem: Erro na execução da funcionalidade no backend.
+                    tipo: Erro
+                    editavel: false
+      security:
+        - Internet:
+            - scope
+          APIKey: []
+  '/v1/buscar-curso-destino':
+   get:
+    summary: Busca informações do curso de destino para transferência de contrato.
+    description: Retorna detalhes sobre o curso de destino com base nos parâmetros fornecidos.
+    parameters:
+      - in: query
+        name: cpf
+        schema:
+          type: string
+        description: CPF do estudante.
+        required: true
+      - in: query
+        name: nuCampus
+        schema:
+          type: string
+        description: Número do campus de origem.
+        required: true
+      - in: query
+        name: nuCurso
+        schema:
+          type: string
+        description: Número do curso de origem.
+        required: true
+      - in: query
+        name: nuTurno
+        schema:
+          type: integer
+          
+        description: Número do turno de origem.
+        required: true
+      - in: query
+        name: nuCampusDestino
+        schema:
+          type: string
+        description: Número do campus de destino (pode ser '0' para indicar algum critério).
+        required: true
+      - in: query
+        name: semestrePendencia
+        schema:
+          type: integer
+          enum: [1, 2] 
+        description: Semestre da pendência.
+        required: true
+      - in: query
+        name: anoPendencia
+        schema:
+          type: integer
+          format: int32
+        description: Ano da pendência.
+        required: true
+    responses:
+      '200':
+        description: Sucesso - Retorna os detalhes do curso de destino.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mensagem:
+                  type: string
+                codigo:
+                  type: integer
+                tipo:
+                  type: string
+                  nullable: true
+                editavel:
+                  type: boolean
+                  nullable: true
+                campusDest:
+                  type: string
+                cursoDest:
+                  type: string
+                mantenedoraDest:
+                  type: string
+                ufDest:
+                  type: string
+                municipioDest:
+                  type: string
+                iesDest:
+                  type: string
+                numeroIesDestino:
+                  type: integer
+                enderecoDest:
+                  type: string
+                duracaoCursoDest:
+                  type: integer
+                codigoCursoHabilitacao:
+                  type: string
+                numeroCursoDestino:
+                  type: integer
+                semestreReferenciaDest:
+                  type: string
+                numeroCampusDestino:
+                  type: integer
+                numeroMantenedoraDestino:
+                  type: integer
+                numeroTurnoDestino:
+                  type: integer
+                descTurnoDestino:
+                  type: string
+                notaEnem:
+                  type: number
+                jsonRetornoConsultaEnem:
+                  type: string
+                possuiLiminarNotaDeCorte:
+                  type: boolean
+      '400':
+        description: Requisição inválida - Algum parâmetro está ausente ou incorreto.
+      '500':
+        description: Erro interno do servidor.
+  '/v1/confirmar-solicitacao-estudante':
+    post:
+      summary: Confirmar solicitação de transferencia
+      description: Esse endpoint confirma a solicitação de transferencia de contrato para o estudante em um semestre específico.
+      requestBody:
+        description: Dados da solicitação de dilatação.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetornoSucesso'
+              type: object
+              properties:
+              numeroSemestresCursar:
+                type: integer
+                description:  Número de semestres a cursar.
+                example: 
+              dtDesligamento:
+                type: string
+                description: Data de desligamento (formato DD/MM/YYYY).
+                example: "01/02/2025"
+              tipoTransferencia:
+                type: integer
+                description: Tipo da transferência.
+                example: 2
+              codFies:
+                type: integer
+                description: Código FIES do estudante.
+                example: 20005266
+              nuCurso:
+                type: string
+                description: Número do curso de origem.
+                example: "0339"
+              numeroCursoDestino:
+                type: string
+                description: Número do curso de destino.
+                example: "2354"
+              numeroCampusDestino:
+                type: string
+                description: Número do campus de destino.
+                example: "20005266"
+              nuCampus:
+                type: string
+                description: Número do campus de origem.
+                example: "02645001"
+              nuTurno:
+                type: integer
+                description: Número do turno de origem.
+                example: 2
+              campusDestino:
+                type: string
+                description: Código do campus de destino.
+                example: "20005266"
+              cursoDestino:
+                type: string
+                description: Código do curso de destino.
+                example: "05001"
+              turnoDestino:
+                type: integer
+                description: Código do turno de destino.
+                example: 2
+      responses:       
+        '200':
+          description: Solicitação de dilatação confirmada com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensagem:
+                    type: string
+                    example: "Operação realizada com sucesso. Prazo para a IES validar o aditamento de dilatação até 28/10/2024."
+                  codigo:
+                    type: integer
+                    example: 200
+                  tipo:
+                    type: string
+                    example: "alert-success"
+                description: Confirmação da dilatação.
+        '401':
+          description: >-
+            Identificação provida pelo token aponta para usuário não autorizado
+            a utilizar a API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 401
+                    mensagem: O token fornecido para acesso à API é inválido.
+                    tipo: Erro
+                    editavel: false
+        '404':
+          description: Não foi localizado um contrato para o código Fies fornecido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 404
+                    mensagem: >-
+                      Não foi localizado um contrato para o código Fies
+                      fornecido.
+                    tipo: Erro
+                    editavel: false
+        '412':
+          description: Erro negocial ou estrutural na chamada da API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 412
+                    mensagem: Os dados fornecidos não são válidos.
+                    tipo: Erro
+                    editavel: false
+        '500':
+          description: Erro interno do servidor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 500
+                    mensagem: Erro na execução da funcionalidade no backend.
+                    tipo: Erro
+                    editavel: false
+      security:
+        - Internet:
+            - scope
+          APIKey: []
+  '/v1/cancelar-solicitacao-transferencia':
+    post:
+      summary: Confirmar Cancelamento de transferencia de contrato
+      description: Esse endpoint confirma a Cancelamento de transferencia de contrato para o estudante em um semestre específico.
+      requestBody:
+        description: Dados da solicitação de dilatação.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetornoSucesso'
+              type: object
+              properties:
+              codFies:
+                type: string
+                description: Código FIES do estudante.
+                example: "20242515"
+              idSolicitacao:
+                type: integer
+                description: ID da solicitação de encerramento.
+                example: 57984
+      responses:
+        '200':
+          description: operação confirmada com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensagem:
+                    type: string
+                    example: "Operação realizada com sucesso."
+                  codigo:
+                    type: integer
+                    example: 200
+                  tipo:
+                    type: string
+                    example: "alert-success"
+                description: Confirmação da dilatação.
+        '401':
+          description: >-
+            Identificação provida pelo token aponta para usuário não autorizado
+            a utilizar a API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 401
+                    mensagem: O token fornecido para acesso à API é inválido.
+                    tipo: Erro
+                    editavel: false
+        '404':
+          description: Não foi localizado um contrato para o código Fies fornecido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 404
+                    mensagem: >-
+                      Não foi localizado um contrato para o código Fies
+                      fornecido.
+                    tipo: Erro
+                    editavel: false
+        '412':
+          description: Erro negocial ou estrutural na chamada da API.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 412
+                    mensagem: Os dados fornecidos não são válidos.
+                    tipo: Erro
+                    editavel: false
+        '500':
+          description: Erro interno do servidor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetornoErro'
+              examples:
+                Exemplo:
+                  value:
+                    codigo: 500
+                    mensagem: Erro na execução da funcionalidade no backend.
+                    tipo: Erro
+                    editavel: false
+      security:
+        - Internet:
+            - scope
+          APIKey: []
+components:
+  schemas:
+    RetornoErro:
+      title: RetornoErro
+      description: Mensagens de retorno relacionadas a situações de erro.
+      type: object
+      properties:
+        mensagem:
+          type: string
+        codigo:
+          type: integer
+          format: int64
+        tipo:
+          type: string
+        editavel:
+          type: boolean
+          default: false
+      example:
+        mensagem: O token fornecido para acesso à API é inválido.
+        codigo: 401
+        tipo: Erro
+        editavel: false
+    RetornoSucesso:
+      title: RetornoSucesso
+      description: Mensagens de retorno relacionadas a situações de sucesso.
+      type: object
+      properties:
+        mensagem:
+          type: string
+        codigo:
+          type: integer
+          format: int64
+        tipo:
+          type: string
+        editavel:
+          type: boolean
+          default: false
+      example:
+        mensagem: Solicitação de dilatação confirmada com sucesso..
+        codigo: 200
+        tipo: Sucesso
+        editavel: false
+    
+  securitySchemes:
+    Internet:
+      flows:
+        password:
+          tokenUrl: >-
+            https://logindes.caixa/auth/realms/intranet/protocol/openid-connect/token
+          refreshUrl: >-
+            https://logindes.caixa/auth/realms/intranet/protocol/openid-connect/token
+          scopes:
+            scope: ''
+      type: oauth2
+      description: Tokens emitidos pelo realm INTRANET
+    APIKey:
+      type: apiKey
+      description: API Key do sistema que está chamando esta API.
+      name: APIKey
+      in: header
+security:
+  - APIKey: []
+    Internet:
+      - scope
 
+=======================================================================
 paths:
   /v1/buscar-estudante-transferencia/{cpf}:
     get:
