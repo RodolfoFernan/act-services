@@ -9,6 +9,39 @@
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
 Perfeito! Com base nas informações que você forneceu, aqui está um resumo da motivação e das circunstâncias de criação das Stored Procedures (SPs) mencionadas, bem como o impacto delas no fluxo Javaweb e na rotina Java batch FES.REPASSE:
 
+
+Schema error at paths['/v1/buscar-estudante-transferencia/{cpf}'].get.responses['200']
+should have required property '$ref'
+missingProperty: $ref
+Jump to line 70
+Schema error at paths['/v1/buscar-estudante-transferencia/{cpf}'].get.responses['200']
+should match exactly one schema in oneOf
+Jump to line 70
+Schema error at paths['/v1/buscar-estudante-transferencia/{cpf}'].get.responses['200'].content['application/json']
+should have required property 'examples'
+missingProperty: examples
+Jump to line 73
+Schema error at paths['/v1/buscar-estudante-transferencia/{cpf}'].get.responses['200'].content['application/json']
+should match exactly one schema in oneOf
+Jump to line 73
+Schema error at paths['/v1/buscar-estudante-transferencia/{cpf}'].get.responses['200'].content['application/json'].schema
+should NOT have additional properties
+additionalProperty: $ref, examples
+Jump to line 74
+Schema error at paths['/v1/buscar-estudante-transferencia/{cpf}'].get.responses['200'].content['application/json'].schema.$ref
+should be string
+Jump to line 74
+Parser error 
+bad indentation of a mapping entry
+Jump to line 76
+Schema error at paths['/v1/buscar-estudante-transferencia/{cpf}'].get.responses['200'].content['application/json'].schema.properties['estudante']
+should NOT have additional properties
+additionalProperty: ies, codigoStatusContrato, numeroOperacaoSIAPI, statusContrato, situacaoContrato, dataLimiteContratacao, valorMensalidade, valorContrato, dataAssinatura, percentualFinanciamento, numeroContrato, diaVencimento, codigoTipoGarantia, descricaoTipoGarantia, valorGarantia, codCurso, semestreCursados, estudanteCurso, valorAditamento, unidadeCaixa, prazoContratoMec, semestreReferencia, anoReferencia, bloqueioMec, permiteContratacao, recebeInformacao, recebeSms, localExtrato, prouni, contaCorrente, quantidadeAditamentos, quantidadePreAditamentos, sipesListaBanco, idSeguradora, indContratoNovoFies, taxaJuros, existeTarifaContrato, vrCoParticipacao, valorSeguro, numeroProcessoSeletivo
+Jump to line 102
+Schema error at paths['/v1/buscar-estudante-transferencia/{cpf}'].get.responses['200'].content['application/json'].schema.properties['estudante'].properties['mensagem']
+should NOT have additional properties
+additionalProperty: codigo, tipo, editavel, cpf, dependenteCPF, nome, dataNascimento, ric, nacionalidade, identidade, estadoCivil, regimeBens, endereco, contato, vinculacao, codigoFies, sexo, pis, conjuge, responsavelLegal, emancipado, nomeCandidato, nomeCurso, idCampus, nomeCampus, numeroCandidato, descricaoMunicipio, nomeIes, ufCampus, contaCorrente, permiteLiquidar, voucher, dataValidadeVoucher, motivoImpeditivo, inadimplente, atrasado, liquidado, rendaFamiliar, recebeSms, vinculoSolidario, contratoEstudante
+Jump to line 106
 paths:
   '/v1/buscar-estudante-transferencia/{cpf}':
    get:
