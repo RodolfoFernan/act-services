@@ -13,7 +13,305 @@ info:
   title: API de Busca de Estudante para Transferência FIES
   version: 1.0.0
   description: API para buscar informações de estudante e detalhes do contrato FIES para processo de transferência.
-
+{
+    "mensagem": "",
+    "codigo": null,
+    "tipo": null,
+    "editavel": null,
+    "agencia": 2,
+    "estudante": {
+        "mensagem": "",
+        "codigo": null,
+        "tipo": null,
+        "editavel": null,
+        "cpf": "46762781870",
+        "dependenteCPF": 0,
+        "nome": "CANDIDATO_20006508",
+        "dataNascimento": "22/05/2008",
+        "ric": null,
+        "nacionalidade": null,
+        "identidade": {
+            "identidade": "04021849457",
+            "orgaoExpedidor": {
+                "codigo": 10,
+                "nome": "Secretaria de Segurança Pública(SSP)"
+            },
+            "uf": {
+                "mensagem": "",
+                "codigo": null,
+                "tipo": null,
+                "editavel": null,
+                "sigla": "DF",
+                "descricao": "",
+                "regiao": null
+            },
+            "dataExpedicaoIdentidade": "16/02/2020"
+        },
+        "estadoCivil": {
+            "codigo": 1,
+            "nome": "Solteiro(a)",
+            "possuiConjuge": false
+        },
+        "regimeBens": null,
+        "endereco": {
+            "endereco": "Rua Boa esperança, Bloco 13, apto 03",
+            "numero": null,
+            "bairro": "Turu",
+            "cep": "65066190",
+            "cidade": {
+                "codigoCidade": 10,
+                "nome": "PARACATU",
+                "uf": {
+                    "mensagem": "",
+                    "codigo": null,
+                    "tipo": null,
+                    "editavel": null,
+                    "sigla": "MA",
+                    "descricao": "",
+                    "regiao": null
+                }
+            }
+        },
+        "contato": {
+            "email": "fred_teste_01@gmail.com",
+            "telefoneResidencial": {
+                "ddd": "98",
+                "numero": "984157414"
+            },
+            "telefoneCelular": {
+                "ddd": "98",
+                "numero": "984157414"
+            },
+            "telefoneComercial": {
+                "ddd": null,
+                "numero": "0"
+            }
+        },
+        "vinculacao": null,
+        "codigoFies": 20006508,
+        "sexo": {
+            "sexo": "M",
+            "sexoDetalhe": "Masculino"
+        },
+        "pis": "",
+        "conjuge": null,
+        "responsavelLegal": null,
+        "emancipado": {
+            "codigo": "",
+            "descricao": null,
+            "nome": ""
+        },
+        "nomeCandidato": null,
+        "nomeCurso": "MEDICINA",
+        "idCampus": 1038222,
+        "nomeCampus": "Unidade I",
+        "numeroCandidato": null,
+        "descricaoMunicipio": null,
+        "nomeIes": "CENTRO UNIVERSITÁRIO ATENAS",
+        "ufCampus": null,
+        "contaCorrente": null,
+        "permiteLiquidar": "N",
+        "voucher": null,
+        "dataValidadeVoucher": null,
+        "motivoImpeditivo": null,
+        "inadimplente": null,
+        "atrasado": null,
+        "liquidado": null,
+        "rendaFamiliar": null,
+        "recebeSms": null,
+        "vinculoSolidario": 0,
+        "contratoEstudante": null
+    },
+    "ies": {
+        "mensagem": "",
+        "codigo": 2579,
+        "tipo": null,
+        "editavel": null,
+        "nome": "CENTRO UNIVERSITÁRIO ATENAS",
+        "sigla": "UniAtenas",
+        "cnpj": "01428030000166",
+        "percentIntegalizacao": null,
+        "contaCorrente": null,
+        "siglaUF": null,
+        "condigoMunicipio": null,
+        "mantenedora": {
+            "mensagem": "",
+            "codigo": 1675,
+            "tipo": null,
+            "editavel": null,
+            "nome": "Centro Educacional Hyarte-Ml Ltda",
+            "sigla": "SEM SIGLA",
+            "cnpj": "01428030000166",
+            "percentIntegalizacao": null,
+            "contaCorrente": null,
+            "siglaUF": null,
+            "condigoMunicipio": null
+        },
+        "endereco": {
+            "endereco": "Rua Euridamas Avelino de Barros",
+            "numero": null,
+            "bairro": "Prado",
+            "cep": "38602002",
+            "cidade": {
+                "codigoCidade": 4700,
+                "nome": "PARACATU",
+                "uf": {
+                    "mensagem": "",
+                    "codigo": null,
+                    "tipo": null,
+                    "editavel": null,
+                    "sigla": "MG",
+                    "descricao": "MG",
+                    "regiao": null
+                }
+            }
+        },
+        "complemento": null,
+        "contato": {
+            "email": "fred_teste_01@gmail.com",
+            "telefoneResidencial": {
+                "ddd": "98",
+                "numero": "984157414"
+            },
+            "telefoneCelular": {
+                "ddd": "98",
+                "numero": "984157414"
+            },
+            "telefoneComercial": {
+                "ddd": null,
+                "numero": "0"
+            }
+        },
+        "nomeContato": "Lily Datko",
+        "nomeResponsavel": "Jamie Vajnar",
+        "cpfResponsavel": "38432664828",
+        "emailResponsavel": "Ivana.Ache@OregonSteelMillsInc.com",
+        "gestao": null,
+        "naturezaJuridica": {
+            "codigo": null,
+            "nome": "Sociedade Civil com Fins Lucra"
+        },
+        "personalidadeJuridica": {
+            "codigo": "80.30-6",
+            "nome": "EDUCAÇÃO SUPERIOR"
+        },
+        "condicaoFuncionamento": "N",
+        "prouni": "S",
+        "nuContaNSGD": null,
+        "nuContaSidec": 138003006720043,
+        "icBloqueio": null,
+        "codigoMantenedora": null,
+        "icContaPadrao": "S"
+    },
+    "codigoStatusContrato": 5,
+    "numeroOperacaoSIAPI": 187,
+    "statusContrato": "CONTRATO ENVIADO AO SIAPI",
+    "situacaoContrato": "",
+    "dataLimiteContratacao": "30/05/2025",
+    "valorMensalidade": 987.53,
+    "valorContrato": 47402.27,
+    "dataAssinatura": "23/01/2024",
+    "percentualFinanciamento": 90.94,
+    "numeroContrato": "04.0002.187.0024436-78",
+    "diaVencimento": "15",
+    "codigoTipoGarantia": 80,
+    "descricaoTipoGarantia": "FG-FIES",
+    "valorGarantia": 47402.27,
+    "codCurso": null,
+    "semestreCursados": 1,
+    "estudanteCurso": {
+        "mensagem": "",
+        "codigo": null,
+        "tipo": null,
+        "editavel": null,
+        "indiceClassificacao": 0.0,
+        "classificacao": 0,
+        "estudante": null,
+        "curso": {
+            "nome": "MEDICINA",
+            "campus": {
+                "mensagem": "",
+                "codigo": null,
+                "tipo": null,
+                "editavel": null,
+                "nome": "Unidade I",
+                "ies": null
+            }
+        }
+    },
+    "valorAditamento": 0.0,
+    "unidadeCaixa": null,
+    "prazoContratoMec": 6,
+    "semestreReferencia": 1,
+    "anoReferencia": 2024,
+    "bloqueioMec": 0,
+    "permiteContratacao": "S",
+    "recebeInformacao": "",
+    "recebeSms": "A",
+    "localExtrato": 3,
+    "prouni": "N",
+    "contaCorrente": {
+        "agencia": 269,
+        "operacao": 1,
+        "dv": 4,
+        "nsgd": null,
+        "contaCorrente": 92
+    },
+    "quantidadeAditamentos": 1,
+    "quantidadePreAditamentos": 0,
+    "sipesListaBanco": [
+        {
+            "cpf": "467.627.818-70",
+            "tipo": "C",
+            "dataPesquisa": null,
+            "restricao": "N"
+        }
+    ],
+    "idSeguradora": 104,
+    "indContratoNovoFies": true,
+    "taxaJuros": 0,
+    "existeTarifaContrato": true,
+    "vrCoParticipacao": 100,
+    "valorSeguro": 12.9,
+    "numeroProcessoSeletivo": 22,
+    "valorTarifaAgenteOperador": 3,
+    "valorTarifaAgenteFinanceiro": 30.33,
+    "valorTarifa": 33.33,
+    "valorExtratoAmortizacao": null,
+    "valorDescontoAmortizacao": null,
+    "vrSemestralidadeDesconto": 5925.2,
+    "listaContasCli": null,
+    "icFaseTarifaSeguro": "U",
+    "nomeSeguradora": "CAIXA VIDA E PREVIDENCIA S/A",
+    "valorSaldoDevedor": null,
+    "valorUltimaParcelaPaga": null,
+    "dataUltimaParcelaPaga": null,
+    "cpf": null,
+    "dataInicioUtilizacao": null,
+    "dataFimUtilizacao": null,
+    "dataInicioAmortizacao": "15/08/2026",
+    "dataFimAmortizacao": null,
+    "dataInicioCarencia": null,
+    "dataFimCarencia": null,
+    "dataVencimentoExtrato": null,
+    "dataVencimentoPrestacao": null,
+    "quantidadeSemestresContratados": null,
+    "dataUltimoAditamento": null,
+    "semestreAnoUltimoAditamento": null,
+    "valorCoparticipacao": null,
+    "icAutorizaDebitoSobreLimite": "S",
+    "icAutorizaDebitoSobreParcelaVencida": "S",
+    "situacaoContratoSIAPI": null,
+    "numeroSituacaoContrato": 1,
+    "faseContratacao": "1",
+    "situacaoFase": "Confirmado",
+    "dataInicio": "01/2024",
+    "dataFim": "02/2026",
+    "exigeFiador": false,
+    "agenciaVinculacaoContrato": "2408",
+    "semestreAnoReferencia": "01/2024"
+}
+  =================
 paths:
   /v1/buscar-estudante-transferencia/{cpf}:
     get:
