@@ -8,6 +8,77 @@
 <h2>1. Estrutura dos Microsserviços</h2>
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
 Perfeito! Com base nas informações que você forneceu, aqui está um resumo da motivação e das circunstâncias de criação das Stored Procedures (SPs) mencionadas, bem como o impacto delas no fluxo Javaweb e na rotina Java batch FES.REPASSE:
+paths:
+  /v1/buscar-estudante-transferencia/{cpf}:
+    get:
+      summary: Busca informações do contrato FIES do estudante por CPF (via query parameters)
+      description: |
+        Este endpoint permite consultar os detalhes do contrato do Fundo de Financiamento Estudantil (FIES)
+        de um estudante específico, utilizando o seu número de Cadastro de Pessoa Física (CPF).
+        Os parâmetros são enviados na URL como query parameters.
+      parameters:
+        - in: path
+          name: cpf
+          schema:
+            type: string
+            pattern: '^[0-9]{11}$'
+          description: CPF do estudante a ser consultado (apenas números).
+          required: true
+          example: "70966798120"
+      responses:
+        '200':
+          description: Resposta bem-sucedida com os detalhes do contrato do estudante.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuscarEstudanteTransferenciaResponse'
+              examples:
+                exemploSucesso:
+                  summary: Exemplo de resposta de sucesso
+                  value:
+                    mensagem: ""
+                    codigo: null
+                    tipo: null
+                    editavel: true
+                    agencia: 4736
+                    estudante:
+                      mensagem: ""
+                      codigo: null
+                      nome: "João da Silva"
+                      cpf: "70966798120"
+components:
+  schemas:
+    BuscarEstudanteTransferenciaResponse:
+      type: object
+      properties:
+        mensagem:
+          type: string
+          nullable: true
+        codigo:
+          type: string
+          nullable: true
+        tipo:
+          type: string
+          nullable: true
+        editavel:
+          type: boolean
+          nullable: true
+        agencia:
+          type: integer
+        estudante:
+          type: object
+          description: Informações detalhadas do estudante.
+          properties:
+            mensagem:
+              type: string
+              nullable: true
+            codigo:
+              type: string
+              nullable: true
+            nome:
+              type: string
+            cpf:
+              type: string
 
 
 Schema error at paths['/v1/buscar-estudante-transferencia/{cpf}'].get.responses['200']
