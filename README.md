@@ -9,84 +9,116 @@
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
 Perfeito! Com base nas informações que você forneceu, aqui está um resumo da motivação e das circunstâncias de criação das Stored Procedures (SPs) mencionadas, bem como o impacto delas no fluxo Javaweb e na rotina Java batch FES.REPASSE:
 
-Foi removido as Liberações(712) associadas de Repasse para determinados Aditamentos de Renovação(Tipo 2) , mas antes removido também os Ids da retenção que são filhas da Liberação, cada Liberação possui um ou mais retenções filhas, a retenção foi excluída primeira .
-O Aditamento usa a tabela FROM FES.FESTB038_ADTMO_CONTRATO. e o método desenvolvido no momento de salvar um novo aditamento analisava (Buscava o codigoFies, TipoTransacaoLiberacao.ADITAMENTO e o NuSeqAditamento do Id do aditamento ) a existência de Liberações e Retenção para o mesmo , havendo removia liberacaoContratoTo (FESTB712_LIBERACAO_CONTRATO) associados ao aditamento e as Retenções (FESTB817_RETENCAO_LIBERACAO) para os contratos . Só após a exclusão era criada um novo Aditamento  gerado um novo numero de sequencial único.  Neste processo rodamos a Rotina agendada e os pagamentos eram refeitos , duplicados para as mantenedoras.
+Ótimo. Você estruturou muito bem o problema e reuniu uma grande quantidade de informações relevantes. Abaixo eu organizei a análise do cenário, validei o seu entendimento, e proponho uma abordagem técnica para a solução, conforme solicitado:
 
-====================================================================================================================
-Algumas diretrizes para a compensação de valores:
-1 - A dinâmica de compensação dos valores é realizada por intermédio da fesRepasse quando da apuração em moeda dos valores a serem repassados às Mantenedoras;
-2 – O direcionamento dos valores, ou repasses, a serem compensados é realizado por intermédio da inserção dos sequenciais dos repasses na tabela FESTB812_CMPSO_RPSE_INDVO, destinada para este fim;
-3 - Cabe ressaltar que o que se compensa são os repasses das liberações e não as liberações propriamente dita;
-4 - Os valores, ou repasses, a serem compensados se resumem aos repasses realizados anteriormente, e indevidamente, às Mantenedoras;
-5 - Negocialmente, um semestre contratual para um candidato contém 6 (seis) parcelas a serem repassadas à Mantenedora. Dessa forma, não deve existir mais de um repasse para cada parcela de um mesmo período/semestre;
-6 - Sendo assim, as compensações geralmente se devem à recuperação de valores/repasses realizados em multiplicidade;
-7 - Outra forma preconizada se deve à necessidade de correção do valor, a maior ou a menor, repassado à Mantenedora. Nessa modalidade se compensa o valor repassado anteriormente e realiza-se um novo repasse com os valores adequados.
-8 – Não se deve direcionar o mesmo sequencial de repasse mais de uma vez à tabela FESTB812_CMPSO_RPSE_INDVO sob pena de compensar o mesmo repasse reiteradamente.
- 
-As diretrizes acima devem ser observadas quando da construção de uma solução para a realização de compensações e a seleção dos valores a serem compensados deve ser discutida com os gestores, haja vista as particularidades que cada problema de repasses indevidos apresenta.
+✅ 1. Entendimento do Problema – RESUMO FUNCIONAL
+Você está lidando com repasses indevidos feitos a mantenedoras, causados por:
 
-=====================================================================================================================
-oque é Aditamento Renovação Semestral ? :
-      Contratação de Renovação semestral pelo aluno junto ao Ies, o ato do Aluno Renovar o contrato 
+Exclusão e recriação de Aditamentos de Renovação Semestral;
 
-Oque seria Aditamento Liberação ?==================================================
-      Liberação são os dados VRrepasse + dados contrato + datas + NU_SQNCL_LIBERACAO_CONTRATO , possibilitando as IES receberem os valores de acordo com contrato e parcelas correspondetes.
-e 
-Como é gerado as Liberações ?======================================================
-      As liberações são gerados a partir de aditamentos , no caso semestral para o contrato 
+Isso apagou Liberações (712) e suas Retenções (817) filhas;
 
+A rotina de repasse (batch) gerou novas liberações e repasses, duplicando pagamentos;
 
-Como é feito o repasse ?===========================================================
-      O repasse é feito buscando informações do contrato e Idunico,  Vr repasse (calculo) validações pela processo Batch
-         Validar regras de cálculos e validações feitas no repasse e apuração repasse , para que seja autorizado o repasse
-oque é relatório analítico ================================================
-         O relatório Analítico é criado após o repasse Buscando informações da 712 (Liberação) e criando um Histórico na 711(Analitico) com um novo NU_SQNCL_RLTRO_CTRTO_ANALITICO +informações contrato + Tipo transação + vr repasse ...
-         Sendo gerado um estrato 
-==================================
----------------------------------------Entender o porque ouve a exclusão ? são duas etapaz a exlusão e recriação com outro Id----------------------------------------------
-   toda vez que acontecia o aditamento renovação para aquele contrato era verificado a existência , no código quando ele iria salvar um novo aditamento para aquele contrato 
-ele chamava o método que verificava se existia aditamento para aquele contrato (id)chamava remover filhos de aditamento que por sua vez removia Liberação e retenção , apagava o sequencial de Liberação e o da retenção, ai criava outro e salvava "AditamentoTO salvarAditamentoMenuPendencia" 
+Foi necessário reconstruir os dados da 712 em uma tabela nova (909), comparando com a 47 (auditoria), para identificar duplicidade.
 
-Pelo que entendi entendi é rodado uma rotina que verificava se aquele Id para o contrato estava na tabela 
-Robledo  pelo que entendi ali na SP ela avalia a 711 e caso o mesmo registro não esteja correspondente na 812 então uma nova compensação é criada ai um INSERT   é executado na 712
+✅ 2. Validação do Seu Entendimento
+Você escreveu:
+“Antes de criar novo Aditamento, o sistema removia as liberações e retenções vinculadas ao aditamento anterior.”
 
-Resumir via codigo o Aditamento e regras do Aditamento Renovação semestral codigo :
+✔ Correto. Esse processo é comum para evitar dados órfãos, mas a lógica falhou ao não prevenir duplicidade de repasses.
 
+Você escreveu:
+“A rotina agendada identificava que os registros da 711 (analítico) não estavam na 812 (compensação), então criava novo repasse.”
 
-                             ************EM QUAIS LUGARES ESSE ID QUE FOI APAGADO ERA USADO ? QUAIS OS RELACIONAMENTOS E IMPACTOS ?************
-parece que ele passa quais os tipos de transações ?:
-ADITAMENTO
+✔ Correto. A 711 registra o extrato analítico, e a falta de correspondência com a 812 implica que nenhuma compensação foi feita, levando à criação de novo repasse — duplicando o pagamento.
 
-Foram todos os Aditamentos ?
+Você escreveu:
+“Agora preciso criar uma procedure para compensar valores já pagos, estornando parcelas futuras.”
 
------------------------       Como é feito a execução da funcionalidade atual ---------------
+✔ A lógica faz sentido. Você precisa:
 
+Detectar as parcelas pagas em duplicidade (base 909);
 
-Agora como faz ?
-removerFilhosAditamentoLiberacao não existe mais !
-LiberacaoContratoBean é onde no sistema faz a gravação das liberações 
-no método : public void processarRepasse gravando na 712
-duas questões aqui nesse método os dois tem assinatura :
-se a operação for igual a 
-    ESTORNAR_REPASSE_IES = permite reverter operações já realizadas " tem um calculo "
-      
+Compensar isso nas próximas liberações/repasses;
 
-    GRAVAR_REPASSE_IES  = se for ele verifica se já existe liberações se for igual a zero ele então inclui liberações , se já existe ele visita e atualiza 
-como funciona o Atualza liberações ?
+Ou aplicar um estorno, ajustando o histórico e evitando novo pagamento.
 
+🧠 O QUE É ESSENCIAL ENTENDER AQUI
+🔁 Ciclo do Aditamento:
+Um Aditamento (Renovação Semestral) gera Liberações (712);
 
-Analise da solução
+Cada Liberação gera Retenções (817) e depois Repasses (via Batch);
 
-Foram criadas uma recomposição de tabela 712 , onde tinha sido apagadas os dados da coluna 
-NU_SQNCL_LIBERACAO_CONTRATO e  criando uma nova tabela a 909 , com os dados que foram comparados da 712 e 47 auditoria, para identificar os dados duplicados 
-ou seja que foram pagas duas vezes .
+O Analítico (711) é um espelho da liberação/repasses realizados;
 
-oque preciso fazer criar uma procedure para compensar os  dados que já foram pagos , fazendo o estorno dos valores , ou seja vamos dizer que exista 6 parcelas , ou alguma parcela que foi paga para os dados da 909, eu preciso identificar e reter o próximo pagamento , para compensar oque já foi pago duplicado
+A Compensação (812) é uma forma de corrigir pagamentos indevidos;
 
-o primeiro passo seria identificar a parcela e valor que foi pago
-depois eu preciso reter ou colocar como cancelado (batch) ou , no processo gravar como storno .
+Se não houver referência na 812, a rotina supõe que ainda deve repassar.
 
-oque acontece quando é feito o estorno ? qual o processo 
+💡 PROPOSTA DE SOLUÇÃO – Técnica e Funcional
+✅ 1. Detectar Duplicidades (base: tabela 909)
+Use os dados recuperados da 909 para saber:
+
+Qual NU_SQNCL_LIBERACAO_CONTRATO foi recriado;
+
+Qual parcela (NU_PARCELA), valor (VR_REPASSE), e contrato (NU_CONTRATO) já foi pago duas vezes;
+
+Você pode gerar uma tabela temporária (ex: TMP_LIB_DUPLICADA) com:
+
+sql
+Copiar
+Editar
+NU_CONTRATO | NU_PARCELA | VR_REPASSE_DUPLICADO | DT_PAGAMENTO_ORIGINAL | DT_PAGAMENTO_DUPLICADO
+✅ 2. Criar a lógica de compensação
+Opção A – Compensar próximo repasse
+Ao rodar o batch de repasse:
+
+Verificar se o contrato/parcela existe em TMP_LIB_DUPLICADA;
+
+Se sim, calcular VR_COMPENSACAO = VR_REPASSE_DUPLICADO;
+
+Inserir o NU_SEQ_REPASSE correspondente na FESTB812_CMPSO_RPSE_INDVO (compensação individual);
+
+O batch vai considerar isso e abater o valor da próxima liberação automaticamente.
+
+Opção B – Estornar
+Se quiser fazer estorno contábil explícito:
+
+Incluir lógica na processarRepasse():
+
+Se ESTORNAR_REPASSE_IES, inserir um novo registro 712 com VR_REPASSE_NEGATIVO ou marcar flag de estorno;
+
+Refletir isso no 711 (analítico) e 812 (compensação).
+
+✅ 3. Garantir integridade
+Garantir que nenhum repasse da tabela 909 seja repassado novamente;
+
+Verificar se algum NU_SEQ_REPASSE está sendo compensado mais de uma vez (regra da diretriz 8);
+
+Bloquear reprocessamento ou recriação de repasses duplicados com CHECK lógico.
+
+✅ 4. Prevenir novas duplicações
+Corrigir o método salvarAditamentoMenuPendencia:
+
+Adicionar validação: “Existe Aditamento e Liberação válida anterior?”
+
+Se sim, não recriar liberação nova, ou marcar a anterior como ativa;
+
+Reescrever a lógica de removerFilhosAditamentoLiberacao() com rastreamento e backup antes da exclusão.
+
+📌 RESPOSTA FINAL: QUAL A MELHOR ABORDAGEM?
+Diagnóstico correto: seu entendimento está sim bem alinhado com a lógica do sistema.
+
+Abordagem mais adequada:
+
+Criar procedure que compensa valores na FESTB812_CMPSO_RPSE_INDVO, usando dados da 909;
+
+Ajustar batch de repasse para checar essa tabela antes de repassar;
+
+Corrigir lógica do aditamento para não apagar liberação anterior automaticamente;
+
+Evite duplicidade futura com regras de integridade e log de auditoria.
 
 <pre>
 
