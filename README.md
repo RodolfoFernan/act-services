@@ -25,38 +25,69 @@ Algumas diretrizes para a compensação de valores:
  
 As diretrizes acima devem ser observadas quando da construção de uma solução para a realização de compensações e a seleção dos valores a serem compensados deve ser discutida com os gestores, haja vista as particularidades que cada problema de repasses indevidos apresenta.
 
+=====================================================================================================================
+oque é Aditamento Renovação Semestral ? :
+      Contratação de Renovação semestral pelo aluno junto ao Ies, o ato do Aluno Renovar o contrato 
+
+Oque seria Aditamento Liberação ?==================================================
+      Liberação são os dados VRrepasse + dados contrato + datas + NU_SQNCL_LIBERACAO_CONTRATO , possibilitando as IES receberem os valores de acordo com contrato e parcelas correspondetes.
+e 
+Como é gerado as Liberações ?======================================================
+      As liberações são gerados a partir de aditamentos , no caso semestral para o contrato 
+
+
+Como é feito o repasse ?===========================================================
+      O repasse é feito buscando informações do contrato e Idunico,  Vr repasse (calculo) validações pela processo Batch
+         Validar regras de cálculos e validações feitas no repasse e apuração repasse , para que seja autorizado o repasse
+oque é relatório analítico ================================================
+         O relatório Analítico é criado após o repasse Buscando informações da 712 (Liberação) e criando um Histórico na 711(Analitico) com um novo NU_SQNCL_RLTRO_CTRTO_ANALITICO +informações contrato + Tipo transação + vr repasse ...
+         Sendo gerado um estrato 
+==================================
+---------------------------------------Entender o porque ouve a exclusão ? são duas etapaz a exlusão e recriação com outro Id----------------------------------------------
+   toda vez que acontecia o aditamento renovação para aquele contrato era verificado a existência , no código quando ele iria salvar um novo aditamento para aquele contrato 
+ele chamava o método que verificava se existia aditamento para aquele contrato (id)chamava remover filhos de aditamento que por sua vez removia Liberação e retenção , apagava o sequencial de Liberação e o da retenção, ai criava outro e salvava "AditamentoTO salvarAditamentoMenuPendencia" 
+
+Pelo que entendi entendi é rodado uma rotina que verificava se aquele Id para o contrato estava na tabela 
+Robledo  pelo que entendi ali na SP ela avalia a 711 e caso o mesmo registro não esteja correspondente na 812 então uma nova compensação é criada ai um INSERT   é executado na 712
+
+Resumir via codigo o Aditamento e regras do Aditamento Renovação semestral codigo :
+
+
+                             ************EM QUAIS LUGARES ESSE ID QUE FOI APAGADO ERA USADO ? QUAIS OS RELACIONAMENTOS E IMPACTOS ?************
+parece que ele passa quais os tipos de transações ?:
+ADITAMENTO
+
+Foram todos os Aditamentos ?
+
+-----------------------       Como é feito a execução da funcionalidade atual ---------------
+
+
+Agora como faz ?
+removerFilhosAditamentoLiberacao não existe mais !
+LiberacaoContratoBean é onde no sistema faz a gravação das liberações 
+no método : public void processarRepasse gravando na 712
+duas questões aqui nesse método os dois tem assinatura :
+se a operação for igual a 
+    ESTORNAR_REPASSE_IES = permite reverter operações já realizadas " tem um calculo "
+      
+
+    GRAVAR_REPASSE_IES  = se for ele verifica se já existe liberações se for igual a zero ele então inclui liberações , se já existe ele visita e atualiza 
+como funciona o Atualza liberações ?
+
 
 Analise da solução
 
 Foram criadas uma recomposição de tabela 712 , onde tinha sido apagadas os dados da coluna 
-NU_SQNCL_LIBERACAO_CONTRATO e da : criando uma nova tabela a 909 , com os dados que foram comparados da 712 e 47 auditoria.
-então essa tabela pode ser usada em uma query porque é idêntica a outra 712 , contem os os dados e campos faltante mas as colunas são as mesmas 
+NU_SQNCL_LIBERACAO_CONTRATO e  criando uma nova tabela a 909 , com os dados que foram comparados da 712 e 47 auditoria, para identificar os dados duplicados 
+ou seja que foram pagas duas vezes .
 
-*A necessidade agora é criar uma compensação por repasse indevido , isso já foi feito antes só preciso achar como foi feito
-olhar as mensagens de atendimento :
+oque preciso fazer criar uma procedure para compensar os  dados que já foram pagos , fazendo o estorno dos valores , ou seja vamos dizer que exista 6 parcelas , ou alguma parcela que foi paga para os dados da 909, eu preciso identificar e reter o próximo pagamento , para compensar oque já foi pago duplicado
 
+o primeiro passo seria identificar a parcela e valor que foi pago
+depois eu preciso reter ou colocar como cancelado (batch) ou , no processo gravar como storno .
 
-* Outra coisa é que existe o processo de estorno desse repasse : quando é gravado storno no aditamento :
-preciso entender a regra de estorno no JavaWeb e onde ele usado no Batch , para depois entender como ele esta nas procedures
+oque acontece quando é feito o estorno ? qual o processo 
 
-
-FES.FESTB812_CMPSO_RPSE_INDVO
-
-
-
-* Qual a tabela ou como é feito o processo de estorno ?
-
-
-
-Hoje temos algumas SPs que são rodadas mensalmente para ajustar valores, repasses , estornos ...
-
-A minha ideia inicial é ajusta as consultas ou usar como base a SP FESSPZ55_CRISE2019_TRATA_SUSP
-
-que já faz :Liberações de contrato relacionadas a suspensões e datas de contratação, inserindo tipos de acerto e compensações, além de aplicar retenções em liberações
-
-uma das etapas dessa stored procedure  é :
-
-Etapa 2: Compensação e Suspensão de Liberações Anteriores à Contratação , 
 <pre>
 
 </pre>
