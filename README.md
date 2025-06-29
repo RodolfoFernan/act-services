@@ -190,6 +190,112 @@ Pode ser ultil para entender  as validações
 
 END;
 
+=======================================================Sp base ========================================
+CREATE OR REPLACE PROCEDURE FESSPZ67_CRISE2025_COMPENSA_DUPLCD (
+    p_co_usuario_execucao IN VARCHAR2 -- Usuário que executa a SP
+)
+AS
+    -- Variáveis locais
+    v_nu_sqncl_rl_analitico_duplicado NUMBER;
+    v_nu_sqncl_liberacao_909        NUMBER;
+    v_nu_contrato_909               NUMBER;
+    v_nu_parcela_909                NUMBER;
+    v_vr_repasse_909                NUMBER;
+    -- ... outras colunas da 909 que ajudem a identificar o registro na 711
+
+    CURSOR c_duplicidades IS
+        SELECT
+            NU_SQNCL_LIBERACAO_CONTRATO,
+            -- Inclua aqui outras colunas da 909 que ajudem a correlacionar com a 711
+            -- Ex: NU_CONTRATO, NU_PARCELA, VR_REPASSE, MM_REFERENCIA_LIBERACAO, AA_REFERENCIA_LIBERACAO
+            NU_CONTRATO, -- Adicione esta coluna à sua 909 se ainda não tiver
+            NU_PARCELA,  -- Adicione esta coluna à sua 909 se ainda não tiver
+            VR_REPASSE   -- Adicione esta coluna à sua 909 se ainda não tiver
+        FROM FES.FESTB909_RECOMP_712; -- As informações da 909 já foram filtradas para duplicidade
+
+BEGIN
+    -- Log de início da SP
+    DBMS_OUTPUT.PUT_LINE('Início da FESSPZ67_CRISE2025_COMPENSA_DUPLCD em ' || SYSTIMESTAMP);
+
+    FOR r_duplicidade IN c_duplicidades LOOP
+        -- Tentar encontrar o NU_SQNCL_RLTRO_CTRTO_ANALITICO correspondente na FESTB711
+        BEGIN
+            SELECT NU_SQNCL_RLTRO_CTRTO_ANALITICO
+            INTO v_nu_sqncl_rl_analitico_duplicado
+            FROM FES.FESTB711_RLTRO_CTRTO_ANLTO
+            WHERE NU_SQNCL_LIBERACAO_CONTRATO = r_duplicidade.NU_SQNCL_LIBERACAO_CONTRATO
+            AND NU_CONTRATO = r_duplicidade.NU_CONTRATO -- Adicione essas condições
+            AND NU_PARCELA = r_duplicidade.NU_PARCELA   -- para ter certeza que pega o registro correto
+            AND VR_REPASSE = r_duplicidade.VR_REPASSE   -- e diferenciar duplicidades na 711 se houver
+            -- Adicionar condições para pegar o registro DUPLICADO na 711
+            -- Se há duas entradas na 711 para o mesmo contrato/parcela/valor,
+            -- você precisaria de um critério para selecionar a "duplicada".
+            -- Ex: ORDER BY TS_APURACAO_RELATORIO DESC FETCH FIRST 1 ROW ONLY;
+            -- Isso pegaria a mais recente, assumindo que a mais recente é a duplicata.
+            -- ESTE PONTO É CRÍTICO E REQUER VALIDAÇÃO COM OS DADOS REAIS E OS GESTORES!
+            ;
+
+            -- Verificar se o sequencial já existe na FESTB812 (Diretriz 8)
+            DECLARE
+                v_existe_na_812 NUMBER := 0;
+            BEGIN
+                SELECT COUNT(1)
+                INTO v_existe_na_812
+                FROM FES.FESTB812_CMPSO_RPSE_INDVO
+                WHERE NU_SQNCL_RLTRO_CTRTO_ANALITICO = v_nu_sqncl_rl_analitico_duplicado;
+
+                IF v_existe_na_812 = 0 THEN
+                    -- Inserir na FESTB812
+                    INSERT INTO FES.FESTB812_CMPSO_RPSE_INDVO (
+                        NU_SQNCL_COMPENSACAO_REPASSE, -- Pode ser gerado por sequence ou identity
+                        NU_SQNCL_RLTRO_CTRTO_ANALITICO,
+                        NU_TIPO_ACERTO,               -- Confirmar com gestores/SP de exemplo (FESSPZ55)
+                        TS_INCLUSAO,
+                        CO_USUARIO_INCLUSAO,
+                        IC_COMPENSADO
+                    ) VALUES (
+                        -- Gerar NU_SQNCL_COMPENSACAO_REPASSE (ex: SEQ_FESTB812.NEXTVAL)
+                        SEQ_FESTB812.NEXTVAL, -- Assumindo que existe uma sequence para a 812
+                        v_nu_sqncl_rl_analitico_duplicado,
+                        'COD_TIPO_ACERTO_COMPENSACAO', -- **VALOR A SER CONFIRMADO**
+                        SYSTIMESTAMP,
+                        p_co_usuario_execucao,
+                        'N' -- Inicialmente 'N', batch vai mudar para 'S'
+                    );
+                    DBMS_OUTPUT.PUT_LINE('Inserido NU_SQNCL_RLTRO_CTRTO_ANALITICO: ' || v_nu_sqncl_rl_analitico_duplicado || ' na FESTB812.');
+                ELSE
+                    DBMS_OUTPUT.PUT_LINE('AVISO: NU_SQNCL_RLTRO_CTRTO_ANALITICO ' || v_nu_sqncl_rl_analitico_duplicado || ' já existe na FESTB812. Ignorando inserção.');
+                END IF;
+            END;
+
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                DBMS_OUTPUT.PUT_LINE('ALERTA: Não encontrado NU_SQNCL_RLTRO_CTRTO_ANALITICO na FESTB711 para liberação da 909: ' || r_duplicidade.NU_SQNCL_LIBERACAO_CONTRATO);
+            WHEN TOO_MANY_ROWS THEN
+                DBMS_OUTPUT.PUT_LINE('ERRO: Múltiplos NU_SQNCL_RLTRO_CTRTO_ANALITICO encontrados na FESTB711 para liberação da 909: ' || r_duplicidade.NU_SQNCL_LIBERACAO_CONTRATO || '. Necessário critério de desempate.');
+                -- Aqui você precisaria de uma lógica mais sofisticada para decidir qual registro da 711 é o duplicado
+                -- Ex: Pegar o mais recente, ou o que tem um VR_REPASSE específico que você sabe que foi o duplicado.
+            WHEN OTHERS THEN
+                DBMS_OUTPUT.PUT_LINE('ERRO INESPERADO ao processar liberação da 909: ' || r_duplicidade.NU_SQNCL_LIBERACAO_CONTRATO || ' - ' || SQLERRM);
+        END;
+    END LOOP;
+
+    COMMIT; -- Confirma todas as inserções
+    DBMS_OUTPUT.PUT_LINE('Fim da FESSPZ67_CRISE2025_COMPENSA_DUPLCD. Processo concluído.');
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK; -- Desfaz tudo em caso de erro geral
+        DBMS_OUTPUT.PUT_LINE('ERRO FATAL na FESSPZ67_CRISE2025_COMPENSA_DUPLCD: ' || SQLERRM);
+        RAISE; -- Re-lança o erro
+END;
+/
+=========================================================================================================================================
+
+
+
+
+
 
 
 <pre>
