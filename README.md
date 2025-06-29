@@ -189,6 +189,8 @@ Pode ser ultil para entender  as validações
 	END IF;
 
 END;
+----------------------------------------------------------------------
+
 
 =======================================================Sp base ========================================
 CREATE OR REPLACE PROCEDURE FESSPZ67_CRISE2025_COMPENSA_DUPLCD (
@@ -313,7 +315,41 @@ EXCEPTION
         DBMS_OUTPUT.PUT_LINE('ERRO FATAL na FESSPZ67_CRISE2025_COMPENSA_DUPLCD: ' || SQLERRM);
         RAISE; -- Re-lança o erro para o chamador
 END;
-/
+-----------------------------------------------------
+
+Sugestão critica :
+SELECT T711.NU_SQNCL_RLTRO_CTRTO_ANALITICO
+INTO v_nu_sqncl_rl_analitico_duplicado
+FROM FES.FESTB711_RLTRO_CTRTO_ANLTO T711
+WHERE T711.NU_SQNCL_LIBERACAO_CONTRATO = r_duplicidade.NU_SQNCL_LIBERACAO_CONTRATO -- Use o ID da 909
+AND T711.NU_SEQ_CANDIDATO = r_duplicidade.NU_SEQ_CANDIDATO -- OU NU_CONTRATO se for o caso
+AND T711.NU_IES = r_duplicidade.NU_IES
+AND T711.NU_CAMPUS = r_duplicidade.NU_CAMPUS
+AND T711.MM_REFERENCIA = r_duplicidade.MM_REFERENCIA_LIBERACAO
+AND T711.AA_REFERENCIA = r_duplicidade.AA_REFERENCIA_LIBERACAO
+AND T711.NU_PARCELA = r_duplicidade.NU_PARCELA
+-- E, para diferenciar se houver mais de um registro na 711 para o mesmo contrato/parcela:
+-- ORDER BY T711.TS_APURACAO_RELATORIO DESC -- Assume que o duplicado é o mais recente
+-- FETCH FIRST 1 ROW ONLY; -- Para Oracle 12c+
+-- Ou ROWNUM = 1 para Oracle 11g-
+
+--------------------------
+Pontos Cruciais para Você Validar Antes de Executar:
+
+    NU_TIPO_ACERTO (Valor 1):
+        Você viu que nas amostras da FESTB812 o NU_TIPO_ACERTO é 1. É fundamental confirmar com os gestores ou documentação se 1 realmente significa "Compensação de Repasse Indevido por Duplicação" para o seu cenário. Se não for, a SP vai funcionar, mas a categorização da compensação estará errada.
+
+    Nome da Sequence (NU_SQNCL_COMPENSACAO_REPASSE):
+        No INSERT, eu usei (SELECT FES.SQ_FESTB812_CMPSO_RPSE_INDVO.NEXTVAL FROM DUAL). Você precisa substituir FES.SQ_FESTB812_CMPSO_RPSE_INDVO pelo nome exato da SEQUENCE no seu banco de dados que é usada para gerar o NU_SQNCL_COMPENSACAO_REPASSE da tabela FESTB812_CMPSO_RPSE_INDVO. Se você não souber, procure um DBA ou em scripts de criação da tabela.
+
+    Dados da FESTB909_RECOMP_712:
+        A SP agora espera que a FESTB909 tenha as colunas: NU_SQNCL_LIBERACAO_CONTRATO, NU_SEQ_CANDIDATO, NU_IES, NU_CAMPUS, MM_REFERENCIA_LIBERACAO, AA_REFERENCIA_LIBERACAO, NU_PARCELA, VR_REPASSE, DT_INCLUSAO.
+        Quando a FESTB909 for populada, é crucial que ela contenha os NU_SQNCL_LIBERACAO_CONTRATO das liberações que geraram o repasse duplicado na FESTB711.
+
+    Critério ORDER BY T711.TS_APURACAO_RELATORIO DESC FETCH FIRST 1 ROW ONLY:
+        Esta é a suposição de que o registro do repasse duplicado na FESTB711 é o mais recente para aquele conjunto de critérios (contrato, parcela, etc.). É a lógica mais comum para identificar o "duplicado" se houver múltiplos registros. Mas sempre é bom validar essa premissa com os dados reais ou com os gestores, se houver um critério mais específico.
+
+Estamos no caminho certo! Com as confirmações do NU_TIPO_ACERTO e da SEQUENCE, a SP estará pronta para um teste real.
 =========================================================================================================================================
 
 ================================Amostragem de dados======================================================================================
@@ -460,7 +496,67 @@ public class ConsultaCompesacaoMantenedoraTO implements Serializable {
 		return listaRetorno;
 	}
 	
+===========================Ajustes na Sp 19 ==========================================================================================================
+Análise da Sua Lógica e Próximos Passos
 
+Vamos analisar sua proposta ponto a ponto:
+Sua SP FESSPZ67: O Papel de Alimentar a FESTB812
+
+    Validação 909 e 711 para 812: Você está totalmente correto ao afirmar que sua FESSPZ67 deve ser responsável por comparar os dados da FESTB909 com a FESTB711 para identificar os NU_SQNCL_RLTRO_CTRTO_ANALITICO dos repasses a serem compensados e inseri-los na FESTB812. Este é o objetivo principal da sua SP e ela está bem encaminhada para isso.
+
+O Cenário do NU_SQNCL_LIBERACAO_CONTRATO Apagado
+
+Aqui é onde a sua percepção é crucial:
+
+    Se o NU_SQNCL_LIBERACAO_CONTRATO que gerou o repasse duplicado (identificado na FESTB909) foi apagado da FESTB712 e agora só existe na FESTB909 como referência de um problema:
+        Então, a FESSPU19_ROTINA_REPASSE, ao tentar fazer o JOIN de FESTB812 -> FESTB711 -> FESTB712, terá problemas para encontrar os detalhes da liberação na FESTB712.
+        A FESSPU19 precisa desses detalhes (NU_IES, NU_CAMPUS, NU_SEQ_CANDIDATO, NU_TIPO_TRANSACAO, VR_CONTRATO, VR_ADITAMENTO, etc.) para popular o objeto ConsultaCompesacaoMantenedoraTO que o batch Java espera.
+
+Sua Proposta de Ajuste na FESSPU19: Você Está Certo!
+
+    "No caso da 19 que chamado para o processo Batch ela teria que fazer uma validação além da tabela 712 na tabela 909, porque se o registro NU_SQNCL_RLTRO_CTRTO_ANALITICO esta na 812 e 711, agora ela tem que buscar o NU_SQNCL_LIBERACAO_CONTRATO que podera esta na 712 ou 909."
+
+Sim, sua lógica está correta! Se a FESTB909 é a "fonte da verdade" para os NU_SQNCL_LIBERACAO_CONTRATO que foram apagados mas que ainda são relevantes para rastrear o problema da duplicidade, então a FESSPU19_ROTINA_REPASSE precisa ser ajustada.
+
+Ela precisará de uma lógica condicional ou de um LEFT JOIN com a FESTB909 (ou até um UNION ALL dependendo da complexidade) para garantir que, caso o NU_SQNCL_LIBERACAO_CONTRATO não seja encontrado na FESTB712 (porque foi apagado), ela possa buscar as informações complementares (NU_IES, NU_CAMPUS, etc.) na FESTB909.
+Como o Ajuste na FESSPU19 Poderia Ser (Conceitualmente):
+SQL
+
+-- Parte simplificada da FESSPU19_ROTINA_REPASSE
+SELECT
+    T812.NU_SQNCL_COMPENSACAO_REPASSE,
+    T812.NU_SQNCL_RLTRO_CTRTO_ANALITICO,
+    T711.NU_SEQ_CANDIDATO,
+    -- ... outras colunas que a FESSPU19 já seleciona
+    COALESCE(T712.NU_IES, T909.NU_IES) AS NU_IES_FINAL,       -- Tentar da 712, senão da 909
+    COALESCE(T712.NU_CAMPUS, T909.NU_CAMPUS) AS NU_CAMPUS_FINAL,
+    COALESCE(T712.NU_TIPO_TRANSACAO, T909.NU_TIPO_TRANSACAO) AS NU_TIPO_TRANSACAO_FINAL, -- Se a 909 tiver
+    -- ... e assim por diante para todas as colunas necessárias pelo TO Java
+
+FROM FES.FESTB812_CMPSO_RPSE_INDVO T812
+JOIN FES.FESTB711_RLTRO_CTRTO_ANLTO T711
+    ON T711.NU_SQNCL_RLTRO_CTRTO_ANALITICO = T812.NU_SQNCL_RLTRO_CTRTO_ANALITICO
+LEFT JOIN FES.FESTB712_LIBERACAO_CONTRATO T712
+    ON T712.NU_SQNCL_LIBERACAO_CONTRATO = T711.NU_SQNCL_LIBERACAO_CONTRATO
+LEFT JOIN FES.FESTB909_RECOMP_712 T909 -- Novo LEFT JOIN
+    ON T909.NU_SQNCL_LIBERACAO_CONTRATO = T711.NU_SQNCL_LIBERACAO_CONTRATO -- Ou algum outro critério se T711.NU_SQNCL_LIBERACAO_CONTRATO for o ID apagado
+WHERE T812.IC_COMPENSADO = 'N'
+-- ... e as condições que já existem na FESSPU19
+
+Este ajuste é vital. Sem ele, mesmo que sua SP FESSPZ67 insira perfeitamente na FESTB812, o batch de compensação pode falhar ou ignorar os registros se a FESSPU19 não conseguir preencher todos os campos do ConsultaCompesacaoMantenedoraTO devido a dados ausentes na FESTB712.
+Próximos Passos:
+
+    Confirmação Crucial (Amanhã): Sua ação de confirmar amanhã se a FESTB909 realmente guarda o NU_SQNCL_LIBERACAO_CONTRATO da liberação original/apagada ou da recriada é o ponto de partida.
+        Se for a liberação recriada: A SP FESSPU19 NÃO precisará de alteração para buscar na FESTB909. Ela continuará buscando na FESTB712 e encontrará, porque o NU_SQNCL_LIBERACAO_CONTRATO referenciado ainda existirá.
+        Se for a liberação apagada (a mais provável, pelo contexto): Então, sim, a FESSPU19_ROTINA_REPASSE precisará de um ajuste para consultar a FESTB909 como um fallback para obter os detalhes do NU_SQNCL_LIBERACAO_CONTRATO que foi apagado.
+
+    Nome da Sequence: Não se esqueça de me passar o nome exato da sequence para a FESTB812.
+
+Assim que tiver essa confirmação sobre qual NU_SQNCL_LIBERACAO_CONTRATO a FESTB909 contém, podemos finalizar a estratégia e até mesmo esboçar o ajuste na FESSPU19 se for necessário.
+
+Estamos no caminho certo para resolver esse desafio complexo!
+
+=======================================================================================================================================
 
 
 
