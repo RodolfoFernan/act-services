@@ -192,102 +192,105 @@ END;
 
 =======================================================Sp base ========================================
 CREATE OR REPLACE PROCEDURE FESSPZ67_CRISE2025_COMPENSA_DUPLCD (
-    p_co_usuario_execucao IN VARCHAR2 -- Usuário que executa a SP
+    p_co_usuario_execucao IN VARCHAR2 -- Usuário que executa a SP, e.g., 'SP_FES_CRISIS'
 )
 AS
     -- Variáveis locais
     v_nu_sqncl_rl_analitico_duplicado NUMBER;
-    v_nu_sqncl_liberacao_909        NUMBER;
-    v_nu_contrato_909               NUMBER;
-    v_nu_parcela_909                NUMBER;
-    v_vr_repasse_909                NUMBER;
-    -- ... outras colunas da 909 que ajudem a identificar o registro na 711
+    v_existe_na_812                   NUMBER;
 
+    -- Cursor para iterar sobre os registros já identificados na 909
+    -- Adapte as colunas do SELECT para refletir exatamente o que está na sua FESTB909
     CURSOR c_duplicidades IS
         SELECT
-            NU_SQNCL_LIBERACAO_CONTRATO,
-            -- Inclua aqui outras colunas da 909 que ajudem a correlacionar com a 711
-            -- Ex: NU_CONTRATO, NU_PARCELA, VR_REPASSE, MM_REFERENCIA_LIBERACAO, AA_REFERENCIA_LIBERACAO
-            NU_CONTRATO, -- Adicione esta coluna à sua 909 se ainda não tiver
-            NU_PARCELA,  -- Adicione esta coluna à sua 909 se ainda não tiver
-            VR_REPASSE   -- Adicione esta coluna à sua 909 se ainda não tiver
-        FROM FES.FESTB909_RECOMP_712; -- As informações da 909 já foram filtradas para duplicidade
+            T909.NU_SQNCL_LIBERACAO_CONTRATO,
+            T909.NU_SEQ_CANDIDATO,          -- Se na 909 o contrato for NU_SEQ_CANDIDATO
+            T909.NU_IES,
+            T909.NU_CAMPUS,
+            T909.MM_REFERENCIA_LIBERACAO AS MM_REFERENCIA,
+            T909.AA_REFERENCIA_LIBERACAO AS AA_REFERENCIA,
+            T909.NU_PARCELA,
+            T909.VR_REPASSE                 -- O VR_REPASSE da liberação duplicada
+        FROM FES.FESTB909_RECOMP_712 T909;
+
+    -- ** AQUI VOCÊ DEVE CONFIRMAR O VALOR CORRETO PARA O NU_TIPO_ACERTO **
+    -- Exemplo: v_nu_tipo_acerto_compensacao CONSTANT NUMBER := 5; -- Ou outro valor definido pelo negócio
+    v_nu_tipo_acerto_compensacao CONSTANT NUMBER := <CONFIRMAR_VALOR_COM_GESTOR_OU_SP_EXISTENTE>;
 
 BEGIN
-    -- Log de início da SP
-    DBMS_OUTPUT.PUT_LINE('Início da FESSPZ67_CRISE2025_COMPENSA_DUPLCD em ' || SYSTIMESTAMP);
+    DBMS_OUTPUT.PUT_LINE('Início da FESSPZ67_CRISE2025_COMPENSA_DUPLCD em ' || TO_CHAR(SYSTIMESTAMP, 'DD-MON-YYYY HH24:MI:SS'));
 
     FOR r_duplicidade IN c_duplicidades LOOP
-        -- Tentar encontrar o NU_SQNCL_RLTRO_CTRTO_ANALITICO correspondente na FESTB711
+        v_nu_sqncl_rl_analitico_duplicado := NULL; -- Reset para cada iteração
+        v_existe_na_812 := 0;
+
+        -- 1. Tentar encontrar o NU_SQNCL_RLTRO_CTRTO_ANALITICO correspondente na FESTB711
         BEGIN
-            SELECT NU_SQNCL_RLTRO_CTRTO_ANALITICO
+            SELECT T711.NU_SQNCL_RLTRO_CTRTO_ANALITICO
             INTO v_nu_sqncl_rl_analitico_duplicado
-            FROM FES.FESTB711_RLTRO_CTRTO_ANLTO
-            WHERE NU_SQNCL_LIBERACAO_CONTRATO = r_duplicidade.NU_SQNCL_LIBERACAO_CONTRATO
-            AND NU_CONTRATO = r_duplicidade.NU_CONTRATO -- Adicione essas condições
-            AND NU_PARCELA = r_duplicidade.NU_PARCELA   -- para ter certeza que pega o registro correto
-            AND VR_REPASSE = r_duplicidade.VR_REPASSE   -- e diferenciar duplicidades na 711 se houver
-            -- Adicionar condições para pegar o registro DUPLICADO na 711
-            -- Se há duas entradas na 711 para o mesmo contrato/parcela/valor,
-            -- você precisaria de um critério para selecionar a "duplicada".
-            -- Ex: ORDER BY TS_APURACAO_RELATORIO DESC FETCH FIRST 1 ROW ONLY;
-            -- Isso pegaria a mais recente, assumindo que a mais recente é a duplicata.
-            -- ESTE PONTO É CRÍTICO E REQUER VALIDAÇÃO COM OS DADOS REAIS E OS GESTORES!
-            ;
-
-            -- Verificar se o sequencial já existe na FESTB812 (Diretriz 8)
-            DECLARE
-                v_existe_na_812 NUMBER := 0;
-            BEGIN
-                SELECT COUNT(1)
-                INTO v_existe_na_812
-                FROM FES.FESTB812_CMPSO_RPSE_INDVO
-                WHERE NU_SQNCL_RLTRO_CTRTO_ANALITICO = v_nu_sqncl_rl_analitico_duplicado;
-
-                IF v_existe_na_812 = 0 THEN
-                    -- Inserir na FESTB812
-                    INSERT INTO FES.FESTB812_CMPSO_RPSE_INDVO (
-                        NU_SQNCL_COMPENSACAO_REPASSE, -- Pode ser gerado por sequence ou identity
-                        NU_SQNCL_RLTRO_CTRTO_ANALITICO,
-                        NU_TIPO_ACERTO,               -- Confirmar com gestores/SP de exemplo (FESSPZ55)
-                        TS_INCLUSAO,
-                        CO_USUARIO_INCLUSAO,
-                        IC_COMPENSADO
-                    ) VALUES (
-                        -- Gerar NU_SQNCL_COMPENSACAO_REPASSE (ex: SEQ_FESTB812.NEXTVAL)
-                        SEQ_FESTB812.NEXTVAL, -- Assumindo que existe uma sequence para a 812
-                        v_nu_sqncl_rl_analitico_duplicado,
-                        'COD_TIPO_ACERTO_COMPENSACAO', -- **VALOR A SER CONFIRMADO**
-                        SYSTIMESTAMP,
-                        p_co_usuario_execucao,
-                        'N' -- Inicialmente 'N', batch vai mudar para 'S'
-                    );
-                    DBMS_OUTPUT.PUT_LINE('Inserido NU_SQNCL_RLTRO_CTRTO_ANALITICO: ' || v_nu_sqncl_rl_analitico_duplicado || ' na FESTB812.');
-                ELSE
-                    DBMS_OUTPUT.PUT_LINE('AVISO: NU_SQNCL_RLTRO_CTRTO_ANALITICO ' || v_nu_sqncl_rl_analitico_duplicado || ' já existe na FESTB812. Ignorando inserção.');
-                END IF;
-            END;
+            FROM FES.FESTB711_RLTRO_CTRTO_ANLTO T711
+            WHERE T711.NU_SQNCL_LIBERACAO_CONTRATO = r_duplicidade.NU_SQNCL_LIBERACAO_CONTRATO
+            AND T711.NU_SEQ_CANDIDATO = r_duplicidade.NU_SEQ_CANDIDATO -- Ou NU_CONTRATO se for o campo na 711
+            AND T711.NU_IES = r_duplicidade.NU_IES
+            AND T711.NU_CAMPUS = r_duplicidade.NU_CAMPUS
+            AND T711.MM_REFERENCIA = r_duplicidade.MM_REFERENCIA
+            AND T711.AA_REFERENCIA = r_duplicidade.AA_REFERENCIA
+            AND T711.NU_PARCELA = r_duplicidade.NU_PARCELA
+            -- Adicionar critério para pegar o registro DUPLICADO na 711, se houver mais de um.
+            -- Por exemplo, se a 909 identifica o ID da liberação que *resultou* no repasse duplicado,
+            -- este JOIN já deve ser suficiente. Caso contrário, adicione:
+            -- AND T711.VR_REPASSE = r_duplicidade.VR_REPASSE -- para ser mais específico
+            ORDER BY T711.TS_APURACAO_RELATORIO DESC -- Geralmente o duplicado é o mais recente
+            FETCH FIRST 1 ROW ONLY; -- Para Oracle 12c+. Para 11g, use ROWNUM = 1
 
         EXCEPTION
             WHEN NO_DATA_FOUND THEN
-                DBMS_OUTPUT.PUT_LINE('ALERTA: Não encontrado NU_SQNCL_RLTRO_CTRTO_ANALITICO na FESTB711 para liberação da 909: ' || r_duplicidade.NU_SQNCL_LIBERACAO_CONTRATO);
+                DBMS_OUTPUT.PUT_LINE('ALERTA: Não encontrado NU_SQNCL_RLTRO_CTRTO_ANALITICO na FESTB711 para liberação da 909 (ID: ' || r_duplicidade.NU_SQNCL_LIBERACAO_CONTRATO || ', Contrato: ' || r_duplicidade.NU_SEQ_CANDIDATO || ').');
+                CONTINUE; -- Pula para a próxima duplicidade
             WHEN TOO_MANY_ROWS THEN
-                DBMS_OUTPUT.PUT_LINE('ERRO: Múltiplos NU_SQNCL_RLTRO_CTRTO_ANALITICO encontrados na FESTB711 para liberação da 909: ' || r_duplicidade.NU_SQNCL_LIBERACAO_CONTRATO || '. Necessário critério de desempate.');
-                -- Aqui você precisaria de uma lógica mais sofisticada para decidir qual registro da 711 é o duplicado
-                -- Ex: Pegar o mais recente, ou o que tem um VR_REPASSE específico que você sabe que foi o duplicado.
-            WHEN OTHERS THEN
-                DBMS_OUTPUT.PUT_LINE('ERRO INESPERADO ao processar liberação da 909: ' || r_duplicidade.NU_SQNCL_LIBERACAO_CONTRATO || ' - ' || SQLERRM);
+                DBMS_OUTPUT.PUT_LINE('ERRO: Múltiplos NU_SQNCL_RLTRO_CTRTO_ANALITICO encontrados na FESTB711 para liberação da 909 (ID: ' || r_duplicidade.NU_SQNCL_LIBERACAO_CONTRATO || ', Contrato: ' || r_duplicidade.NU_SEQ_CANDIDATO || '). Verifique critério de desempate.');
+                CONTINUE; -- Pula para a próxima duplicidade (necessita ajuste se for recorrente)
         END;
+
+        -- 2. Verificar se o sequencial já existe na FESTB812 (Diretriz 8)
+        SELECT COUNT(1)
+        INTO v_existe_na_812
+        FROM FES.FESTB812_CMPSO_RPSE_INDVO
+        WHERE NU_SQNCL_RLTRO_CTRTO_ANALITICO = v_nu_sqncl_rl_analitico_duplicado;
+
+        IF v_existe_na_812 = 0 THEN
+            -- 3. Inserir na FESTB812
+            INSERT INTO FES.FESTB812_CMPSO_RPSE_INDVO (
+                NU_SQNCL_COMPENSACAO_REPASSE,
+                NU_SQNCL_RLTRO_CTRTO_ANALITICO,
+                NU_TIPO_ACERTO,
+                TS_INCLUSAO,
+                CO_USUARIO_INCLUSAO,
+                IC_COMPENSADO
+            ) VALUES (
+                -- ASSUMIR QUE EXISTE UMA SEQUENCE, EX: SEQ_FESTB812.NEXTVAL
+                SEQ_FESTB812.NEXTVAL,
+                v_nu_sqncl_rl_analitico_duplicado,
+                v_nu_tipo_acerto_compensacao, -- Usar o valor confirmado
+                SYSTIMESTAMP,
+                p_co_usuario_execucao,
+                'N'
+            );
+            DBMS_OUTPUT.PUT_LINE('SUCESSO: Inserido NU_SQNCL_RLTRO_CTRTO_ANALITICO ' || v_nu_sqncl_rl_analitico_duplicado || ' na FESTB812 para compensação.');
+        ELSE
+            DBMS_OUTPUT.PUT_LINE('AVISO: NU_SQNCL_RLTRO_CTRTO_ANALITICO ' || v_nu_sqncl_rl_analitico_duplicado || ' já existe na FESTB812. Ignorando inserção (Diretriz 8).');
+        END IF;
+
     END LOOP;
 
-    COMMIT; -- Confirma todas as inserções
-    DBMS_OUTPUT.PUT_LINE('Fim da FESSPZ67_CRISE2025_COMPENSA_DUPLCD. Processo concluído.');
+    COMMIT; -- Confirma todas as inserções bem-sucedidas
+    DBMS_OUTPUT.PUT_LINE('Fim da FESSPZ67_CRISE2025_COMPENSA_DUPLCD. Processo concluído com sucesso.');
 
 EXCEPTION
     WHEN OTHERS THEN
-        ROLLBACK; -- Desfaz tudo em caso de erro geral
+        ROLLBACK; -- Em caso de qualquer erro, desfaz todas as operações
         DBMS_OUTPUT.PUT_LINE('ERRO FATAL na FESSPZ67_CRISE2025_COMPENSA_DUPLCD: ' || SQLERRM);
-        RAISE; -- Re-lança o erro
+        RAISE; -- Re-lança o erro para o chamador
 END;
 /
 =========================================================================================================================================
