@@ -19,84 +19,114 @@ Algumas diretrizes para a compensação de valores:
 7 - Outra forma preconizada se deve à necessidade de correção do valor, a maior ou a menor, repassado à Mantenedora. Nessa modalidade se compensa o valor repassado anteriormente e realiza-se um novo repasse com os valores adequados.
 8 – Não se deve direcionar o mesmo sequencial de repasse mais de uma vez à tabela FESTB812_CMPSO_RPSE_INDVO sob pena de compensar o mesmo repasse reiteradamente.
  
-As diretrizes acima devem ser observadas quando da construção de uma solução para a realização de compensações e a seleção dos valores a serem compensados deve ser discutida com os gestores, haja vista as particularidades que cada problema de repasses indevidos apresenta.
+1. Entendimento do Problema – RESUMO FUNCIONAL
+Você está lidando com repasses indevidos feitos a mantenedoras, causados por:
 
-Ótimo. Você estruturou muito bem o problema e reuniu uma grande quantidade de informações relevantes. Abaixo eu organizei a análise do cenário, validei o seu entendimento, e proponho uma abordagem técnica para a solução, conforme solicitado:
+Exclusão e recriação de Aditamentos de Renovação Semestral;
 
-Algumas diretrizes para a compensação de valores:
-1 - A dinâmica de compensação dos valores é realizada por intermédio da fesRepasse quando da apuração em moeda dos valores a serem repassados às Mantenedoras;
-2 – O direcionamento dos valores, ou repasses, a serem compensados é realizado por intermédio da inserção dos sequenciais dos repasses na tabela FESTB812_CMPSO_RPSE_INDVO, destinada para este fim;
-3 - Cabe ressaltar que o que se compensa são os repasses das liberações e não as liberações propriamente dita;
-4 - Os valores, ou repasses, a serem compensados se resumem aos repasses realizados anteriormente, e indevidamente, às Mantenedoras;
-5 - Negocialmente, um semestre contratual para um candidato contém 6 (seis) parcelas a serem repassadas à Mantenedora. Dessa forma, não deve existir mais de um repasse para cada parcela de um mesmo período/semestre;
-6 - Sendo assim, as compensações geralmente se devem à recuperação de valores/repasses realizados em multiplicidade;
-7 - Outra forma preconizada se deve à necessidade de correção do valor, a maior ou a menor, repassado à Mantenedora. Nessa modalidade se compensa o valor repassado anteriormente e realiza-se um novo repasse com os valores adequados.
-8 – Não se deve direcionar o mesmo sequencial de repasse mais de uma vez à tabela FESTB812_CMPSO_RPSE_INDVO sob pena de compensar o mesmo repasse reiteradamente.
- 
-As diretrizes acima devem ser observadas quando da construção de uma solução para a realização de compensações e a seleção dos valores a serem compensados deve ser discutida com os gestores, haja vista as particularidades que cada problema de repasses indevidos apresenta.
+Isso apagou Liberações (712) e suas Retenções (817) filhas;
 
-=====================================================================================================================
-oque é Aditamento Renovação Semestral ? :
-      Contratação de Renovação semestral pelo aluno junto ao Ies, o ato do Aluno Renovar o contrato 
+A rotina de repasse (batch) gerou novas liberações e repasses, duplicando pagamentos já identificado na 909;
 
-Oque seria Aditamento Liberação ?==================================================
-      Liberação são os dados VRrepasse + dados contrato + datas + NU_SQNCL_LIBERACAO_CONTRATO , possibilitando as IES receberem os valores de acordo com contrato e parcelas correspondetes.
-e 
-Como é gerado as Liberações ?======================================================
-      As liberações são gerados a partir de aditamentos , no caso semestral para o contrato 
+Foi necessário reconstruir os dados da 712 em uma tabela nova (909), comparando com a 47 (auditoria), para identificar duplicidade.
 
+✅ 2. Validação do Seu Entendimento
+Você escreveu:
+“Antes de criar novo Aditamento, o sistema removia as liberações e retenções vinculadas ao aditamento anterior.”
 
-Como é feito o repasse ?===========================================================
-      O repasse é feito buscando informações do contrato e Idunico,  Vr repasse (calculo) validações pela processo Batch
-         Validar regras de cálculos e validações feitas no repasse e apuração repasse , para que seja autorizado o repasse
-oque é relatório analítico ================================================
-         O relatório Analítico é criado após o repasse Buscando informações da 712 (Liberação) e criando um Histórico na 711(Analitico) com um novo NU_SQNCL_RLTRO_CTRTO_ANALITICO +informações contrato + Tipo transação + vr repasse ...
-         Sendo gerado um estrato 
-==================================
----------------------------------------Entender o porque ouve a exclusão ? são duas etapaz a exlusão e recriação com outro Id----------------------------------------------
-   toda vez que acontecia o aditamento renovação para aquele contrato era verificado a existência , no código quando ele iria salvar um novo aditamento para aquele contrato 
-ele chamava o método que verificava se existia aditamento para aquele contrato (id)chamava remover filhos de aditamento que por sua vez removia Liberação e retenção , apagava o sequencial de Liberação e o da retenção, ai criava outro e salvava "AditamentoTO salvarAditamentoMenuPendencia" 
+✔ Correto. Esse processo é comum para evitar dados órfãos, mas a lógica falhou ao não prevenir duplicidade de repasses.
 
-Pelo que entendi entendi é rodado uma rotina que verificava se aquele Id para o contrato estava na tabela 
-Robledo  pelo que entendi ali na SP ela avalia a 711 e caso o mesmo registro não esteja correspondente na 812 então uma nova compensação é criada ai um INSERT   é executado na 712
+Você escreveu:
+“A rotina agendada identificava que os registros da 711 (analítico) não estavam na 812 (compensação), então criava novo repasse.”
 
-Resumir via codigo o Aditamento e regras do Aditamento Renovação semestral codigo :
+✔ Correto. A 711 registra o extrato analítico, e a falta de correspondência com a 812 implica que nenhuma compensação foi feita, levando à criação de novo repasse — duplicando o pagamento.
 
+Você escreveu:
+“Agora preciso criar uma procedure para compensar valores já pagos, estornando parcelas futuras.”
 
-                             ************EM QUAIS LUGARES ESSE ID QUE FOI APAGADO ERA USADO ? QUAIS OS RELACIONAMENTOS E IMPACTOS ?************
-parece que ele passa quais os tipos de transações ?:
-ADITAMENTO
+✔ A lógica faz sentido. Você precisa:
 
-Foram todos os Aditamentos ?
+Detectar as parcelas pagas em duplicidade (base 909);
 
------------------------       Como é feito a execução da funcionalidade atual ---------------
+Compensar isso nas próximas liberações/repasses;
 
+Ou aplicar um estorno, ajustando o histórico e evitando novo pagamento.
 
-Agora como faz ?
-removerFilhosAditamentoLiberacao não existe mais !
-LiberacaoContratoBean é onde no sistema faz a gravação das liberações 
-no método : public void processarRepasse gravando na 712
-duas questões aqui nesse método os dois tem assinatura :
-se a operação for igual a 
-    ESTORNAR_REPASSE_IES = permite reverter operações já realizadas " tem um calculo "
-      
+======= É ESSENCIAL ENTENDER AQUI================
 
-    GRAVAR_REPASSE_IES  = se for ele verifica se já existe liberações se for igual a zero ele então inclui liberações , se já existe ele visita e atualiza 
-como funciona o Atualza liberações ?
+Ciclo do Aditamento:
+Um Aditamento (Renovação Semestral) gera Liberações (712);
+
+Cada Liberação gera Retenções (817) e depois Repasses (via Batch com ajustes SPs Jair);
+
+O Analítico (711) é um espelho da liberação/repasses realizados;
+
+A Compensação (812) é uma forma de corrigir pagamentos indevidos;
+
+Se não houver referência na 812, a rotina supõe que ainda deve repassar.
+
+💡 PROPOSTA DE SOLUÇÃO – Técnica e Funcional - seria via SP a principio FESSPZ55_CRISE2019_TRATA_SUSP
+usando como base as consultas, já que em uma das sua etapas
+
+✅ 1. Detectar Duplicidades como base os dados que já estão na  (base: tabela 909)
+Use os dados recuperados da 909 para saber:
+
+essas informações podemos pegar da 909 -- mas precisamos comparar para não inserir duplicação de chave na 812 não pode haver doi sequenciais iguais :
+NU_SQNCL_LIBERACAO_CONTRATO 
+Qual NU_SQNCL_LIBERACAO_CONTRATO foi recriado;
+
+Qual parcela (NU_PARCELA), valor (VR_REPASSE), e contrato (NU_CONTRATO) já foi pago duas vezes;
+
+Você pode gerar uma tabela temporária (ex: TMP_LIB_DUPLICADA) com:
 
 
-Analise da solução
+NU_CONTRATO | NU_PARCELA | VR_REPASSE_DUPLICADO | DT_PAGAMENTO_ORIGINAL | DT_PAGAMENTO_DUPLICADO
 
-Foram criadas uma recomposição de tabela 712 , onde tinha sido apagadas os dados da coluna 
-NU_SQNCL_LIBERACAO_CONTRATO e  criando uma nova tabela a 909 , com os dados que foram comparados da 712 e 47 auditoria, para identificar os dados duplicados 
-ou seja que foram pagas duas vezes .
+2. Criar a lógica de compensação
+Opção A – Compensar próximo repasse
+Ao rodar o batch de repasse:
 
-oque preciso fazer criar uma procedure para compensar os  dados que já foram pagos , fazendo o estorno dos valores , ou seja vamos dizer que exista 6 parcelas , ou alguma parcela que foi paga para os dados da 909, eu preciso identificar e reter o próximo pagamento , para compensar oque já foi pago duplicado
 
-o primeiro passo seria identificar a parcela e valor que foi pago
-depois eu preciso reter ou colocar como cancelado (batch) ou , no processo gravar como storno .
 
-oque acontece quando é feito o estorno ? qual o processo 
+Verificar se o contrato/parcela existe na 909 e na 812(verificar se é a mesma chave  );
+
+Se sim, calcular VR_COMPENSACAO = VR_REPASSE_DUPLICADO;
+
+Inserir o NU_SEQ_REPASSE correspondente na FESTB812_CMPSO_RPSE_INDVO (compensação individual);
+
+O batch vai considerar isso e abater o valor da próxima liberação automaticamente. ou simplesmente cancelar o repasse da próxima  parcela se equivale a o valor 
+==================================================
+oque eu preciso validar é quais informações eu preciso para inserir na 812, porque as vezes são colunas e dados vindos de tabelas diferentes  
+
+essa tabela aqui tb711 é histórico de repasses feitos:
+tb711.NU_SQNCL_RLTRO_CTRTO_ANALITICO, NU_CAMPUS,NU_TIPO_TRANSACAO,NU_MANTENEDORA,NU_IES,NU_SEQ_CANDIDATO,MM_REFERENCIA,AA_REFERENCIA,VR_REPASSE,DT_ASSINATURA,
+NU_SQNCL_LIBERACAO_CONTRATO,TS_APURACAO_RELATORIO,NU_SQNCL_CTRTO_ANLTO_CMPNO
+
+Essa tabela é consultada para liberação do repasse ou parcela do repasse 
+tb.712 liberação----onde foi deletado  Nu sequencial foi deletado de determinado contrato fazendo que criada uma novo repasse 
+DT_INCLUSAO ,DT_LIBERACAO,IC_APTO_LIBERACAO_REPASSE,IC_SITUACAO_LIBERACAO
+MM_REFERENCIA_LIBERACAO,NU_CAMPUS,NU_IES,NU_MANTENEDORANU_PARCELA,NU_PARTICIPACAO_CANDIDATO,NU_SEQ_CANDIDATO,NU_SQNCL_ADITAMENTO,NU_SQNCL_LIBERACAO_CONTRATO,NU_TIPO_ACERTO,NU_TIPO_TRANSACAO,VR_REPASSE
+
+essa tabela foi criada porque algumas informações da 712 foi apagada mas foi recuperado o numeroSequencial e informações e feito essa tabela , que deverar ter as informações que são inseridas na 812.
+tb.909----Nova criada contem oque foi apagado que inclui a diferencça entre auditoria agora tem eles , tem apenas dados que foram deletados e publico a ser descontado a compensação
+DT_INCLUSAO ,DT_LIBERACAO,IC_APTO_LIBERACAO_REPASSE,IC_SITUACAO_LIBERACAO
+MM_REFERENCIA_LIBERACAO,NU_CAMPUS,NU_IES,NU_MANTENEDORANU_PARCELA,NU_PARTICIPACAO_CANDIDATO,NU_SEQ_CANDIDATO,NU_SQNCL_ADITAMENTO,NU_SQNCL_LIBERACAO_CONTRATO,NU_TIPO_ACERTO,NU_TIPO_TRANSACAO,VR_REPASSE
+
+------os dados serão inserids nessa tabela que é a da compensação: essa tabela contem os dados de repasses indevidos ( como foi nosso caso ) as informações que estão nela é consultado em outro processo do repasse , e quando os dados estão ai é feito a compesação de repasse indevido 
+tb.812-contem os repasses indevidos e deve ser inserido os dados da 909 ( Nusequencial )para ser compensado
+ NU_SQNCL_COMPENSACAO_REPASSE,NU_SQNCL_RLTRO_CTRTO_ANALITICO,NU_TIPO_ACERTO,
+TS_INCLUSAO,CO_USUARIO_INCLUSAO,IC_COMPENSADO
+
+                                      |-----Estorno
+                                      |-----Compensação(812)
+                                   |Repasses
+contrato(36)---Aditamentos(038)--Liberações(712) ---------Analítico(711)----sintético(710)
+                 |---Auditoria (047)  |---retenções (817)
+
+ Agora eu quero criar uma Sp que vamos criar para inserir na 812 , além de todas as validações se for necessária antes de fazer o insert desses repasses indevidos para que depois seja feito a compensação , então veja essa rotina tem a intenção de identificar as parcelas repassadas e inseirir essas mesmas na 812 para compesação, sobservando que não pode haver chave duplicada  :
+
+FESSPZ67_CRISE2025_COMPENSA_DUPLCD
+
 
 <pre>
 
