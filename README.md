@@ -495,7 +495,54 @@ public class ConsultaCompesacaoMantenedoraTO implements Serializable {
 
 		return listaRetorno;
 	}
-	
+	--------------------->
+ private void inserirAnaliticoCompensacaoMantenedora(Long nuMantenedora, BigDecimal valorRepasseBruto, BigDecimal percentualCompensacao, ApuracaoRepasseTO apuracaoRepasseTO) {
+		List<ConsultaCompesacaoMantenedoraTO> listCompensarMantenedora = consultaCompensacoesMantenedora(nuMantenedora);
+		BigDecimal valorCompensado = new BigDecimal(0);
+		
+		if (listCompensarMantenedora.isEmpty()) {
+			logger.debug("inserirAnaliticoCompensacaoMantenedora - mantenedora {} nao possui nada para compensar!", nuMantenedora);
+			return;
+		}
+
+		BigDecimal valorACompensarBruto = valorRepasseBruto.multiply(percentualCompensacao).divide(new BigDecimal(100));
+
+		BigDecimal valorRepasseLiquido = apuracaoRepasseTO.getValorRepasse();
+		BigDecimal valorACompensarLiquido = valorRepasseLiquido.multiply(percentualCompensacao).divide(new BigDecimal(100));
+
+		logger.debug("apurarAnaliticoCompensacao, mantendora {}, valor maximo a compensar bruto {}, liquido {}", nuMantenedora, valorACompensarBruto, valorACompensarLiquido);
+
+		BigDecimal valorIntegralizacaoRepasse = apuracaoRepasseTO.getValorIntegralizacao();
+		BigDecimal valorIntegralizacaoTotalCompensacao = BigDecimal.ZERO;
+
+		for (ConsultaCompesacaoMantenedoraTO analiticoCompensarTO : listCompensarMantenedora) {
+			String log = ""; // se der exceção, mostra detalhe da liberacao em q ocorreu o erro
+			
+			try {
+				// busca o valor da integralizacao a devolver do compensacao atual
+				BigDecimal valorIntegralizacaoCompensacao = consultarIntegralizacaoDevolverAnalitico(analiticoCompensarTO.getNumeroAnaliticoACompensar());
+				BigDecimal valorCompensadoLiquido = valorCompensado.add(analiticoCompensarTO.getValorRepasse());
+				BigDecimal valorTaxaAdmIntegralizacao = valorCompensadoLiquido.multiply(TAXA_DEFAULT);
+				valorCompensadoLiquido = valorCompensadoLiquido.subtract(valorIntegralizacaoCompensacao).subtract(valorTaxaAdmIntegralizacao);
+
+				//se o valor compensado mais o valor de repasse do proximo candidato superar o valor a compensar
+				// ou o valor total de integralizacao mais o valor de integralizacao da proxima compensacao superar o valor da intregralizacao do repasse
+				// ou o valor compensado liquido superar o valor a compensar liquido
+				// entao encerra o processamento
+				if (valorCompensado.add(analiticoCompensarTO.getValorRepasse()).compareTo(valorACompensarBruto) > 0 ||
+					valorIntegralizacaoTotalCompensacao.add(valorIntegralizacaoCompensacao).compareTo(valorIntegralizacaoRepasse) > 0 ||
+					valorCompensadoLiquido.compareTo(valorACompensarLiquido) > 0) {
+					break;
+				}
+
+				transacaoService.inserirAnaliticoCompensacaoMantenedora(nuMantenedora, analiticoCompensarTO, this.mesReferencia, this.anoReferencia, log);
+				valorCompensado = valorCompensado.add(analiticoCompensarTO.getValorRepasse());
+				valorIntegralizacaoTotalCompensacao = valorIntegralizacaoTotalCompensacao.add(valorIntegralizacaoCompensacao);
+			} catch(Exception e) {
+				logger.warn("{} exception: {}", log, e.getMessage(), e);
+			}
+		}
+	}
 ===========================Ajustes na Sp 19 ==========================================================================================================
 Análise da Sua Lógica e Próximos Passos
 
