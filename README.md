@@ -341,12 +341,131 @@ Dados:
 outro :
 19,	24249	,1,	2020-12-09 18:10:26.000,	C000000,	N
 
+============================================Processo Batch questão =======================================================================================
+Analise de como é feito a apuração a compensar :
+
+private void apurarAnaliticoCompensacao() {
+
+		HashMap<Long, Integer> mapConvenio = Utils.converteListaConvenioToMap(consultarPercentualCompensacaoMantenedoras());
+		List<SomatorioContratacaoAnaliticoTO> somatorioMantenedoras = consultarSomatorioAnalitico();
+
+		for (SomatorioContratacaoAnaliticoTO somatorio: somatorioMantenedoras) {
+			BigDecimal valorRepasse = somatorio.getValorRepasse();
+			Long nuMantenedora = somatorio.getNuMantenedora();
+
+			if (valorRepasse.compareTo(BigDecimal.ZERO) <= 0) {
+				logger.debug("apurarAnaliticoCompensacao, mantendora {}, valor de repasse menor ou igual a zero, não possui saldo para compensar! ", nuMantenedora);
+				continue;
+			}
+
+			// recupera o percentual maximo a compensar
+			BigDecimal percentualCompensacao = new BigDecimal( mapConvenio.getOrDefault(nuMantenedora, PERCENTUAL_DEFAULT_CONVENIO) );
+
+			// calcula valores liquidos da mantenedora
+			ApuracaoRepasseTO apuracaoRepasseTO = getApuracaoRepasse(new RelatorioContratacaoSinteticoTO(somatorio, mesReferencia, anoReferencia));
+
+			inserirAnaliticoCompensacaoMantenedora(nuMantenedora, valorRepasse, percentualCompensacao, apuracaoRepasseTO);
+		}
+
+	}
+
+-------------------->
+@Entity
+@Table(name = "ConsultaCompesacaoMantenedoraTO")
+@NamedNativeQuery(name = ConsultaCompesacaoMantenedoraTO.QUERY_CONSULTA_MANTENEDORA, query = "{call FES.FESSPU19_ROTINA_REPASSE( ?, :1, NULL, NULL, :2 ) }",
+				  resultClass = ConsultaCompesacaoMantenedoraTO.class, hints = { @javax.persistence.QueryHint(name = "org.hibernate.callable", value = "true") })
+public class ConsultaCompesacaoMantenedoraTO implements Serializable {
+
+	public static final String QUERY_CONSULTA_MANTENEDORA = "ConsultaCompesacaoMantenedoraTO.consultaMantenedora";
+	public static final int OPCAO_CONS_COMPENSACAO_MANTENEDORA = 2;
+
+	private static final long serialVersionUID = -979381930813632391L;
+	
+	@Id
+	@Column(name = "NU_SQNCL_COMPENSACAO_REPASSE")
+	private Long numeroCompensacao;
+	
+	@Column(name = "NU_SQNCL_RLTRO_CTRTO_ANALITICO")
+	private Long numeroAnaliticoACompensar;
+	
+	@Column(name = "NU_SQNCL_LIBERACAO_CONTRATO")
+	private Long numeroLiberacao;
+	
+	@Column(name = "NU_IES")
+	private Long nuIES;
+	
+	@Column(name = "NU_CAMPUS")
+	private Long nuCampus;
+	
+	@Column(name = "NU_SEQ_CANDIDATO")
+	private Long nuCandidato;
+	
+	@Column(name = "VR_REPASSE")
+	private BigDecimal valorRepasse;
+	
+	@Column(name = "VR_CONTRATO")
+	private BigDecimal valorContrato;
+	
+	@Column(name = "DT_ASSINATURA")
+	private Date dataAssinatura;
+	
+	@Column(name = "VR_ADITAMENTO")
+	private BigDecimal valorAditamento;
+	
+	@Column(name = "NU_TIPO_TRANSACAO")
+	private Integer numeroTipoTransacao;
+	
+	@Column(name = "NU_TIPO_ACERTO")
+	private Integer numeroTipoAcerto;
+	
+	-------------------------->
+@SuppressWarnings("unchecked")
+	private List<SomatorioContratacaoAnaliticoTO> consultarSomatorioAnalitico() {
+		StringBuilder sb = new StringBuilder();
+		sb.append("SELECT T711.NU_MANTENEDORA, T156.NO_MANTENEDORA, T156.SG_UF_FK08, ");
+		sb.append("       SUM(CASE WHEN T711.NU_SQNCL_CTRTO_ANLTO_CMPNO IS NULL THEN NVL(T711.VR_REPASSE,0) ELSE 0 END) AS VR_REPASSE, ");
+		sb.append("       COUNT(1) AS QT_REPASSE, ");
+		sb.append("       SUM(CASE WHEN T712.NU_TIPO_TRANSACAO = 1 THEN NVL(T36.VR_CONTRATO,0) ELSE 0 END) AS VR_CONTRATO, ");
+		sb.append("       COUNT(CASE WHEN T712.NU_TIPO_TRANSACAO = 1 THEN 1 END) AS QT_CONTRATO, ");
+		sb.append("       SUM(CASE WHEN T712.NU_TIPO_TRANSACAO = 2 THEN NVL(T38.VR_ADITAMENTO,0) ELSE 0 END) AS VR_ADITAMENTO, ");
+		sb.append("       COUNT(CASE WHEN T712.NU_TIPO_TRANSACAO = 2 THEN 1 END) AS QT_ADITAMENTO, ");
+		sb.append("       SUM(CASE WHEN T711.NU_SQNCL_CTRTO_ANLTO_CMPNO IS NOT NULL THEN NVL(T711.VR_REPASSE,0) ELSE 0 END) AS VR_COMPENSACAO ");
+		sb.append("  FROM FES.FESTB711_RLTRO_CTRTO_ANLTO T711 ");
+		sb.append("  JOIN FES.FESTB156_MANTENEDORA_INEP T156 ");
+		sb.append("    ON T156.NU_MANTENEDORA = T711.NU_MANTENEDORA ");
+		sb.append("  JOIN FES.FESTB712_LIBERACAO_CONTRATO T712 ");
+		sb.append("    ON T712.NU_SQNCL_LIBERACAO_CONTRATO = T711.NU_SQNCL_LIBERACAO_CONTRATO ");
+		sb.append("  LEFT JOIN FES.FESTB036_CONTRATO_FIES T36 ");
+		sb.append("    ON T36.NU_CANDIDATO_FK11 = T712.NU_SEQ_CANDIDATO ");
+		sb.append("   AND T36.NU_PARTICIPACAO_FK11 = T712.NU_PARTICIPACAO_CANDIDATO ");
+		sb.append("  LEFT JOIN FES.FESTB038_ADTMO_CONTRATO T38 ");
+		sb.append("    ON T38.NU_CANDIDATO_FK36 = T712.NU_SEQ_CANDIDATO ");
+		sb.append("   AND T38.NU_PARTICIPACAO_FK36 = T712.NU_PARTICIPACAO_CANDIDATO ");
+		sb.append("   AND T38.NU_SEQ_ADITAMENTO = T712.NU_SQNCL_ADITAMENTO ");
+		sb.append(" WHERE T711.MM_REFERENCIA = :mes ");
+		sb.append("   AND T711.AA_REFERENCIA = :ano ");
+		sb.append(" GROUP BY T711.NU_MANTENEDORA, T156.NO_MANTENEDORA, T156.SG_UF_FK08 ");
+		sb.append(" ORDER BY T711.NU_MANTENEDORA ");
+
+		Query qr = entityManager.createNativeQuery(sb.toString());
+		qr.setParameter("mes", this.mesReferencia);
+		qr.setParameter("ano", this.anoReferencia);
+
+		List<SomatorioContratacaoAnaliticoTO> listaRetorno = new ArrayList<>();
+		List<Object[]> list = qr.getResultList();
+		for (Object[] objArray: list) {
+			listaRetorno.add( new SomatorioContratacaoAnaliticoTO(objArray) );
+		}
+
+		return listaRetorno;
+	}
+	
+
+
+
+
+
 =========================================================================================================================================
-
-
-
-
-
 <pre>
 
 </pre>
