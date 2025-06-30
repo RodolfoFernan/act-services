@@ -680,9 +680,83 @@ Resumo do Fluxo do Repasse e Regras de Negócio:
         Verifica se a compensação total (bruta, líquida e de integralização) já atingiu o limite mensal.
         Se não atingiu, aplica a compensação (registra e marca o item na FESTB812 como compensado).
     Compensações que excedem o limite do mês ou o valor devido ficam para os meses seguintes.
-
-
-
+=========================================================================================================================================
+INSERT INTO FES.FESTB712_LIBERACAO_CONTRATO (
+    NU_SQNCL_LIBERACAO_CONTRATO, NU_SEQ_CANDIDATO, NU_MANTENEDORA, NU_IES, NU_CAMPUS, NU_PARCELA,
+    MM_REFERENCIA_LIBERACAO, AA_REFERENCIA_LIBERACAO, VR_REPASSE, IC_SITUACAO_LIBERACAO, DT_LIBERACAO,
+    DT_INCLUSAO, DT_ATUALIZACAO, NU_PARTICIPACAO_CANDIDATO, NU_SQNCL_ADITAMENTO, NU_TIPO_TRANSACAO,
+    IC_APTO_LIBERACAO_REPASSE
+) VALUES (
+    90000002,      -- L9002: ID da liberação que gerou o repasse duplicado e está na 712
+    90000000,      -- Candidato de teste
+    1965,          -- Mantenedora de teste
+    3034,          -- IES de teste
+    1061025,       -- Campus de teste
+    3,             -- Parcela 3
+    3,             -- Mês de referência
+    2024,          -- Ano de referência (alterado para um ano mais recente)
+    1325.82,       -- Valor do repasse
+    'S',           -- Situação da liberação
+    TO_DATE('2024-03-15', 'YYYY-MM-DD'), -- Data da liberação
+    TO_TIMESTAMP('2024-03-15 15:01:21.000', 'YYYY-MM-DD HH24:MI:SS.FF3'), -- Data de inclusão (mais recente)
+    SYSTIMESTAMP,  -- Data de atualização
+    1,             -- Participação
+    1,             -- Sequencial de aditamento (se houver)
+    1,             -- Tipo de transação (e.g., 1 para Contrato)
+    'S'            -- Apto para liberação
+);
+---------------------------------------------------------------
+INSERT INTO FES.FESTB711_RLTRO_CTRTO_ANLTO (
+    NU_SQNCL_RLTRO_CTRTO_ANALITICO, NU_CAMPUS, NU_TIPO_TRANSACAO, NU_MANTENEDORA, NU_IES, NU_SEQ_CANDIDATO,
+    MM_REFERENCIA, AA_REFERENCIA, VR_REPASSE, DT_ASSINATURA, NU_SQNCL_LIBERACAO_CONTRATO,
+    TS_APURACAO_RELATORIO, NU_SQNCL_CTRTO_ANLTO_CMPNO
+) VALUES (
+    90000011,      -- R9002: ID do repasse analítico duplicado
+    1061025,       -- Campus
+    1,             -- Tipo de transação
+    1965,          -- Mantenedora
+    3034,          -- IES
+    90000000,      -- Candidato de teste
+    3,             -- Mês de referência
+    2024,          -- Ano de referência
+    1325.82,       -- Valor do repasse
+    TO_DATE('2024-03-15', 'YYYY-MM-DD'), -- Data de assinatura
+    90000002,      -- L9002: Referencia a liberação duplicada da 712
+    TO_TIMESTAMP('2024-03-15 15:01:26.000', 'YYYY-MM-DD HH24:MI:SS.FF3'), -- Timestamp de apuração
+    NULL           -- Não compensado por compensação interna
+);
+-----------------------------------------------------------------------------
+INSERT INTO FES.FESTB909_RECOMP_712 (
+    NU_SQNCL_LIBERACAO_CONTRATO, NU_SEQ_CANDIDATO, NU_IES, NU_CAMPUS, NU_PARCELA,
+    MM_REFERENCIA_LIBERACAO, AA_REFERENCIA_LIBERACAO, VR_REPASSE,
+    TS_INCLUSAO, CO_USUARIO_INCLUSAO
+) VALUES (
+    90000002,      -- L9002: NU_SQNCL_LIBERACAO_CONTRATO da liberação duplicada
+    90000000,      -- Candidato
+    3034,          -- IES
+    1061025,       -- Campus
+    3,             -- Parcela
+    3,             -- Mês de referência
+    2024,          -- Ano de referência
+    1325.82,       -- Valor do repasse
+    SYSTIMESTAMP,  -- Carimbo de data/hora atual
+    'TESTE_SP67'   -- Usuário de inclusão
+);
+--------------------------------------------------------------------------------------
+-- Assumindo que você tem acesso à sequence para NU_SQNCL_COMPENSACAO_REPASSE ou pode inserir um valor alto fictício.
+-- Se você ainda não tem o nome da sequence, use um valor como 90000000 para este campo, por exemplo.
+INSERT INTO FES.FESTB812_CMPSO_RPSE_INDVO (
+    NU_SQNCL_COMPENSACAO_REPASSE, NU_SQNCL_RLTRO_CTRTO_ANALITICO, NU_TIPO_ACERTO,
+    TS_INCLUSAO, CO_USUARIO_INCLUSAO, IC_COMPENSADO
+) VALUES (
+    90000000,      -- ID Fictício de Compensação (substituir pela sequence real se disponível)
+    90000011,      -- R9002: NU_SQNCL_RLTRO_CTRTO_ANALITICO do repasse duplicado (mesmo da FESTB711)
+    1,             -- Tipo de acerto (1 para duplicidade)
+    SYSTIMESTAMP,  -- Data de inclusão
+    'C000000',     -- Usuário de inclusão
+    'N'            -- Indicador de compensado ('N' para pendente)
+);
+--------------------------------------------------------------------------------------
 
 
 =========================================================================================================================================
