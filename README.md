@@ -8,7 +8,603 @@
 <h2>1. Estrutura dos Microsserviços</h2>
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
 Perfeito! Com base nas informações que você forneceu, aqui está um resumo da motivação e das circunstâncias de criação das Stored Procedures (SPs) mencionadas, bem como o impacto delas no fluxo Javaweb e na rotina Java batch FES.REPASSE:
-
+=============================================================================
+DECLARE
+-- Dados da liberação da FESTB712
+v_nu_sqncl_liberacao_contrato NUMBER := 141622;
+v_nu_seq_candidato NUMBER := 20026852;
+v_nu_ies NUMBER := 1276;
+v_nu_campus NUMBER := 1058775;
+v_mm_referencia_liberacao NUMBER := 6; -- Da FESTB712
+v_aa_referencia_liberacao NUMBER := 2018; -- Da FESTB712
+v_vr_repasse_liberacao NUMBER := 148.34; -- Da FESTB712
+ 
+-- Variáveis para a lógica
+v_nu_sqncl_rl_analitico_encontrado NUMBER;
+v_existe_na_812 NUMBER;
+ 
+-- NU_SQNCL_COMPENSACAO_REPASSE de teste.
+v_nu_sqncl_compensacao_repasse NUMBER := 68;
+ 
+-- Usuário de execução e tipo de acerto para a inserção
+v_co_usuario_execucao VARCHAR2(8) := 'RdfoSp67';
+v_nu_tipo_acerto_compensacao CONSTANT NUMBER := 1;
+ 
+BEGIN
+DBMS_OUTPUT.PUT_LINE('--- Início do Exercício de Lógica com INSERÇÃO REAL ---');
+DBMS_OUTPUT.PUT_LINE('----------------------------------------------------');
+DBMS_OUTPUT.PUT_LINE('Dados de entrada da Liberação (FESTB712):');
+DBMS_OUTPUT.PUT_LINE(' NU_SQNCL_LIBERACAO_CONTRATO: ' || v_nu_sqncl_liberacao_contrato);
+DBMS_OUTPUT.PUT_LINE(' NU_SEQ_CANDIDATO: ' || v_nu_seq_candidato);
+DBMS_OUTPUT.PUT_LINE(' NU_IES: ' || v_nu_ies);
+DBMS_OUTPUT.PUT_LINE(' NU_CAMPUS: ' || v_nu_campus);
+DBMS_OUTPUT.PUT_LINE(' MM_REFERENCIA_LIBERACAO (da 712): ' || v_mm_referencia_liberacao);
+DBMS_OUTPUT.PUT_LINE(' AA_REFERENCIA_LIBERACAO (da 712): ' || v_aa_referencia_liberacao);
+DBMS_OUTPUT.PUT_LINE(' VR_REPASSE (da 712): ' || v_vr_repasse_liberacao);
+DBMS_OUTPUT.PUT_LINE('----------------------------------------------------');
+DBMS_OUTPUT.PUT_LINE('NU_SQNCL_COMPENSACAO_REPASSE (valor de teste para PK/UK da 812): ' || v_nu_sqncl_compensacao_repasse);
+DBMS_OUTPUT.PUT_LINE('CO_USUARIO_INCLUSAO: ' || v_co_usuario_execucao);
+DBMS_OUTPUT.PUT_LINE('----------------------------------------------------');
+ 
+-- PASSO 1: Tentar encontrar o NU_SQNCL_RLTRO_CTRTO_ANALITICO na FESTB711
+DBMS_OUTPUT.PUT_LINE(CHR(10) || '>> PASSO 1: Buscando o NU_SQNCL_RLTRO_CTRTO_ANALITICO na FESTB711 usando dados da FESTB712...');
+BEGIN
+SELECT T711.NU_SQNCL_RLTRO_CTRTO_ANALITICO
+INTO v_nu_sqncl_rl_analitico_encontrado
+FROM FES.FESTB711_RLTRO_CTRTO_ANLTO T711
+WHERE T711.NU_SQNCL_LIBERACAO_CONTRATO = v_nu_sqncl_liberacao_contrato
+AND T711.NU_SEQ_CANDIDATO = v_nu_seq_candidato
+AND T711.NU_IES = v_nu_ies
+AND T711.NU_CAMPUS = v_nu_campus
+AND T711.MM_REFERENCIA = v_mm_referencia_liberacao
+AND T711.AA_REFERENCIA = v_aa_referencia_liberacao
+AND T711.VR_REPASSE = v_vr_repasse_liberacao
+ORDER BY T711.TS_APURACAO_RELATORIO DESC
+FETCH FIRST 1 ROW ONLY;
+ 
+DBMS_OUTPUT.PUT_LINE(' RESULTADO PASSO 1: SUCESSO!');
+DBMS_OUTPUT.PUT_LINE(' -> NU_SQNCL_RLTRO_CTRTO_ANALITICO encontrado na FESTB711: ' || v_nu_sqncl_rl_analitico_encontrado);
+ 
+EXCEPTION
+WHEN NO_DATA_FOUND THEN
+v_nu_sqncl_rl_analitico_encontrado := NULL;
+DBMS_OUTPUT.PUT_LINE(' RESULTADO PASSO 1: ALERTA (NO_DATA_FOUND)!');
+DBMS_OUTPUT.PUT_LINE(' -> Não foi encontrado um NU_SQNCL_RLTRO_CTRTO_ANALITICO correspondente na FESTB711 para os dados da liberação fornecidos.');
+DBMS_OUTPUT.PUT_LINE(' -> A INSERÇÃO na FESTB812 NÃO será executada neste caso.');
+GOTO end_logic;
+WHEN TOO_MANY_ROWS THEN
+DBMS_OUTPUT.PUT_LINE(' RESULTADO PASPO 1: AVISO (TOO_MANY_ROWS)!');
+DBMS_OUTPUT.PUT_LINE(' -> Múltiplos NU_SQNCL_RLTRO_CTRTO_ANALITICO encontrados na FESTB711 para os critérios exatos.');
+DBMS_OUTPUT.PUT_LINE(' -> O script selecionou o mais recente (ORDER BY TS_APURACAO_RELATORIO DESC).');
+END;
+ 
+-- PASSO 2: Se o analítico foi encontrado, verificar sua existência na FESTB812
+IF v_nu_sqncl_rl_analitico_encontrado IS NOT NULL THEN
+DBMS_OUTPUT.PUT_LINE(CHR(10) || '>> PASSO 2: Verificando a existência do analítico (' || v_nu_sqncl_rl_analitico_encontrado || ') na FESTB812...');
+SELECT COUNT(1)
+INTO v_existe_na_812
+FROM FES.FESTB812_CMPSO_RPSE_INDVO
+WHERE NU_SQNCL_RLTRO_CTRTO_ANALITICO = v_nu_sqncl_rl_analitico_encontrado
+AND NU_SQNCL_COMPENSACAO_REPASSE = v_nu_sqncl_compensacao_repasse;
+ 
+DBMS_OUTPUT.PUT_LINE(' RESULTADO PASSO 2: Checagem concluída.');
+DBMS_OUTPUT.PUT_LINE(' -> Quantidade de registros existentes na FESTB812 para (Analítico: ' || v_nu_sqncl_rl_analitico_encontrado || ', Seq. Comp.: ' || v_nu_sqncl_compensacao_repasse || '): ' || v_existe_na_812);
+ 
+IF v_existe_na_812 = 0 THEN
+DBMS_OUTPUT.PUT_LINE(' DECISÃO: O registro (Analítico ' || v_nu_sqncl_rl_analitico_encontrado || ' e Sequencial ' || v_nu_sqncl_compensacao_repasse || ') NÃO existe na FESTB812.');
+DBMS_OUTPUT.PUT_LINE(' -> **Realizando a INSERÇÃO na FESTB812 agora...**');
+ 
+-- ----------------------------------------------------------------------
+-- *** AQUI É ONDE O COMANDO INSERT É ADICIONADO ***
+-- ----------------------------------------------------------------------
+BEGIN
+INSERT INTO FES.FESTB812_CMPSO_RPSE_INDVO (
+NU_SQNCL_COMPENSACAO_REPASSE,
+NU_SQNCL_RLTRO_CTRTO_ANALITICO,
+NU_TIPO_ACERTO,
+TS_INCLUSAO,
+CO_USUARIO_INCLUSAO,
+IC_COMPENSADO
+) VALUES (
+v_nu_sqncl_compensacao_repasse,
+v_nu_sqncl_rl_analitico_encontrado,
+v_nu_tipo_acerto_compensacao,
+SYSTIMESTAMP,
+v_co_usuario_execucao,
+'N'
+);
+DBMS_OUTPUT.PUT_LINE(' SUCESSO: Inserido analítico ' || v_nu_sqncl_rl_analitico_encontrado || ' na FESTB812 com NU_SQNCL_COMPENSACAO_REPASSE = ' || v_nu_sqncl_compensacao_repasse || '.');
+EXCEPTION
+WHEN DUP_VAL_ON_INDEX THEN
+DBMS_OUTPUT.PUT_LINE(' ERRO (DUP_VAL_ON_INDEX): Falha na inserção para analítico ' || v_nu_sqncl_rl_analitico_encontrado || ' e sequencial ' || v_nu_sqncl_compensacao_repasse || '. Registro já existe (possível concorrência).');
+WHEN OTHERS THEN
+DBMS_OUTPUT.PUT_LINE(' ERRO INESPERADO NA INSERÇÃO: Falha ao inserir analítico ' || v_nu_sqncl_rl_analitico_encontrado || ': ' || SQLERRM);
+RAISE; -- Re-lança a exceção para que o bloco externo a capture
+END;
+-- ----------------------------------------------------------------------
+ 
+ELSE
+DBMS_OUTPUT.PUT_LINE(' DECISÃO: O registro (Analítico ' || v_nu_sqncl_rl_analitico_encontrado || ' e Sequencial ' || v_nu_sqncl_compensacao_repasse || ') JÁ existe na FESTB812.');
+DBMS_OUTPUT.PUT_LINE(' -> **A INSERÇÃO NÃO será realizada para evitar duplicidade.**');
+END IF;
+ELSE
+DBMS_OUTPUT.PUT_LINE(CHR(10) || '>> PASSO 2: Não executado. O analítico não foi encontrado no Passo 1.');
+END IF;
+ 
+<<end_logic>>
+-- IMPORTANTE: Em um processo batch, o COMMIT é geralmente feito no final do ciclo ou da transação.
+-- Para este teste individual, um COMMIT manual é adequado para ver o efeito.
+COMMIT;
+DBMS_OUTPUT.PUT_LINE(CHR(10) || '--- Fim do Exercício de Lógica com INSERÇÃO. Transação COMITADA. ---');
+ 
+EXCEPTION
+WHEN OTHERS THEN
+ROLLBACK; -- Garante que qualquer inserção parcial seja desfeita em caso de erro.
+DBMS_OUTPUT.PUT_LINE(CHR(10) || 'ERRO FATAL GERAL (Transação ROLLED BACK): ' || SQLERRM);
+END;
+-----------------       testes ----------------------------
+ 
+ 
+SELECT*FROM  FES.FESTB712_LIBERACAO_CONTRATO
+WHERE NU_SQNCL_LIBERACAO_CONTRATO = 141622 ;
+ 
+RESULTADO :
+141622	20026852	12526	1276	1058775	6	6	2018	148.34	R 	2018-06-15 00:00:00.000	2018-04-26 00:00:00.000	2020-04-28 17:32:29.000	1		1		S
+ 
+SELECT*FROM  FES.FESTB711_RLTRO_CTRTO_ANLTO
+WHERE NU_SQNCL_LIBERACAO_CONTRATO = 141622 ;
+ 
+Veja que nesse momento ele me traz
+para os mesmos contratos (nusequencial 712) varios nusequencial contratato analitico
+mas o mes de referencia muda , assim como o valor :
+24367	1058775	2	851	1276	20026852	6	2019	185.69	0018-04-26 00:00:00.000	141622		
+27399	1058775	1	851	1276	20026852	11	2019	-185.69	0018-04-26 00:00:00.000	141622	2019-12-07 20:06:01.758	24367
+53287	1058775	1	12526	1276	20026852	6	2018	148.34	2018-04-26 00:00:00.000	141622	2020-04-28 17:32:29.292	
+ 
+SELECT*FROM  FES.FESTB812_CMPSO_RPSE_INDVO flcr
+WHERE NU_SQNCL_LIBERACAO_CONTRATO = 53287 ;
+ 
+ 
+Possivel filtro pelo mes
+pelo vr repasse :
+5 parcelas com o mesmo valor
+a ultima acrscenta um resto , diferente .
+ 
+ 
+ 
+ 
+ 
+---Primeiro testes
+---  1 .ja existe dados na 812 o dado da massa
+--- rodar a SP para e ver se vai duplicar
+      --- rodar sp
+      ---Rodar verificação de duplicidade
+---  2 . Verificação de criação dos dados
+      --- rodar exclusão da 812
+      --- rodar sp para insert
+---  3 . Verificaçao de contratos sem o analitico
+ 
+---  4 .verificação caminho de quenecial 712/909---> 711analitico---->analitico812
+ 
+-------------------------------------------
+INSERT INTO FES.FESTB812_CMPSO_RPSE_INDVO (
+NU_SQNCL_COMPENSACAO_REPASSE,
+NU_SQNCL_RLTRO_CTRTO_ANALITICO,
+NU_TIPO_ACERTO,
+TS_INCLUSAO,
+CO_USUARIO_INCLUSAO,
+IC_COMPENSADO
+) VALUES (
+68, -- Pega o próximo valor da sequência
+53287, -- Nosso NU_SQNCL_RLTRO_CTRTO_ANALITICO de teste
+1, -- Exemplo de NU_TIPO_ACERTO, ajuste se for outro
+SYSTIMESTAMP, -- Data e hora atual da inclusão
+'RdfoSp67', -- Seu usuário de execução
+'N' -- 'Não Compensado'
+);
+----------------Verica duplicidade
+SELECT
+NU_SQNCL_RLTRO_CTRTO_ANALITICO,
+COUNT(*) AS QUANTIDADE_REGISTROS
+FROM
+FES.FESTB812_CMPSO_RPSE_INDVO
+GROUP BY
+NU_SQNCL_RLTRO_CTRTO_ANALITICO
+HAVING
+COUNT(*) > 1;
+----------------------- Delete
+DELETE FROM FES.FESTB812_CMPSO_RPSE_INDVO
+WHERE NU_SQNCL_RLTRO_CTRTO_ANALITICO = 53287;
+ 
+---SELECT PARA VER A NÃO EXIXTENCIA MAIS ---ok
+SELECT NU_SQNCL_RLTRO_CTRTO_ANALITICO FROM
+FES.FESTB812_CMPSO_RPSE_INDVO fcri
+WHERE
+NU_SQNCL_RLTRO_CTRTO_ANALITICO = 53287;
+--------------------------------------Validação da logica entre tabelas ---------------------
+SELECT
+-- Dados da FESTB712 (Novo ponto de partida para validação)
+T712.NU_SQNCL_LIBERACAO_CONTRATO AS Liberacao_Contrato_712,
+T712.NU_SEQ_CANDIDATO AS Candidato_712,
+T712.VR_REPASSE AS VR_Repasse_712,
+T712.MM_REFERENCIA_LIBERACAO AS Mes_Ref_712,
+T712.AA_REFERENCIA_LIBERACAO AS Ano_Ref_712,
+T712.NU_IES AS IES_712,
+T712.NU_CAMPUS AS Campus_712,
+ 
+-- Dados da FESTB711 (o relatório analítico, vinculado à 712)
+T711.NU_SQNCL_RLTRO_CTRTO_ANALITICO AS Sequencial_Analitico_711,
+T711.VR_REPASSE AS VR_Repasse_711,
+T711.MM_REFERENCIA AS Mes_Ref_711,
+T711.AA_REFERENCIA AS Ano_Ref_711,
+ 
+-- Dados da FESTB812 (a tabela de compensação, verificando a existência)
+T812.NU_SQNCL_COMPENSACAO_REPASSE AS Sequencial_Compensacao_812,
+T812.IC_COMPENSADO AS Compensado_812,
+T812.TS_INCLUSAO AS TS_Inclusao_812
+FROM
+FES.FESTB712_LIBERACAO_CONTRATO T712
+LEFT JOIN
+FES.FESTB711_RLTRO_CTRTO_ANLTO T711
+ON
+T711.NU_SQNCL_LIBERACAO_CONTRATO = T712.NU_SQNCL_LIBERACAO_CONTRATO
+AND T711.NU_SEQ_CANDIDATO = T712.NU_SEQ_CANDIDATO
+AND T711.NU_IES = T712.NU_IES
+AND T711.NU_CAMPUS = T712.NU_CAMPUS
+AND T711.MM_REFERENCIA = T712.MM_REFERENCIA_LIBERACAO
+AND T711.AA_REFERENCIA = T712.AA_REFERENCIA_LIBERACAO
+AND T711.VR_REPASSE = T712.VR_REPASSE
+LEFT JOIN
+FES.FESTB812_CMPSO_RPSE_INDVO T812
+ON
+T812.NU_SQNCL_RLTRO_CTRTO_ANALITICO = T711.NU_SQNCL_RLTRO_CTRTO_ANALITICO
+WHERE
+T712.NU_SQNCL_LIBERACAO_CONTRATO = 141622; -- Use seu sequencial de contrato específico aqui
+-----------------------------------------------
+INSERT INTO FES.FESTB909_LIBERACAO_CONTRATO_RE (
+NU_SQNCL_LIBERACAO_CONTRATO,
+NU_SEQ_CANDIDATO,
+NU_MANTENEDORA,
+NU_IES,
+NU_CAMPUS,
+NU_PARCELA,
+MM_REFERENCIA_LIBERACAO,
+AA_REFERENCIA_LIBERACAO,
+VR_REPASSE,
+IC_SITUACAO_LIBERACAO,
+DT_LIBERACAO,
+DT_INCLUSAO,
+DT_ATUALIZACAO,
+NU_PARTICIPACAO_CANDIDATO,
+NU_SQNCL_ADITAMENTO,
+NU_TIPO_TRANSACAO,
+NU_TIPO_ACERTO,
+IC_APTO_LIBERACAO_REPASSE
+) VALUES (
+141622, -- NU_SQNCL_LIBERACAO_CONTRATO (do SELECT)
+20026852, -- NU_SEQ_CANDIDATO (do SELECT)
+12526, -- NU_MANTENEDORA (do SELECT)
+1276, -- NU_IES (do SELECT)
+1058775, -- NU_CAMPUS (do SELECT)
+6, -- NU_PARCELA (do SELECT)
+6, -- MM_REFERENCIA_LIBERACAO (do SELECT)
+2019, -- AA_REFERENCIA_LIBERACAO (do SELECT)
+-185.69, -- VR_REPASSE (do SELECT)
+'R', -- IC_SITUACAO_LIBERACAO (do SELECT)
+'18-06-15',
+'18-04-26',
+'20-04-28',
+1, -- NU_PARTICIPACAO_CANDIDATO (do SELECT)
+NULL, -- NU_SQNCL_ADITAMENTO (do SELECT)
+1, -- NU_TIPO_TRANSACAO (do SELECT)
+NULL, -- NU_TIPO_ACERTO (do SELECT)
+'S' -- IC_APTO_LIBERACAO_REPASSE (do SELECT)
+);
+-----------------------------TRAZ MINHA MASSA VALIDA -----------------------------------------------
+-- Para me trazer os dados com nusequencial Analitico e Contratual mais condição de repasse
+SELECT
+-- Dados da FESTB812
+T812.NU_SQNCL_COMPENSACAO_REPASSE,
+T812.NU_SQNCL_RLTRO_CTRTO_ANALITICO,
+T812.NU_TIPO_ACERTO,
+T812.IC_COMPENSADO,
+-- Dados da FESTB711
+T711.NU_SEQ_CANDIDATO,
+T711.NU_IES,
+T711.NU_CAMPUS,
+T711.VR_REPASSE,
+T711.MM_REFERENCIA AS MM_REFERENCIA_711,
+T711.AA_REFERENCIA AS AA_REFERENCIA_711,
+T711.DT_ASSINATURA,
+T711.NU_SQNCL_LIBERACAO_CONTRATO, -- Este será o link para a FESTB712
+-- Dados da FESTB712
+T712.NU_MANTENEDORA,
+T712.NU_PARCELA,
+T712.MM_REFERENCIA_LIBERACAO,
+T712.AA_REFERENCIA_LIBERACAO,
+T712.IC_SITUACAO_LIBERACAO,
+T712.DT_LIBERACAO,
+T712.DT_INCLUSAO AS DT_INCLUSAO_712,
+T712.DT_ATUALIZACAO AS DT_ATUALIZACAO_712,
+T712.NU_PARTICIPACAO_CANDIDATO,
+T712.NU_SQNCL_ADITAMENTO,
+T712.NU_TIPO_TRANSACAO,
+T712.NU_TIPO_ACERTO AS NU_TIPO_ACERTO_712,
+T712.IC_APTO_LIBERACAO_REPASSE
+FROM
+JOIN FES.FESTB812_CMPSO_RPSE_INDVO T812
+FES.FESTB711_RLTRO_CTRTO_ANLTO T711
+ON T711.NU_SQNCL_RLTRO_CTRTO_ANALITICO = T812.NU_SQNCL_RLTRO_CTRTO_ANALITICO
+JOIN FES.FESTB712_LIBERACAO_CONTRATO T712
+ON T712.NU_SQNCL_LIBERACAO_CONTRATO = T711.NU_SQNCL_LIBERACAO_CONTRATO
+WHERE T812.IC_COMPENSADO = 'N'
+FETCH FIRST 1 ROW ONLY;
+ 
+2	24367	1	N	20026852	1276	1058775	185.69	6	2019	0018-04-26 00:00:00.000	141622	12526	6	6	2018	R 	2018-06-15 00:00:00.000	2018-04-26 00:00:00.000	2020-04-28 17:32:29.000	1		1		S
+ 
+---------------------------Decompondo esse select para mostrar a logica -------------------------------------------------
+--Validando Nu sequencial contrato --ok
+SELECT
+T812.NU_SQNCL_COMPENSACAO_REPASSE,
+T812.NU_SQNCL_RLTRO_CTRTO_ANALITICO,
+T812.NU_TIPO_ACERTO,
+T812.IC_COMPENSADO,
+T812.TS_INCLUSAO AS TS_INCLUSAO_812,
+T812.CO_USUARIO_INCLUSAO AS USUARIO_INCLUSAO_812
+FROM
+FES.FESTB812_CMPSO_RPSE_INDVO T812
+WHERE
+T812.NU_SQNCL_RLTRO_CTRTO_ANALITICO = 27352;
+ 
+RESULTADO : sem informações
+ 
+68	27352	6	N	2025-06-03 00:00:00.000	CRISE19
+---------------------------Verificando os SequencialAnalitico--------------------
+ 
+SELECT
+T711.NU_SQNCL_RLTRO_CTRTO_ANALITICO,
+T711.NU_SEQ_CANDIDATO,
+T711.NU_IES,
+T711.NU_CAMPUS,
+T711.VR_REPASSE,
+T711.MM_REFERENCIA AS MM_REFERENCIA_711,
+T711.AA_REFERENCIA AS AA_REFERENCIA_711,
+T711.DT_ASSINATURA,
+T711.NU_SQNCL_LIBERACAO_CONTRATO, -- AQUI ESTÁ O ID DA 712!
+T711.TS_APURACAO_RELATORIO
+FROM
+FES.FESTB711_RLTRO_CTRTO_ANLTO T711
+WHERE
+T711.NU_SQNCL_RLTRO_CTRTO_ANALITICO = 27399;
+ 
+resultado :
+27399	20026852	1276	1058775	-185.69	11	2019	0018-04-26 00:00:00.000	141622	2019-12-07 20:06:01.758
+--------------------------Verificando o sequencialContrato correspondente------------------
+SELECT
+T712.NU_SQNCL_LIBERACAO_CONTRATO,
+T712.NU_MANTENEDORA,
+T712.NU_PARCELA,
+T712.MM_REFERENCIA_LIBERACAO,
+T712.AA_REFERENCIA_LIBERACAO,
+T712.IC_SITUACAO_LIBERACAO,
+T712.DT_LIBERACAO,
+T712.DT_INCLUSAO AS DT_INCLUSAO_712,
+T712.DT_ATUALIZACAO AS DT_ATUALIZACAO_712,
+T712.NU_PARTICIPACAO_CANDIDATO,
+T712.NU_SQNCL_ADITAMENTO,
+T712.NU_TIPO_TRANSACAO,
+T712.NU_TIPO_ACERTO AS NU_TIPO_ACERTO_712,
+T712.IC_APTO_LIBERACAO_REPASSE
+FROM
+FES.FESTB712_LIBERACAO_CONTRATO T712
+WHERE
+T712.NU_SQNCL_LIBERACAO_CONTRATO = 141622;
+ 
+ 
+141622	12526	6	6	2018	R 	2018-06-15 00:00:00.000	2018-04-26 00:00:00.000	2020-04-28 17:32:29.000	1		1		S
+ 
+============================================
+ 
+ 
+ 
+DELETE FROM FES.FESTB909_LIBERACAO_CONTRATO_RE
+WHERE NU_SQNCL_LIBERACAO_CONTRATO = 141622;
+COMMIT; -- Confirme a exclusão
+ 
+ 
+INSERT INTO FES.FESTB909_LIBERACAO_CONTRATO_RE (
+NU_SQNCL_LIBERACAO_CONTRATO,
+NU_SEQ_CANDIDATO,
+NU_MANTENEDORA,
+NU_IES,
+NU_CAMPUS,
+NU_PARCELA,
+MM_REFERENCIA_LIBERACAO, -- Este precisa ser 11 (igual ao MM_REFERENCIA da 711)
+AA_REFERENCIA_LIBERACAO, -- Este precisa ser 2019 (igual ao AA_REFERENCIA da 711)
+VR_REPASSE, -- Este precisa ser -185.69 (igual ao VR_REPASSE da 711)
+IC_SITUACAO_LIBERACAO,
+DT_LIBERACAO,
+DT_INCLUSAO,
+DT_ATUALIZACAO,
+NU_PARTICIPACAO_CANDIDATO,
+NU_SQNCL_ADITAMENTO,
+NU_TIPO_TRANSACAO,
+NU_TIPO_ACERTO,
+IC_APTO_LIBERACAO_REPASSE
+)
+SELECT
+T712.NU_SQNCL_LIBERACAO_CONTRATO,
+T712.NU_SEQ_CANDIDATO,
+T712.NU_MANTENEDORA,
+T712.NU_IES,
+T712.NU_CAMPUS,
+T712.NU_PARCELA,
+-- **** AQUI ESTÃO OS AJUSTES CHAVE! USANDO OS VALORES CORRETOS DA FESTB711 ****
+11 AS MM_REFERENCIA_LIBERACAO, -- Ajustado para o mês da FESTB711
+2019 AS AA_REFERENCIA_LIBERACAO, -- Ajustado para o ano da FESTB711
+-185.69 AS VR_REPASSE, -- Ajustado para o VR_REPASSE da FESTB711
+----------------------------------------------------------------------------------
+T712.IC_SITUACAO_LIBERACAO,
+T712.DT_LIBERACAO,
+SYSTIMESTAMP,
+SYSTIMESTAMP,
+T712.NU_PARTICIPACAO_CANDIDATO,
+T712.NU_SQNCL_ADITAMENTO,
+T712.NU_TIPO_TRANSACAO,
+T712.NU_TIPO_ACERTO,
+T712.IC_APTO_LIBERACAO_REPASSE
+FROM
+FES.FESTB712_LIBERACAO_CONTRATO T712 -- Usamos a 712 para pegar o resto dos dados originais
+WHERE
+T712.NU_SQNCL_LIBERACAO_CONTRATO = 141622; -- Pegue o registro da liberação original
+ 
+COMMIT; -- Confirme a inserção
+================================================================================================
+ 
+INSERT INTO FES.FESTB909_LIBERACAO_CONTRATO_RE (
+NU_SQNCL_LIBERACAO_CONTRATO,
+NU_SEQ_CANDIDATO,
+NU_MANTENEDORA,
+NU_IES,
+NU_CAMPUS,
+NU_PARCELA,
+MM_REFERENCIA_LIBERACAO,
+AA_REFERENCIA_LIBERACAO,
+VR_REPASSE,
+IC_SITUACAO_LIBERACAO,
+DT_LIBERACAO,
+DT_INCLUSAO,
+DT_ATUALIZACAO,
+NU_PARTICIPACAO_CANDIDATO,
+NU_SQNCL_ADITAMENTO,
+NU_TIPO_TRANSACAO,
+NU_TIPO_ACERTO,
+IC_APTO_LIBERACAO_REPASSE
+) VALUES (
+863,
+20000001,
+1965,
+3035,
+1061025,
+2,
+2,
+2018,
+1325.82,
+'S',
+'18-02-15',
+'18-03-15',
+'25-06-03',
+1,
+NULL,
+1,
+NULL,
+'S'
+);
+ 
+ 
+ 
+ 
+=====================================INSERTS PARA TESTES ========================================
+ 
+---------------------------------------------------------------
+INSERT INTO FES.FESTB711_RLTRO_CTRTO_ANLTO (
+    NU_SQNCL_RLTRO_CTRTO_ANALITICO, NU_CAMPUS, NU_TIPO_TRANSACAO, NU_MANTENEDORA, NU_IES, NU_SEQ_CANDIDATO,
+    MM_REFERENCIA, AA_REFERENCIA, VR_REPASSE, DT_ASSINATURA, NU_SQNCL_LIBERACAO_CONTRATO,
+    TS_APURACAO_RELATORIO, NU_SQNCL_CTRTO_ANLTO_CMPNO
+) VALUES (
+    90000011,      -- R9002: ID do repasse analítico duplicado
+    1061025,       -- Campus
+    1,             -- Tipo de transação
+    1965,          -- Mantenedora
+    3034,          -- IES
+    90000000,      -- Candidato de teste
+    3,             -- Mês de referência
+    2024,          -- Ano de referência
+    1325.82,       -- Valor do repasse
+    TO_DATE('2024-03-15', 'YYYY-MM-DD'), -- Data de assinatura
+    90000002,      -- L9002: Referencia a liberação duplicada da 712
+    TO_TIMESTAMP('2024-03-15 15:01:26.000', 'YYYY-MM-DD HH24:MI:SS.FF3'), -- Timestamp de apuração
+    NULL           -- Não compensado por compensação interna
+);
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+-- Assumindo que você tem acesso à sequence para NU_SQNCL_COMPENSACAO_REPASSE ou pode inserir um valor alto fictício.
+-- Se você ainda não tem o nome da sequence, use um valor como 90000000 para este campo, por exemplo.
+INSERT INTO FES.FESTB812_CMPSO_RPSE_INDVO (
+    NU_SQNCL_COMPENSACAO_REPASSE, NU_SQNCL_RLTRO_CTRTO_ANALITICO, NU_TIPO_ACERTO,
+    TS_INCLUSAO, CO_USUARIO_INCLUSAO, IC_COMPENSADO
+) VALUES (
+    90000000,      -- ID Fictício de Compensação (substituir pela sequence real se disponível)
+    90000011,      -- R9002: NU_SQNCL_RLTRO_CTRTO_ANALITICO do repasse duplicado (mesmo da FESTB711)
+    1,             -- Tipo de acerto (1 para duplicidade)
+    SYSTIMESTAMP,  -- Data de inclusão
+    'C000000',     -- Usuário de inclusão
+    'N'            -- Indicador de compensado ('N' para pendente)
+);
+ 
+ 
+ 
+ 
+ 
+=============================FESSPU19 AJUSTES VALIDAR 909 e 712 ================================
+FES.FESSPU19_ROTINA_REPASSE
+ 
+-- SELECT DA COMPENSACAO POR MANTENEDORA, NAO COMPENSADOS----eu  quero fazer essa mesma validação / sera que é necessária , ou só fazer entre a tabela 909 712 e 812
+ 
+ 
+		OPEN RC1 FOR
+		SELECT A.* FROM (
+			SELECT T812.NU_SQNCL_COMPENSACAO_REPASSE, T812.NU_SQNCL_RLTRO_CTRTO_ANALITICO,
+				   T711.NU_SEQ_CANDIDATO, T711.NU_IES, T711.NU_CAMPUS, T711.VR_REPASSE,
+				   T711.DT_ASSINATURA, T712.NU_TIPO_TRANSACAO, T712.NU_SQNCL_LIBERACAO_CONTRATO,
+				   CASE WHEN T712.NU_TIPO_TRANSACAO = 1 THEN NVL(T36.VR_CONTRATO, 0) ELSE 0 END AS VR_CONTRATO,
+				   CASE WHEN T712.NU_TIPO_TRANSACAO = 2 THEN NVL(T38.VR_ADITAMENTO, 0) ELSE 0 END AS VR_ADITAMENTO,
+				   T812.NU_TIPO_ACERTO
+			  FROM FES.FESTB812_CMPSO_RPSE_INDVO T812
+			  JOIN FES.FESTB711_RLTRO_CTRTO_ANLTO T711
+			    ON T711.NU_SQNCL_RLTRO_CTRTO_ANALITICO = T812.NU_SQNCL_RLTRO_CTRTO_ANALITICO
+			  JOIN FES.FESTB712_LIBERACAO_CONTRATO T712
+			    ON T712.NU_SQNCL_LIBERACAO_CONTRATO = T711.NU_SQNCL_LIBERACAO_CONTRATO
+			  LEFT JOIN FES.FESTB036_CONTRATO_FIES T36
+			    ON T36.NU_CANDIDATO_FK11 = T712.NU_SEQ_CANDIDATO
+			   AND T36.NU_PARTICIPACAO_FK11 = T712.NU_PARTICIPACAO_CANDIDATO
+			  LEFT JOIN FES.FESTB038_ADTMO_CONTRATO T38
+			    ON T38.NU_CANDIDATO_FK36 = T712.NU_SEQ_CANDIDATO
+			   AND T38.NU_PARTICIPACAO_FK36 = T712.NU_PARTICIPACAO_CANDIDATO
+			   AND T38.NU_SEQ_ADITAMENTO = T712.NU_SQNCL_ADITAMENTO
+			 WHERE T812.IC_COMPENSADO = 'N'
+			   AND T711.NU_MANTENEDORA = pNU_MANTENEDORA
+			UNION ALL
+			SELECT T812.NU_SQNCL_COMPENSACAO_REPASSE, T812.NU_SQNCL_RLTRO_CTRTO_ANALITICO,
+				   T711.NU_SEQ_CANDIDATO, T711.NU_IES, T711.NU_CAMPUS, T711.VR_REPASSE,
+				   T711.DT_ASSINATURA, T712.NU_TIPO_TRANSACAO, T712.NU_SQNCL_LIBERACAO_CONTRATO,
+				   CASE WHEN T712.NU_TIPO_TRANSACAO = 1 THEN NVL(T36.VR_CONTRATO, 0) ELSE 0 END AS VR_CONTRATO,
+				   CASE WHEN T712.NU_TIPO_TRANSACAO = 2 THEN NVL(T38.VR_ADITAMENTO, 0) ELSE 0 END AS VR_ADITAMENTO,
+				   T812.NU_TIPO_ACERTO
+			  FROM FES.FESTB816_MIGRACAO_IES T816
+			  JOIN FES.FESTB712_LIBERACAO_CONTRATO T712
+			    ON T712.NU_IES = T816.NU_IES
+			  JOIN FES.FESTB711_RLTRO_CTRTO_ANLTO T711
+			    ON T711.NU_SQNCL_LIBERACAO_CONTRATO = T712.NU_SQNCL_LIBERACAO_CONTRATO
+			   AND T711.NU_MANTENEDORA <> T816.NU_MANTENEDORA_ADQUIRENTE -- LIBERACOES QUE FORAM REPASSADAS INCORRETAMENTE JA NA ADQUIRENTE
+			  JOIN FES.FESTB812_CMPSO_RPSE_INDVO T812
+			    ON T812.NU_SQNCL_RLTRO_CTRTO_ANALITICO = T711.NU_SQNCL_RLTRO_CTRTO_ANALITICO
+			   AND T812.IC_COMPENSADO = 'N'
+			  LEFT JOIN FES.FESTB036_CONTRATO_FIES T36
+			    ON T36.NU_CANDIDATO_FK11 = T712.NU_SEQ_CANDIDATO
+			   AND T36.NU_PARTICIPACAO_FK11 = T712.NU_PARTICIPACAO_CANDIDATO
+			  LEFT JOIN FES.FESTB038_ADTMO_CONTRATO T38
+			    ON T38.NU_CANDIDATO_FK36 = T712.NU_SEQ_CANDIDATO
+			   AND T38.NU_PARTICIPACAO_FK36 = T712.NU_PARTICIPACAO_CANDIDATO
+			   AND T38.NU_SEQ_ADITAMENTO = T712.NU_SQNCL_ADITAMENTO
+			 WHERE T816.NU_MANTENEDORA_ADQUIRENTE = pNU_MANTENEDORA
+			   AND T816.IC_STCO_AUTORIZACAO_MIGRACAO = '1' -- AUTORIZADA
+			   AND T816.DT_FIM_AQUISICAO_IES IS NULL -- VIGENTE
+			   AND T816.IC_MIGRACAO_IES ='1' -- INCORPORACAO
+		) A
+		ORDER BY A.VR_REPASSE;
+	END IF;
+ 
+END;
 Algumas diretrizes para a compensação de valores:
 1 - A dinâmica de compensação dos valores é realizada por intermédio da fesRepasse quando da apuração em moeda dos valores a serem repassados às Mantenedoras;
 2 – O direcionamento dos valores, ou repasses, a serem compensados é realizado por intermédio da inserção dos sequenciais dos repasses na tabela FESTB812_CMPSO_RPSE_INDVO, destinada para este fim;
