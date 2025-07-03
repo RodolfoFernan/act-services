@@ -10,6 +10,13 @@
 Perfeito! Com base nas informações que você forneceu, aqui está um resumo da motivação e das circunstâncias de criação das Stored Procedures (SPs) mencionadas, bem como o impacto delas no fluxo Javaweb e na rotina Java batch FES.REPASSE:
 
 caminho :https://editor.swagger.io/
+
+Sobre swagger , e Api , eles podem ficar separados por negocio e agrupados no nosso Api manager
+de forma que um Aditamento pode conter
+esta dentro da pasta negocio Aditamnetos :
+ Dilatação:
+ 
+ 
 ==============================================Modelo de Swagger==========================================================
 openapi: 3.0.1
 info:
