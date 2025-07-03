@@ -14,8 +14,116 @@ caminho :https://editor.swagger.io/
 Sobre swagger , e Api , eles podem ficar separados por negocio e agrupados no nosso Api manager
 de forma que um Aditamento pode conter
 esta dentro da pasta negocio Aditamnetos :
- Dilatação:
+ tecnologias que trabalhei na Caixa :
+ Javaweb e App
+ Front:
+ Html ,javascripte, css
+ Java:
+ Sprint
+ springBatch
+ servidor:
+ wiflay 
+ control-m
+ servidor linux
+ ======
+ Azure devops
+ scripts deexecução
+ chamados :
+ ----------------------------------------------------configuração de ambientes ==================================
+ ---------------PRIMEIRA EXECUÇAO: / TROCA DE SENHA DE REDE
+
+- baixar ambiente dividido em 4+ partes .7z (~1.8GB por parte, sendo a ultima parte menor)
+- remover tudo que estiver na pasta C:\AMBIENTE_SIFES_GW_2023\
+- extrair os arquivos com o .7z na pasta C:\AMBIENTE_SIFES_GW_2023\
+- entrar na pasta repositori_GIT
+- logar na VPN
+- abrir powershell / git bash
+- digitar comandos:
+git init
+git remote add devops https://devops.caixa/projetos/caixa/_git/sifes
+git config --global http.sslverify false
+git reset --hard
+git fetch devops
+git pull
+git checkout release/master
+git pull
+git reset --hard
+
+------ QUANDO TROCA DE SENHA DE REDE:
+
+- entrar na pasta -> C:\AMBIENTE_SIFES_GW_2023\JBOSS-EAP-7.1\STANDALONE\CONFIGURATION
+	ABRIR OS ARQUIVOS STANDALONE-FULL_INTRANET.XML E STANDALONE-FULL_INTERNET.XML
+			ALTERAR LOGIN E SENHA NAS LINHAS 213 E 214 DO ARQUIVO STANDALONE-FULL_INTRANET.XML
+			ALTERAR LOGIN E SENHA NAS LINHAS 317 E 318 DO ARQUIVO STANDALONE-FULL_INTERNET.XML
+			ALTERAR LOGIN E SENHA NAS LINHAS 91 E 92 DO ARQUIVO STANDALONE.XML
+
+
+
+
+---------------CASO NECESSARIO - INCLUSIVE SE OCORRER ERROS NA TROCA DE BRANCH:
+
+- abrir o eclipse
+------ remover o projeto do eclipse (sem deletar nas pastas)
+- fechar o eclipse
+------ deletar tudo que estiver na pasta C:\AMBIENTE_SIFES_GW_2023\repositorio_GIT
+- executar os comandos a seguir
+
+git reset --hard
+git pull
+git checkout release/master (ou sua branch criada)
+
+- abrir o eclipse
+- esperar tudo finalizar (aba progress)
+- importar projeto maven
+- escolher o diretório C:\AMBIENTE_SIFES_GW_2023\repositorio_GIT
+- selecionar TODAS as pastas do projeto
+- botao direito -> refresh
+- aguardar finalizar tudo (visão melhor no Progress, do lado do Console)
+- Project -> clean -> tudo marcado -> Clean
+- botão verde do play abaixo do menu Help -> flecha lateral -> clicar em 1 clean install
+- aguardar finalizar tudo (visão melhor no Progress, do lado do Console)
+- Project -> clean -> tudo marcado -> Clean
+
+
+
+
+---------------CONFIGURANDO AMBIENTE INTERNET ou INTRANET
+
+- abra eclipse
+- esperar tudo finalizar (aba progress)
+- clicar com o botão direito no SERVER (aba Servers)
+--- clicar no botão Add and Remove...
+---- remover tudo que estiver de servidor
+- clicar com o botao direito no SERVER -> CLEAN
+- selecionar TODAS as pastas do projeto
+- botao direito -> refresh
+- aguardar finalizar tudo (visão melhor no Progress, do lado do Console)
+- Project -> clean -> tudo marcado -> Clean
+- clicar 2x no SERVER
+- clicar no botão Runtime Environment
+- clicar no botão "Browse..." onde estiver escrito standalone-full_INTRANET.xml / standalone-full_INTERNET.xml
+- selecionar arquivo standalone-full_(...).xml desejado
+- clicar no botão Finish
+- salvar o SERVER
+- fechar a aba SERVER
+- clicar com o botão direito no SERVER -> CLEAN
+- clicar com o botão direito no SERVER (aba Servers)
+--- clicar no botão Add and Remove...
+---- adicionar o projeto no servidor
+- botao direito -> refresh
+- aguardar finalizar tudo (visão melhor no Progress, do lado do Console)
+- Project -> clean -> tudo marcado -> Clean
+- botão verde do play abaixo do menu Help -> flecha lateral -> clicar em 1 clean install
+- aguardar finalizar tudo (visão melhor no Progress, do lado do Console)
+- Project -> clean -> tudo marcado -> Clean
+- clicar com o botao direito no SERVER -> CLEAN
  
+ ----------------------------------------------------------------------------------------------------------------------
+ Dilatação:
+ --------------
+ 1-Preciso evoluir a geração dele automaticamente atraves de anotações 
+ 2-A escrita do Rest e todo o processo---
+    Rest---->service-----Bean----dto------> Banco
  
 ==============================================Modelo de Swagger==========================================================
 openapi: 3.0.1
