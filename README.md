@@ -8,7 +8,156 @@
 <h2>1. Estrutura dos Microsserviços</h2>
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
 Perfeito! Com base nas informações que você forneceu, aqui está um resumo da motivação e das circunstâncias de criação das Stored Procedures (SPs) mencionadas, bem como o impacto delas no fluxo Javaweb e na rotina Java batch FES.REPASSE:
+=========================================================================================================
+DECLARE
+    -- Dados de entrada (o único "parâmetro" inicial fixo por enquanto)
+    v_nu_sqncl_liberacao_contrato NUMBER := 141622;
 
+    -- Variáveis para armazenar os dados lidos da FESTB712
+    v_nu_seq_candidato_lido      FES.FESTB712_LIBERACAO_CONTRATO.NU_SEQ_CANDIDATO%TYPE;
+    v_nu_ies_lido                FES.FESTB712_LIBERACAO_CONTRATO.NU_IES%TYPE;
+    v_nu_campus_lido             FES.FESTB712_LIBERACAO_CONTRATO.NU_CAMPUS%TYPE;
+    v_mm_referencia_lib_lido     FES.FESTB712_LIBERACAO_CONTRATO.MM_REFERENCIA_LIBERACAO%TYPE;
+    v_aa_referencia_lib_lido     FES.FESTB712_LIBERACAO_CONTRATO.AA_REFERENCIA_LIBERACAO%TYPE;
+    v_vr_repasse_lib_lido        FES.FESTB712_LIBERACAO_CONTRATO.VR_REPASSE%TYPE;
+
+    -- Variáveis para a lógica de busca e existência
+    v_nu_sqncl_rl_analitico_encontrado NUMBER;
+    v_existe_na_812 NUMBER;
+
+    -- Usaremos o NU_SQNCL_COMPENSACAO_REPASSE de teste.
+    v_nu_sqncl_compensacao_repasse NUMBER := 68;
+
+    -- Usuário de execução e tipo de acerto para a inserção
+    v_co_usuario_execucao VARCHAR2(8) := 'RdfoSp67';
+    v_nu_tipo_acerto_compensacao CONSTANT NUMBER := 1;
+
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('--- Início da Evolução da Lógica: Lendo da FESTB712 ---');
+    DBMS_OUTPUT.PUT_LINE('----------------------------------------------------');
+    DBMS_OUTPUT.PUT_LINE('Parâmetro inicial: NU_SQNCL_LIBERACAO_CONTRATO = ' || v_nu_sqncl_liberacao_contrato);
+    DBMS_OUTPUT.PUT_LINE('----------------------------------------------------');
+
+    -- PASSO 0: Buscar os dados da liberação na FESTB712
+    DBMS_OUTPUT.PUT_LINE(CHR(10) || '>> PASSO 0: Buscando detalhes da liberação ' || v_nu_sqncl_liberacao_contrato || ' na FESTB712...');
+    BEGIN
+        SELECT NU_SEQ_CANDIDATO, NU_IES, NU_CAMPUS, MM_REFERENCIA_LIBERACAO, AA_REFERENCIA_LIBERACAO, VR_REPASSE
+        INTO v_nu_seq_candidato_lido, v_nu_ies_lido, v_nu_campus_lido, v_mm_referencia_lib_lido, v_aa_referencia_lib_lido, v_vr_repasse_lib_lido
+        FROM FES.FESTB712_LIBERACAO_CONTRATO
+        WHERE NU_SQNCL_LIBERACAO_CONTRATO = v_nu_sqncl_liberacao_contrato;
+
+        DBMS_OUTPUT.PUT_LINE('   RESULTADO PASSO 0: SUCESSO!');
+        DBMS_OUTPUT.PUT_LINE('     -> Dados da FESTB712 lidos:');
+        DBMS_OUTPUT.PUT_LINE('        Candidato: ' || v_nu_seq_candidato_lido);
+        DBMS_OUTPUT.PUT_LINE('        IES: ' || v_nu_ies_lido);
+        DBMS_OUTPUT.PUT_LINE('        Campus: ' || v_nu_campus_lido);
+        DBMS_OUTPUT.PUT_LINE('        MM_REFERENCIA_LIBERACAO: ' || v_mm_referencia_lib_lido);
+        DBMS_OUTPUT.PUT_LINE('        AA_REFERENCIA_LIBERACAO: ' || v_aa_referencia_lib_lido);
+        DBMS_OUTPUT.PUT_LINE('        VR_REPASSE: ' || v_vr_repasse_lib_lido);
+
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            DBMS_OUTPUT.PUT_LINE('   RESULTADO PASSO 0: ERRO (NO_DATA_FOUND)!');
+            DBMS_OUTPUT.PUT_LINE('     -> Liberação ' || v_nu_sqncl_liberacao_contrato || ' NÃO encontrada na FESTB712. Impossível prosseguir.');
+            GOTO end_logic;
+        WHEN TOO_MANY_ROWS THEN
+            DBMS_OUTPUT.PUT_LINE('   RESULTADO PASSO 0: ERRO (TOO_MANY_ROWS)!');
+            DBMS_OUTPUT.PUT_LINE('     -> Múltiplas liberações ' || v_nu_sqncl_liberacao_contrato || ' encontradas na FESTB712. Esperado apenas uma. Impossível prosseguir.');
+            GOTO end_logic;
+    END;
+
+    -- PASSO 1: Tentar encontrar o NU_SQNCL_RLTRO_CTRTO_ANALITICO na FESTB711
+    DBMS_OUTPUT.PUT_LINE(CHR(10) || '>> PASSO 1: Buscando o NU_SQNCL_RLTRO_CTRTO_ANALITICO na FESTB711 usando dados lidos da FESTB712...');
+    BEGIN
+        SELECT T711.NU_SQNCL_RLTRO_CTRTO_ANALITICO
+        INTO v_nu_sqncl_rl_analitico_encontrado
+        FROM FES.FESTB711_RLTRO_CTRTO_ANLTO T711
+        WHERE T711.NU_SQNCL_LIBERACAO_CONTRATO = v_nu_sqncl_liberacao_contrato
+        AND T711.NU_SEQ_CANDIDATO = v_nu_seq_candidato_lido    -- Usando variável lida da 712
+        AND T711.NU_IES = v_nu_ies_lido                      -- Usando variável lida da 712
+        AND T711.NU_CAMPUS = v_nu_campus_lido                -- Usando variável lida da 712
+        AND T711.MM_REFERENCIA = v_mm_referencia_lib_lido    -- Usando variável lida da 712
+        AND T711.AA_REFERENCIA = v_aa_referencia_lib_lido    -- Usando variável lida da 712
+        AND T711.VR_REPASSE = v_vr_repasse_lib_lido          -- Usando variável lida da 712
+        ORDER BY T711.TS_APURACAO_RELATORIO DESC
+        FETCH FIRST 1 ROW ONLY;
+
+        DBMS_OUTPUT.PUT_LINE('   RESULTADO PASSO 1: SUCESSO!');
+        DBMS_OUTPUT.PUT_LINE('     -> NU_SQNCL_RLTRO_CTRTO_ANALITICO encontrado na FESTB711: ' || v_nu_sqncl_rl_analitico_encontrado);
+
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            v_nu_sqncl_rl_analitico_encontrado := NULL;
+            DBMS_OUTPUT.PUT_LINE('   RESULTADO PASSO 1: ALERTA (NO_DATA_FOUND)!');
+            DBMS_OUTPUT.PUT_LINE('     -> Não foi encontrado um NU_SQNCL_RLTRO_CTRTO_ANALITICO correspondente na FESTB711 para os dados da liberação lidos da FESTB712.');
+            DBMS_OUTPUT.PUT_LINE('     -> A INSERÇÃO na FESTB812 NÃO será executada neste caso.');
+            GOTO end_logic;
+        WHEN TOO_MANY_ROWS THEN
+            DBMS_OUTPUT.PUT_LINE('   RESULTADO PASSO 1: AVISO (TOO_MANY_ROWS)!');
+            DBMS_OUTPUT.PUT_LINE('     -> Múltiplos NU_SQNCL_RLTRO_CTRTO_ANALITICO encontrados na FESTB711 para os critérios exatos.');
+            DBMS_OUTPUT.PUT_LINE('     -> O script selecionou o mais recente (ORDER BY TS_APURACAO_RELATORIO DESC).');
+    END;
+
+    -- PASSO 2: Se o analítico foi encontrado, verificar sua existência na FESTB812
+    IF v_nu_sqncl_rl_analitico_encontrado IS NOT NULL THEN
+        DBMS_OUTPUT.PUT_LINE(CHR(10) || '>> PASSO 2: Verificando a existência do analítico (' || v_nu_sqncl_rl_analitico_encontrado || ') na FESTB812...');
+        SELECT COUNT(1)
+        INTO v_existe_na_812
+        FROM FES.FESTB812_CMPSO_RPSE_INDVO
+        WHERE NU_SQNCL_RLTRO_CTRTO_ANALITICO = v_nu_sqncl_rl_analitico_encontrado
+          AND NU_SQNCL_COMPENSACAO_REPASSE = v_nu_sqncl_compensacao_repasse;
+
+        DBMS_OUTPUT.PUT_LINE('   RESULTADO PASSO 2: Checagem concluída.');
+        DBMS_OUTPUT.PUT_LINE('     -> Quantidade de registros existentes na FESTB812 para (Analítico: ' || v_nu_sqncl_rl_analitico_encontrado || ', Seq. Comp.: ' || v_nu_sqncl_compensacao_repasse || '): ' || v_existe_na_812);
+
+        IF v_existe_na_812 = 0 THEN
+            DBMS_OUTPUT.PUT_LINE('   DECISÃO: O registro (Analítico ' || v_nu_sqncl_rl_analitico_encontrado || ' e Sequencial ' || v_nu_sqncl_compensacao_repasse || ') NÃO existe na FESTB812.');
+            DBMS_OUTPUT.PUT_LINE('     -> **Realizando a INSERÇÃO na FESTB812 agora...**');
+
+            BEGIN
+                INSERT INTO FES.FESTB812_CMPSO_RPSE_INDVO (
+                    NU_SQNCL_COMPENSACAO_REPASSE,
+                    NU_SQNCL_RLTRO_CTRTO_ANALITICO,
+                    NU_TIPO_ACERTO,
+                    TS_INCLUSAO,
+                    CO_USUARIO_INCLUSAO,
+                    IC_COMPENSADO
+                ) VALUES (
+                    v_nu_sqncl_compensacao_repasse,
+                    v_nu_sqncl_rl_analitico_encontrado,
+                    v_nu_tipo_acerto_compensacao,
+                    SYSTIMESTAMP,
+                    v_co_usuario_execucao,
+                    'N'
+                );
+                DBMS_OUTPUT.PUT_LINE('   SUCESSO: Inserido analítico ' || v_nu_sqncl_rl_analitico_encontrado || ' na FESTB812 com NU_SQNCL_COMPENSACAO_REPASSE = ' || v_nu_sqncl_compensacao_repasse || '.');
+            EXCEPTION
+                WHEN DUP_VAL_ON_INDEX THEN
+                    DBMS_OUTPUT.PUT_LINE('   ERRO (DUP_VAL_ON_INDEX): Falha na inserção para analítico ' || v_nu_sqncl_rl_analitico_encontrado || ' e sequencial ' || v_nu_sqncl_compensacao_repasse || '. Registro já existe (possível concorrência).');
+                WHEN OTHERS THEN
+                    DBMS_OUTPUT.PUT_LINE('   ERRO INESPERADO NA INSERÇÃO: Falha ao inserir analítico ' || v_nu_sqncl_rl_analitico_encontrado || ': ' || SQLERRM);
+                    RAISE;
+            END;
+
+        ELSE
+            DBMS_OUTPUT.PUT_LINE('   DECISÃO: O registro (Analítico ' || v_nu_sqncl_rl_analitico_encontrado || ' e Sequencial ' || v_nu_sqncl_compensacao_repasse || ') JÁ existe na FESTB812.');
+            DBMS_OUTPUT.PUT_LINE('     -> **A INSERÇÃO NÃO será realizada para evitar duplicidade.**');
+        END IF;
+    ELSE
+        DBMS_OUTPUT.PUT_LINE(CHR(10) || '>> PASSO 2: Não executado. O analítico não foi encontrado no Passo 1.');
+    END IF;
+
+    <<end_logic>>
+    COMMIT;
+    DBMS_OUTPUT.PUT_LINE(CHR(10) || '--- Fim do Exercício. Transação COMITADA. ---');
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        DBMS_OUTPUT.PUT_LINE(CHR(10) || 'ERRO FATAL GERAL (Transação ROLLED BACK): ' || SQLERRM);
+END;
+
+===========================================================================================================
 caminho :https://editor.swagger.io/
 
 Sobre swagger , e Api , eles podem ficar separados por negocio e agrupados no nosso Api manager
