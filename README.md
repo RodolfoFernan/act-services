@@ -9,7 +9,297 @@
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
 Perfeito! Com base nas informações que você forneceu, aqui está um resumo da motivação e das circunstâncias de criação das Stored Procedures (SPs) mencionadas, bem como o impacto delas no fluxo Javaweb e na rotina Java batch FES.REPASSE:
 =========================================================================================================
+Aspectos Técnicos por Tecnologia Utilizada
 
+1. Globalweb Corp (Caixa Econômica Federal)
+
+a. Spring Batch
+
+    Problema Endereçado: Processamento robusto, escalável e transacional de grandes volumes de dados.
+
+    Aspectos Técnicos e Como foi Usado:
+
+        Estrutura: Como os Jobs foram definidos? Eram JobLauncher, JobRepository, JobExplorer configurados? Qual o JobRepository (In-Memory, JDBC, JPA)?
+
+        Steps: Como os Steps foram projetados? Quais tipos de Step foram usados (TaskletStep, Chunk-Oriented Step)?
+
+        Chunk-Oriented Processing:
+
+            ItemReader: Qual implementação foi usada (e.g., JdbcCursorItemReader, FlatFileItemReader, KafkaItemReader customizado)? Como lidou com restartability (cursor position)?
+
+            ItemProcessor: Havia lógica de transformação/validação? Qual a complexidade e como foi testada (unitariamente)?
+
+            ItemWriter: Qual implementação foi usada (e.g., JdbcBatchItemWriter, JpaItemWriter, KafkaItemWriter customizado)? Como garantiu a atomicidade das escritas?
+
+            Chunk Size: Qual o impacto do chunk-size no desempenho e consumo de memória? Como foi otimizado?
+
+        Parallelization:
+
+            Multi-threaded Step: Uso de TaskExecutor (e.g., SimpleAsyncTaskExecutor, ThreadPoolTaskExecutor)? Como lidou com thread safety?
+
+            Partitioning: Uso de Partitioner e PartitionHandler para execução distribuída? Como o estado foi compartilhado ou isolado entre as partições?
+
+        Restartability & Skip/Retry Logic:
+
+            Como a restartability foi configurada? O JobRepository persistia o estado?
+
+            Como as anotações @Skip, @Retryable e @Recover foram utilizadas para tratamento de erros de itens específicos sem falhar o Job inteiro? Quais exceções eram skippable ou retryable?
+
+        Listeners: Quais Listeners (e.g., JobExecutionListener, StepExecutionListener, ChunkListener, ItemReadListener, ItemProcessListener, ItemWriteListener) foram implementados para auditoria, métricas ou notificações?
+
+        Anotações Comuns: @EnableBatchProcessing, @JobScope, @StepScope, @Bean para componentes de batch.
+
+        Como otimizou: Ajustes no commit-interval, throttle-limit, uso de lazy loading no ItemReader, indexing no banco de dados.
+
+b. JMS (Java Message Service)
+
+    Problema Endereçado: Comunicação assíncrona e desacoplada com sistemas legados ou internos que utilizam mensageria.
+
+    Aspectos Técnicos e Como foi Usado:
+
+        Provedor JMS: Qual servidor JMS foi utilizado (e.g., WebSphere MQ, ActiveMQ)?
+
+        Domínio: Uso de Queues (Point-to-Point) para garantia de entrega de 1 para 1, ou Topics (Publish/Subscribe) para 1 para N?
+
+        Tipos de Mensagem: Quais tipos de Message (TextMessage, ObjectMessage, MapMessage, BytesMessage) foram preferidos e por quê?
+
+        Transacionalidade: As sessões JMS eram transacionais? Como a transação JMS se integrava com transações de banco de dados (JTA)?
+
+        Recepção de Mensagens: Uso de MessageListener (para MDBs ou listeners customizados) ou synchronous receive? Qual o mecanismo de acknowledgement (AUTO_ACKNOWLEDGE, CLIENT_ACKNOWLEDGE, DUPS_OK_ACKNOWLEDGE)?
+
+        Persistência de Mensagens: Mensagens persistentes (DeliveryMode.PERSISTENT) para garantir que não se percam em caso de falha do broker?
+
+        Recursos (JNDI): Como as ConnectionFactory e Destinations (Queues/Topics) eram configuradas e lookup via JNDI?
+
+        Spring JMS: Uso de JmsTemplate para envio e MessageListenerContainer (e.g., DefaultMessageListenerContainer) para recepção simplificada?
+
+c. WebSphere Message Broker (Barramento de Serviços)
+
+    Problema Endereçado: Integração de sistemas heterogêneos, transformação de mensagens, roteamento complexo.
+
+    Aspectos Técnicos e Como foi Usado:
+
+        Flows de Mensagens (Message Flows): Como os flows foram projetados? Quais nós (Nodes) foram usados (Input, Compute, MQOutput, HTTPRequest, Database, etc.)?
+
+        Linguagens de Transformação: Uso de ESQL para transformação e roteamento de mensagens? Ou JavaCompute Nodes para lógica mais complexa?
+
+        Parsing: Como os parsers (XMLNSC, JSON, DFDL) foram configurados para lidar com diferentes formatos de mensagem?
+
+        Roteamento Dinâmico: Utilização de lookups em tabelas de roteamento ou regras de negócio para direcionar mensagens?
+
+        Tratamento de Erros: Como error handling foi implementado nos flows (Try/Catch, Error Terminals, Backout Queues)?
+
+        Scalability & Performance: Configurações de additional instances para message flows?
+
+d. Kafka
+
+    Problema Endereçado: Streaming de dados de alta vazão, resiliência, desacoplamento e escalabilidade para microsserviços e sistemas de data processing.
+
+    Aspectos Técnicos e Como foi Usado:
+
+        Tópicos (Topics): Como os tópicos foram modelados (número de partições, fatores de replicação)? Estratégia de nomeação?
+
+        Produtores (Producers):
+
+            Idempotência: Configuração de enable.idempotence para evitar duplicação de mensagens?
+
+            Acks: Nível de acknowledgement (acks=all, acks=1, acks=0) vs. durabilidade e latência?
+
+            Serialização: Como os serializers (e.g., StringSerializer, JsonSerializer, AvroSerializer) foram implementados?
+
+        Consumidores (Consumers):
+
+            Consumer Groups: Como os Consumer Groups foram utilizados para escalabilidade e processamento paralelo?
+
+            Offset Management: Como o offset foi committed (automático ou manual)? Uso de manual batch commit ou manual individual commit para garantia de processamento?
+
+            Desserialização: Como os deserializers foram configurados?
+
+            Rebalanceamento: Como a aplicação lidava com rebalanceamento de partições?
+
+        Mensageria x Stream Processing: Kafka foi usado como uma fila de mensagens ou uma plataforma de stream processing (Kafka Streams/KSQL)?
+
+        Particionamento: Como as chaves das mensagens foram escolhidas para garantir um bom balanceamento de carga e ordenação (se necessária) dentro das partições?
+
+        Configurações de Retenção: Qual a política de retenção dos tópicos (tempo ou tamanho)?
+
+2. act digital (Bradesco)
+
+a. Spring Boot (com Spring Data JPA, Spring Web, Spring Security)
+
+    Problema Endereçado: Desenvolvimento rápido de microsserviços e APIs RESTful, persistência de dados e segurança.
+
+    Aspectos Técnicos e Como foi Usado:
+
+        Starters: Quais starters foram usados (spring-boot-starter-web, spring-boot-starter-data-jpa, spring-boot-starter-security, spring-kafka)?
+
+        RESTful APIs: Uso de anotações como @RestController, @GetMapping, @PostMapping, @RequestMapping? Como o versionamento de API foi tratado?
+
+        Spring Data JPA:
+
+            Repositories: Uso de interfaces que estendem JpaRepository? Como queries personalizadas foram criadas (@Query ou method-derived queries)?
+
+            Entidades: Mapeamento ORM com @Entity, @Table, @Id, @GeneratedValue, @Column, @OneToMany, @ManyToOne? Estratégias de fetching (Lazy/Eager) e como otimizou para evitar N+1 queries?
+
+            Transações: Uso de @Transactional? Propagação e rollback rules?
+
+        Spring Security:
+
+            Autenticação: Como a autenticação foi implementada (e.g., JWT, OAuth2, Basic Auth)?
+
+            Autorização: Uso de @PreAuthorize, @PostAuthorize ou configuração de matchers em WebSecurityConfigurerAdapter (ou SecurityFilterChain com Spring Security 6+)?
+
+            Filtros de Segurança: Como a cadeia de filtros de segurança foi customizada?
+
+        Profile-specific Properties: Uso de application-dev.yml, application-prod.yml para configurações específicas de ambiente?
+
+        Configuração Externa: Spring Cloud Config ou Kubernetes ConfigMaps/Secrets para gerenciamento de configurações?
+
+b. Kotlin
+
+    Problema Endereçado: Redução da verbosidade do código Java, maior segurança (null safety), concisão e recursos modernos para desenvolvimento.
+
+    Aspectos Técnicos e Como foi Usado:
+
+        Null Safety: Como o sistema de tipos anuláveis/não anuláveis (? e !!) foi empregado para eliminar NullPointerExceptions?
+
+        Data Classes: Uso de data class para POJOs (Plain Old Java Objects) para concisão?
+
+        Extension Functions: Desenvolvimento de funções de extensão para adicionar funcionalidades a classes existentes sem herança?
+
+        Coroutines: Uso de corotinas para programação assíncrona e não-bloqueante (se aplicado a fluxos intensivos de I/O)?
+
+        Interoperabilidade Java: Como a integração com o código Java existente foi suave?
+
+c. Azure Cloud (Azure App Service, Azure Database Migration Service, Azure Kubernetes Service - AKS)
+
+    Problema Endereçado: Migração de infraestrutura on-premise para nuvem, escalabilidade e gerenciamento de banco de dados e aplicações.
+
+    Aspectos Técnicos e Como foi Usado:
+
+        Estratégia de Migração: Lift-and-shift para começar, ou refatoração (re-platform/re-architect) para serviços PaaS/SaaS?
+
+        Azure Database Migration Service (DMS): Como o DMS foi configurado para migrar bancos de dados (Oracle para Azure Database for PostgreSQL/MySQL ou Azure SQL Database)? Modo online ou offline?
+
+        Azure App Service: Uso de App Service Plans (tiers)? Como os microsserviços foram deployed (JARs ou Docker Images)? Configurações de scale-out (horizontal scaling) e auto-scaling?
+
+        Azure Kubernetes Service (AKS): Se Kubernetes foi usado, como os clusters foram configurados? Uso de Node Pools? Integração com Azure Container Registry (ACR) para imagens Docker?
+
+        Rede no Azure: Uso de Virtual Networks (VNets), Network Security Groups (NSGs), Private Endpoints para segurança e conectividade?
+
+        Monitoramento e Logs: Integração com Azure Monitor, Application Insights, Log Analytics Workspace para observabilidade?
+
+d. Docker / Kubernetes
+
+    Problema Endereçado: Empacotamento de aplicações, orquestração e gerenciamento de containers em escala.
+
+    Aspectos Técnicos e Como foi Usado:
+
+        Dockerfiles: Como os Dockerfiles foram escritos para construir imagens otimizadas (multi-stage builds, otimização de camadas)?
+
+        Docker Compose: Usado para orquestração local de múltiplos serviços durante o desenvolvimento?
+
+        Kubernetes Deployments: Como os Deployments foram definidos (número de réplicas, estratégia de rolling update)?
+
+        Services: Uso de Service (ClusterIP, NodePort, LoadBalancer) para exposição e descoberta de serviços?
+
+        Ingress: Como o Ingress foi configurado para rotear tráfego externo para os services internos (com Ingress Controller como NGINX ou Azure Application Gateway)?
+
+        ConfigMaps & Secrets: Como as configurações e credenciais sensíveis foram gerenciadas no Kubernetes?
+
+        Liveness/Readiness Probes: Implementação de probes para verificar a saúde dos containers e gerenciar o lifecycle?
+
+        Horizontal Pod Autoscaler (HPA): Como o HPA foi configurado para escalar automaticamente os pods com base em métricas (CPU, memória, métricas customizadas)?
+
+        Persistent Volumes: Como a persistência de dados foi tratada para bancos de dados ou outros volumes (se aplicável)?
+
+e. Kafka (Revisitado para Microsserviços)
+
+    Problema Endereçado: Comunicação assíncrona, event streaming e resiliência entre microsserviços.
+
+    Aspectos Técnicos e Como foi Usado:
+
+        Event-Driven Architecture: Como os microsserviços interagiam via eventos Kafka? Quais design patterns foram usados (e.g., Saga pattern para transações distribuídas)?
+
+        Schema Registry (Confluent Schema Registry): Uso de Avro ou Protobuf com Schema Registry para gerenciamento de schemas de mensagens? (Muito importante para evolução de eventos).
+
+        Kafka Connect / Kafka Streams: Se for o caso, para integração com outros sistemas ou processamento de streams de dados.
+
+3. Infosys (Serasa)
+
+a. Spring Framework (Geral)
+
+    Problema Endereçado: Estrutura para desenvolvimento de aplicações Java, injeção de dependências, desenvolvimento web e de serviços.
+
+    Aspectos Técnicos e Como foi Usado:
+
+        Inversão de Controle (IoC) / Injeção de Dependência (DI): Uso de @Autowired, @Component, @Service, @Repository para gerenciar o ciclo de vida e as dependências dos objetos.
+
+        Spring Core: Como os Beans foram definidos e configurados (XML, Java Config)?
+
+        Spring MVC: Para APIs RESTful ou aplicações web.
+
+        Integração de Módulos: Como diferentes módulos do Spring (Spring Data, Spring AMQP) foram integrados na aplicação?
+
+b. RabbitMQ
+
+    Problema Endereçado: Mensageria assíncrona, filas de mensagens, roteamento e garantia de entrega.
+
+    Aspectos Técnicos e Como foi Usado:
+
+        Exchanges e Queues: Quais tipos de Exchange foram usados (Direct, Topic, Fanout, Headers)? Como as Queues foram vinculadas às Exchanges?
+
+        Routing Keys: Como as Routing Keys foram usadas para direcionar mensagens para filas específicas?
+
+        Confirmations/Acknowledgements: Como as confirmações de editor (Publisher Confirms) e acknowledgements de consumidor foram implementadas para garantir a entrega da mensagem?
+
+        Mensagens Persistentes: Como MessageProperties.PERSISTENT foi usado para garantir que mensagens não se perdessem em caso de falha do broker?
+
+        Dead Letter Exchange (DLX): Configuração de DLX e filas de dead-letter para mensagens que não puderam ser processadas?
+
+        Spring AMQP: Uso de RabbitTemplate para envio e SimpleMessageListenerContainer ou @RabbitListener para recepção?
+
+c. Jenkins / GitLab / Git Flow
+
+    Problema Endereçado: Automação de CI/CD, controle de versão e colaboração de equipe.
+
+    Aspectos Técnicos e Como foi Usado:
+
+        Jenkins Pipelines (Jenkinsfile): Como os pipelines de CI/CD foram definidos como código (Groovy Script) no Jenkinsfile? Uso de stages, steps, e agents?
+
+        Integração Jenkins-GitLab: Configuração de webhooks no GitLab para trigger de builds no Jenkins em cada push ou merge request?
+
+        Git Flow: Implementação das branches (master, develop, feature, release, hotfix) e do fluxo de trabalho associado (git flow feature start, git flow publish, etc.)? Como garantiu a adesão da equipe?
+
+        Testes Automatizados na Esteira: Como os testes unitários (JUnit/Mock), de integração e funcionais foram integrados e enforced na esteira Jenkins?
+
+        Qualidade de Código: Integração com ferramentas como SonarQube para análise estática de código na esteira?
+
+        Deploy Automatizado: Como os deploys (para AWS) foram automatizados nas fases finais do pipeline (e.g., via scripts Shell ou plugins AWS do Jenkins)?
+
+d. AWS (S3, Lambda, ECS, EC2, GlueJob, ApiGateway, DynamoDB)
+
+    Problema Endereçado: Infraestrutura escalável, gerenciamento de dados, serverless e microservices hosting.
+
+    Aspectos Técnicos e Como foi Usado:
+
+        S3 (Simple Storage Service): Uso para armazenamento de artefatos de build do Jenkins, logs de aplicações, arquivos estáticos, ou como data lake para GlueJob? Políticas de bucket e IAM?
+
+        Lambda: Como serverless functions foram usadas para lógica de negócio específica, event-driven processing (e.g., processar eventos S3 ou DynamoDB streams) ou backend de API Gateway? Qual a linguagem de runtime (Java)?
+
+        ECS (Elastic Container Service): Uso para orquestração de containers Docker? Fargate (serverless) ou EC2 (gerenciamento de instâncias)? Como as Task Definitions e Services foram configurados?
+
+        EC2 (Elastic Compute Cloud): Se usado, para máquinas virtuais para Jenkins Master, SonarQube, ou outras ferramentas de suporte. Tipo de instância, security groups, key pairs?
+
+        GlueJob: Como os Glue Jobs (Spark ou Python Shell) foram usados para processamento ETL de dados (transformação, limpeza) em larga escala? Conectores (JDBC)?
+
+        ApiGateway: Como foi usado para expor APIs RESTful de forma segura (autenticação, throttling, caching) e rotear requisições para Lambda, ECS ou outros backends?
+
+        DynamoDB: Uso de banco de dados NoSQL de chave-valor para casos de uso específicos (e.g., cache, sessões, metadados) que exigem alta performance e escalabilidade sem esquema fixo. Modelo de dados (tabelas, chaves primárias, índices secundários)?
+
+        IAM (Identity and Access Management): Como as políticas de permissão (Roles, Policies) foram configuradas para garantir o princípio do menor privilégio entre os serviços AWS?
+
+        CloudWatch: Como o CloudWatch foi usado para logs, métricas e alarmes para monitorar os serviços AWS?
 DECLARE
     -- Dados de entrada (o único "parâmetro" inicial fixo por enquanto)
     v_nu_sqncl_liberacao_contrato NUMBER := 141622;
