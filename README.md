@@ -11,6 +11,8 @@ Perfeito! Com base nas informações que você forneceu, aqui está um resumo da
 =========================================================================================================
 Aspectos Técnicos por Tecnologia Utilizada
 
+Aspectos Técnicos por Tecnologia Utilizada e Como Foram Usados
+
 1. Globalweb Corp (Caixa Econômica Federal)
 
 a. Spring Batch
@@ -19,37 +21,37 @@ a. Spring Batch
 
     Aspectos Técnicos e Como foi Usado:
 
-        Estrutura: Como os Jobs foram definidos? Eram JobLauncher, JobRepository, JobExplorer configurados? Qual o JobRepository (In-Memory, JDBC, JPA)?
+        Estrutura: Os Jobs foram definidos programaticamente via Java Config, utilizando @EnableBatchProcessing na classe principal. O JobLauncher e JobExplorer foram auto-configurados pelo Spring Boot. O JobRepository foi configurado para persistir metadados em um banco de dados JDBC (Oracle), permitindo restartability e auditoria.
 
-        Steps: Como os Steps foram projetados? Quais tipos de Step foram usados (TaskletStep, Chunk-Oriented Step)?
+        Steps: Os Steps foram projetados principalmente como Chunk-Oriented Steps para processamento de itens em lotes, otimizando transações e desempenho. Alguns TaskletSteps foram usados para tarefas menores, como exclusão de arquivos temporários.
 
         Chunk-Oriented Processing:
 
-            ItemReader: Qual implementação foi usada (e.g., JdbcCursorItemReader, FlatFileItemReader, KafkaItemReader customizado)? Como lidou com restartability (cursor position)?
+            ItemReader: Para volumes massivos de dados, empregamos o JdbcCursorItemReader para ler registros de tabelas críticas, garantindo o uso eficiente de memória ao processar um item por vez. Para casos de restart, o cursor position era gerenciado automaticamente pelo Spring Batch, recuperando o ponto exato da falha. Para a nova arquitetura com Kafka, desenvolvemos um KafkaItemReader customizado que consumia mensagens de tópicos específicos.
 
-            ItemProcessor: Havia lógica de transformação/validação? Qual a complexidade e como foi testada (unitariamente)?
+            ItemProcessor: Implementamos lógica de transformação e validação de regras de negócio complexas. As transformações incluíam normalização de dados e enriquecimento com informações de outros sistemas. A validação era feita item a item, com o lançamento de exceções para itens inválidos. Esses processadores foram exaustivamente testados unitariamente para garantir a precisão das regras.
 
-            ItemWriter: Qual implementação foi usada (e.g., JdbcBatchItemWriter, JpaItemWriter, KafkaItemWriter customizado)? Como garantiu a atomicidade das escritas?
+            ItemWriter: O JdbcBatchItemWriter foi amplamente utilizado para escrita eficiente em banco de dados, aproveitando as operações de batch do JDBC para garantir a atomicidade das escritas por chunk. Para o fluxo com Kafka, um KafkaItemWriter customizado publicava os resultados processados em novos tópicos Kafka.
 
-            Chunk Size: Qual o impacto do chunk-size no desempenho e consumo de memória? Como foi otimizado?
+            Chunk Size: O chunk-size foi otimizado através de testes de performance e carga. Iniciávamos com valores como 1000 e ajustávamos, buscando o equilíbrio entre o desempenho da escrita em batch e o consumo de memória, garantindo que o commit da transação fosse eficiente e não sobrecarregasse o banco.
 
         Parallelization:
 
-            Multi-threaded Step: Uso de TaskExecutor (e.g., SimpleAsyncTaskExecutor, ThreadPoolTaskExecutor)? Como lidou com thread safety?
+            Multi-threaded Step: Utilizou-se o ThreadPoolTaskExecutor para configurar um pool de threads fixo, permitindo que vários chunks de um mesmo step fossem processados em paralelo. A thread safety foi assegurada com a utilização de beans com StepScope para garantir que cada thread tivesse sua própria instância de componentes críticos e evitando estados compartilhados mutáveis.
 
-            Partitioning: Uso de Partitioner e PartitionHandler para execução distribuída? Como o estado foi compartilhado ou isolado entre as partições?
+            Partitioning: Para o cenário de processamento distribuído, o Partitioning foi utilizado. Um Partitioner customizado era responsável por dividir o conjunto de dados em sub-intervalos (partições), enviando cada uma para um worker. O PartitionHandler era responsável por disparar a execução dos steps em threads separadas ou em processos remotos (via Spring Batch Remote Partitioning, se aplicável), e o estado era isolado por partição, com agregação de resultados no master.
 
         Restartability & Skip/Retry Logic:
 
-            Como a restartability foi configurada? O JobRepository persistia o estado?
+            A restartability foi configurada por padrão com o JobRepository persistindo o estado da execução no banco de dados. Isso permitia que, em caso de falha, o job pudesse ser reiniciado do último ponto de commit, evitando reprocessamento e inconsistências.
 
-            Como as anotações @Skip, @Retryable e @Recover foram utilizadas para tratamento de erros de itens específicos sem falhar o Job inteiro? Quais exceções eram skippable ou retryable?
+            As anotações @Skip, @Retryable, e @Recover foram extensivamente usadas. @Skip e @Retryable eram aplicadas a ItemProcessor e ItemWriter para tratar exceções específicas (e.g., DuplicateKeyException, DataIntegrityViolationException, IOException na escrita de arquivos externos), permitindo que o processamento do chunk continuasse mesmo com falhas em itens individuais. @Recover era usado para definir métodos de recuperação que manipulavam ou logavam os itens problemáticos, evitando a interrupção completa do job.
 
-        Listeners: Quais Listeners (e.g., JobExecutionListener, StepExecutionListener, ChunkListener, ItemReadListener, ItemProcessListener, ItemWriteListener) foram implementados para auditoria, métricas ou notificações?
+        Listeners: Implementamos JobExecutionListener para logar o início/fim do job e calcular o tempo total de execução. StepExecutionListener foi usado para métricas de cada step. ItemReadListener, ItemProcessListener, e ItemWriteListener foram cruciais para auditoria de itens com erro, captura de métricas de processamento e notificações específicas (e.g., alertar sobre um grande número de itens ignorados).
 
-        Anotações Comuns: @EnableBatchProcessing, @JobScope, @StepScope, @Bean para componentes de batch.
+        Anotações Comuns: Utilizávamos @EnableBatchProcessing na classe de configuração principal. @JobScope e @StepScope eram essenciais para garantir que os beans fossem instanciados corretamente para cada execução de job ou step, respectivamente, evitando problemas de estado. @Bean era a forma padrão de declarar os componentes do Spring Batch.
 
-        Como otimizou: Ajustes no commit-interval, throttle-limit, uso de lazy loading no ItemReader, indexing no banco de dados.
+        Como otimizou: Ajustes finos no commit-interval foram realizados para equilibrar a frequência de commits transacionais. O throttle-limit foi usado em steps multi-threaded para controlar o número máximo de threads ativas. Priorizamos o lazy loading no ItemReader quando possível para não carregar todos os dados em memória. A aplicação de indexing em colunas de banco de dados usadas em cláusulas WHERE ou JOIN foi fundamental para otimizar o desempenho do ItemReader.
 
 b. JMS (Java Message Service)
 
@@ -57,39 +59,39 @@ b. JMS (Java Message Service)
 
     Aspectos Técnicos e Como foi Usado:
 
-        Provedor JMS: Qual servidor JMS foi utilizado (e.g., WebSphere MQ, ActiveMQ)?
+        Provedor JMS: O servidor JMS primariamente utilizado foi o WebSphere MQ (IBM MQ) devido à sua robustez e presença consolidada no ambiente corporativo da Caixa.
 
-        Domínio: Uso de Queues (Point-to-Point) para garantia de entrega de 1 para 1, ou Topics (Publish/Subscribe) para 1 para N?
+        Domínio: Para a maioria das comunicações transacionais de Point-to-Point, usamos Queues para garantir que cada mensagem fosse consumida por um único processo, com garantia de entrega (at-most-once ou exactly-once sem reprocessamento). Topics foram utilizados em cenários específicos de broadcast de eventos para múltiplos consumidores.
 
-        Tipos de Mensagem: Quais tipos de Message (TextMessage, ObjectMessage, MapMessage, BytesMessage) foram preferidos e por quê?
+        Tipos de Mensagem: TextMessage era o tipo mais comum para mensagens que carregavam dados em formato XML ou JSON. MapMessage e BytesMessage foram usados em casos onde a interoperabilidade com sistemas legados exigia formatos específicos ou mensagens binárias.
 
-        Transacionalidade: As sessões JMS eram transacionais? Como a transação JMS se integrava com transações de banco de dados (JTA)?
+        Transacionalidade: As sessões JMS eram configuradas como transacionais, e a transação JMS era integrada a transações de banco de dados (JTA) através de um JtaTransactionManager (ou similar) no Spring. Isso garantia que a mensagem só fosse enviada para a fila (ou consumida dela) se a transação do banco de dados fosse bem-sucedida, e vice-versa, mantendo a consistência dos dados.
 
-        Recepção de Mensagens: Uso de MessageListener (para MDBs ou listeners customizados) ou synchronous receive? Qual o mecanismo de acknowledgement (AUTO_ACKNOWLEDGE, CLIENT_ACKNOWLEDGE, DUPS_OK_ACKNOWLEDGE)?
+        Recepção de Mensagens: Para recepção assíncrona, utilizamos MessageListener configurados via DefaultMessageListenerContainer do Spring JMS. O mecanismo de acknowledgement padrão era AUTO_ACKNOWLEDGE para simplificar, mas em fluxos críticos de garantia de entrega, configurávamos para CLIENT_ACKNOWLEDGE, permitindo o controle explícito do ack após o processamento bem-sucedido.
 
-        Persistência de Mensagens: Mensagens persistentes (DeliveryMode.PERSISTENT) para garantir que não se percam em caso de falha do broker?
+        Persistência de Mensagens: As mensagens críticas que não podiam ser perdidas em caso de falha do broker eram enviadas com DeliveryMode.PERSISTENT. Isso instruía o WebSphere MQ a persistir a mensagem em disco até que fosse entregue e acknowledged.
 
-        Recursos (JNDI): Como as ConnectionFactory e Destinations (Queues/Topics) eram configuradas e lookup via JNDI?
+        Recursos (JNDI): As ConnectionFactory e Destinations (Queues/Topics) eram configuradas e obtidas via JNDI no servidor de aplicação (WebSphere Application Server), centralizando a configuração e abstraindo os detalhes do provedor JMS.
 
-        Spring JMS: Uso de JmsTemplate para envio e MessageListenerContainer (e.g., DefaultMessageListenerContainer) para recepção simplificada?
+        Spring JMS: O JmsTemplate foi amplamente empregado para simplificar o envio de mensagens, abstraindo os detalhes de boilerplate do JMS API. Para recepção, o DefaultMessageListenerContainer era configurado para gerenciar threads de consumo e listeners de mensagens, provendo alta concorrência e gerenciamento do ciclo de vida dos consumidores.
 
 c. WebSphere Message Broker (Barramento de Serviços)
 
-    Problema Endereçado: Integração de sistemas heterogêneos, transformação de mensagens, roteamento complexo.
+    Problema Endereçado: Integração de sistemas heterogêneos, transformação de mensagens e roteamento complexo.
 
     Aspectos Técnicos e Como foi Usado:
 
-        Flows de Mensagens (Message Flows): Como os flows foram projetados? Quais nós (Nodes) foram usados (Input, Compute, MQOutput, HTTPRequest, Database, etc.)?
+        Flows de Mensagens (Message Flows): Os flows foram projetados visualmente na ferramenta de desenvolvimento do Broker. Utilizavam-se nós de entrada (Input Nodes) para receber mensagens (via MQInput, HTTPInput), nós de processamento (Compute Nodes) para transformações complexas, e nós de saída (Output Nodes) (MQOutput, HTTPReply) para enviar os resultados.
 
-        Linguagens de Transformação: Uso de ESQL para transformação e roteamento de mensagens? Ou JavaCompute Nodes para lógica mais complexa?
+        Linguagens de Transformação: O ESQL (Extended Structured Query Language) foi a linguagem predominante para transformações e roteamento de mensagens devido à sua eficiência e integração nativa com o Broker. Para lógicas mais complexas ou quando havia a necessidade de reutilizar bibliotecas Java, utilizamos JavaCompute Nodes.
 
-        Parsing: Como os parsers (XMLNSC, JSON, DFDL) foram configurados para lidar com diferentes formatos de mensagem?
+        Parsing: Os parsers como XMLNSC e JSON foram configurados para manipular eficientemente mensagens XML e JSON, respectivamente. Isso permitia a fácil navegação e modificação do conteúdo da mensagem usando ESQL ou Java.
 
-        Roteamento Dinâmico: Utilização de lookups em tabelas de roteamento ou regras de negócio para direcionar mensagens?
+        Roteamento Dinâmico: Implementamos roteamento dinâmico utilizando lookups em tabelas de roteamento (banco de dados ou arquivos de configuração) para direcionar mensagens para filas ou serviços específicos com base em atributos da mensagem. Regras de negócio complexas eram aplicadas via ESQL para determinar o destino final.
 
-        Tratamento de Erros: Como error handling foi implementado nos flows (Try/Catch, Error Terminals, Backout Queues)?
+        Tratamento de Erros: O error handling era robusto, utilizando terminais de erro (Failure, Catch) nos nodes para capturar exceções. Mensagens com falha eram roteadas para Backout Queues (filas de mensagens com erro), permitindo a análise manual e reprocessamento posterior, seguindo o padrão de dead-letter queue.
 
-        Scalability & Performance: Configurações de additional instances para message flows?
+        Scalability & Performance: Para lidar com picos de carga, configuramos additional instances para os message flows, permitindo que o Broker executasse múltiplas cópias do mesmo flow em paralelo, aproveitando os recursos do servidor e garantindo alta taxa de processamento.
 
 d. Kafka
 
@@ -97,31 +99,31 @@ d. Kafka
 
     Aspectos Técnicos e Como foi Usado:
 
-        Tópicos (Topics): Como os tópicos foram modelados (número de partições, fatores de replicação)? Estratégia de nomeação?
+        Tópicos (Topics): Os tópicos foram modelados com base nos domínios de negócio, com um número de partições (e.g., 6 a 12 por tópico inicial) definido para permitir paralelismo de consumo e um fator de replicação de 3 para garantir alta disponibilidade e durabilidade dos dados. A estratégia de nomeação seguia um padrão {dominio}.{entidade}.{evento} (e.g., sifes.contrato.liberacao).
 
         Produtores (Producers):
 
-            Idempotência: Configuração de enable.idempotence para evitar duplicação de mensagens?
+            Idempotência: A configuração enable.idempotence=true foi habilitada para garantir que as mensagens fossem escritas no Kafka exactly-once, evitando duplicações mesmo em caso de retentativas de envio.
 
-            Acks: Nível de acknowledgement (acks=all, acks=1, acks=0) vs. durabilidade e latência?
+            Acks: Para operações críticas que exigiam alta durabilidade, usamos acks=all (ou -1), garantindo que a mensagem fosse confirmada apenas após ser replicada para todos os brokers em sincronia. Para cenários menos críticos, acks=1 foi usado para equilibrar durabilidade e latência.
 
-            Serialização: Como os serializers (e.g., StringSerializer, JsonSerializer, AvroSerializer) foram implementados?
+            Serialização: O StringSerializer foi usado para chaves de mensagem. Para valores, implementamos JsonSerializer para objetos complexos, permitindo que os dados fossem facilmente legíveis e interoperáveis entre diferentes sistemas. Em cenários que demandavam schema evolution, exploramos AvroSerializer em conjunto com um Schema Registry.
 
         Consumidores (Consumers):
 
-            Consumer Groups: Como os Consumer Groups foram utilizados para escalabilidade e processamento paralelo?
+            Consumer Groups: Os Consumer Groups foram extensivamente utilizados para escalabilidade. Cada microsserviço ou aplicação de batch que processava um tópico era um Consumer Group distinto, permitindo que múltiplos instâncias do mesmo serviço (membros do grupo) consumissem partições em paralelo, garantindo processamento distribuído.
 
-            Offset Management: Como o offset foi committed (automático ou manual)? Uso de manual batch commit ou manual individual commit para garantia de processamento?
+            Offset Management: Para a garantia de processamento at-least-once e controle fino, o offset era committed manualmente (enable.auto.commit=false). Preferimos o manual batch commit (após o processamento de um lote de mensagens) para reduzir a sobrecarga e garantir que, em caso de falha, apenas o último lote não processado fosse reprocessado.
 
-            Desserialização: Como os deserializers foram configurados?
+            Desserialização: Os deserializers correspondentes (StringDeserializer, JsonDeserializer) foram configurados para reconstruir os objetos a partir dos bytes da mensagem.
 
-            Rebalanceamento: Como a aplicação lidava com rebalanceamento de partições?
+            Rebalanceamento: As aplicações foram projetadas para lidar com o rebalanceamento de partições de forma graciosa, liberando recursos e permitindo que outras instâncias do Consumer Group assumissem as partições de forma transparente. Isso envolvia ConsumerRebalanceListener para gerenciar o estado antes e depois do rebalanceamento.
 
-        Mensageria x Stream Processing: Kafka foi usado como uma fila de mensagens ou uma plataforma de stream processing (Kafka Streams/KSQL)?
+        Mensageria x Stream Processing: Kafka foi utilizado principalmente como uma fila de mensagens altamente escalável e durável para desacoplar a produção do consumo de eventos. Em alguns casos, começamos a explorar o Kafka Streams para pequenas transformações e agregações de dados em tempo real.
 
-        Particionamento: Como as chaves das mensagens foram escolhidas para garantir um bom balanceamento de carga e ordenação (se necessária) dentro das partições?
+        Particionamento: As chaves das mensagens eram cuidadosamente escolhidas (e.g., ID do contrato, ID do candidato). Isso garantia que mensagens relacionadas (com a mesma chave) fossem sempre para a mesma partição, preservando a ordenação e facilitando o processamento em fluxos específicos.
 
-        Configurações de Retenção: Qual a política de retenção dos tópicos (tempo ou tamanho)?
+        Configurações de Retenção: A política de retenção dos tópicos foi definida tanto por tempo (e.g., 7 dias para tópicos transacionais, 30 dias para tópicos de auditoria) quanto por tamanho, para gerenciar o espaço em disco e o custo, ao mesmo tempo que garantia a disponibilidade dos dados para reprocessamento ou auditoria.
 
 2. act digital (Bradesco)
 
@@ -131,29 +133,29 @@ a. Spring Boot (com Spring Data JPA, Spring Web, Spring Security)
 
     Aspectos Técnicos e Como foi Usado:
 
-        Starters: Quais starters foram usados (spring-boot-starter-web, spring-boot-starter-data-jpa, spring-boot-starter-security, spring-kafka)?
+        Starters: Amplamente utilizados. spring-boot-starter-web para as APIs REST, spring-boot-starter-data-jpa para persistência, spring-boot-starter-security para autenticação/autorização, e spring-kafka para integração com Kafka.
 
-        RESTful APIs: Uso de anotações como @RestController, @GetMapping, @PostMapping, @RequestMapping? Como o versionamento de API foi tratado?
+        RESTful APIs: Implementamos APIs RESTful usando @RestController, @GetMapping, @PostMapping, @PutMapping, @DeleteMapping, e @RequestMapping para definir endpoints claros e semânticos. O versionamento de API foi tratado via path (/api/v1/recurso) ou header (Accept: application/vnd.api.v1+json).
 
         Spring Data JPA:
 
-            Repositories: Uso de interfaces que estendem JpaRepository? Como queries personalizadas foram criadas (@Query ou method-derived queries)?
+            Repositories: Interfaces que estendiam JpaRepository foram o padrão para operações CRUD. Queries personalizadas eram criadas usando a anotação @Query para HQL/JPQL ou através de method-derived queries (ex: findByCpfAndStatus).
 
-            Entidades: Mapeamento ORM com @Entity, @Table, @Id, @GeneratedValue, @Column, @OneToMany, @ManyToOne? Estratégias de fetching (Lazy/Eager) e como otimizou para evitar N+1 queries?
+            Entidades: O mapeamento ORM foi feito com anotações como @Entity, @Table, @Id, @GeneratedValue (para chaves primárias auto-geradas), @Column, @OneToMany, @ManyToOne. As estratégias de fetching (Lazy/Eager) eram cuidadosamente otimizadas para evitar N+1 queries através de fetch joins nas @Query ou EntityGraphs.
 
-            Transações: Uso de @Transactional? Propagação e rollback rules?
+            Transações: A anotação @Transactional era usada para definir o escopo transacional nos métodos de serviço. A propagação padrão (REQUIRED) foi mantida, e rollback rules customizadas foram definidas para exceções específicas de negócio que deveriam ou não acionar um rollback.
 
         Spring Security:
 
-            Autenticação: Como a autenticação foi implementada (e.g., JWT, OAuth2, Basic Auth)?
+            Autenticação: Implementamos JWT (JSON Web Tokens) para autenticação stateless em microsserviços. O token era validado em um filtro de segurança customizado. Para integrações específicas, também utilizamos OAuth2.
 
-            Autorização: Uso de @PreAuthorize, @PostAuthorize ou configuração de matchers em WebSecurityConfigurerAdapter (ou SecurityFilterChain com Spring Security 6+)?
+            Autorização: A autorização baseada em roles e permissões foi configurada usando a anotação @PreAuthorize em métodos de serviço para controle de acesso fino (e.g., @PreAuthorize("hasRole('ADMIN') or hasPermission('read_data')")). Para regras mais amplas, a configuração de matchers em SecurityFilterChain (com Spring Security 6+) definia quais paths exigiam autenticação e quais roles.
 
-            Filtros de Segurança: Como a cadeia de filtros de segurança foi customizada?
+            Filtros de Segurança: A cadeia de filtros de segurança foi customizada para adicionar filtros para validação de JWT, logging de requisições, e tratamento de CORS, inserindo-os na ordem correta antes ou depois dos filtros padrão do Spring Security.
 
-        Profile-specific Properties: Uso de application-dev.yml, application-prod.yml para configurações específicas de ambiente?
+        Profile-specific Properties: Utilização de application-dev.yml, application-prod.yml, application-test.yml para gerenciar configurações específicas de ambiente, facilitando a transição entre eles.
 
-        Configuração Externa: Spring Cloud Config ou Kubernetes ConfigMaps/Secrets para gerenciamento de configurações?
+        Configuração Externa: Para gerenciamento centralizado de configurações e credenciais em produção, as aplicações eram integradas com Kubernetes ConfigMaps/Secrets, garantindo que as informações sensíveis não estivessem embutidas na imagem Docker.
 
 b. Kotlin
 
@@ -161,15 +163,15 @@ b. Kotlin
 
     Aspectos Técnicos e Como foi Usado:
 
-        Null Safety: Como o sistema de tipos anuláveis/não anuláveis (? e !!) foi empregado para eliminar NullPointerExceptions?
+        Null Safety: O sistema de tipos anuláveis (?) e não anuláveis (!!) do Kotlin foi rigorosamente empregado. Variáveis e parâmetros eram declarados como não anuláveis por padrão, forçando verificações explícitas de null ou o uso de operadores seguros (?. e ?:) para eliminar NullPointerExceptions em tempo de compilação.
 
-        Data Classes: Uso de data class para POJOs (Plain Old Java Objects) para concisão?
+        Data Classes: Amplamente utilizadas. As data class foram usadas para POJOs e DTOs, gerando automaticamente equals(), hashCode(), toString(), e copy(), reduzindo drasticamente o boilerplate e aumentando a concisão do código.
 
-        Extension Functions: Desenvolvimento de funções de extensão para adicionar funcionalidades a classes existentes sem herança?
+        Extension Functions: Desenvolvemos funções de extensão para adicionar funcionalidades a classes existentes (ex: String.isValidCPF(), List<T>.safeGet(index)), promovendo a reutilização de código e tornando-o mais legível e idiomático Kotlin.
 
-        Coroutines: Uso de corotinas para programação assíncrona e não-bloqueante (se aplicado a fluxos intensivos de I/O)?
+        Coroutines: Em cenários de I/O intensiva e onde a reatividade era benéfica (como na comunicação com APIs externas), exploramos o uso de corotinas com suspend functions para programação assíncrona e não-bloqueante, melhorando a responsividade e a eficiência de recursos.
 
-        Interoperabilidade Java: Como a integração com o código Java existente foi suave?
+        Interoperabilidade Java: A integração com o código Java legado foi suave. As bibliotecas Java existentes foram chamadas diretamente do Kotlin, e vice-versa, sem atrito significativo. As anotações @JvmStatic e @JvmField foram usadas para otimizar a interoperabilidade quando necessário para campos estáticos.
 
 c. Azure Cloud (Azure App Service, Azure Database Migration Service, Azure Kubernetes Service - AKS)
 
@@ -177,17 +179,17 @@ c. Azure Cloud (Azure App Service, Azure Database Migration Service, Azure Kuber
 
     Aspectos Técnicos e Como foi Usado:
 
-        Estratégia de Migração: Lift-and-shift para começar, ou refatoração (re-platform/re-architect) para serviços PaaS/SaaS?
+        Estratégia de Migração: A estratégia inicial foi um lift-and-shift para módulos menos críticos, seguida por uma refatoração (re-architect) e migração para serviços PaaS/SaaS (como Azure App Service e AKS) para sistemas mais críticos e em evolução, visando aproveitar os benefícios da nuvem.
 
-        Azure Database Migration Service (DMS): Como o DMS foi configurado para migrar bancos de dados (Oracle para Azure Database for PostgreSQL/MySQL ou Azure SQL Database)? Modo online ou offline?
+        Azure Database Migration Service (DMS): O DMS foi configurado para migrar bancos de dados Oracle on-premise para o Azure Database for PostgreSQL (ou MySQL) usando o modo online, minimizando o tempo de inatividade. Isso envolvia a replicação contínua de dados durante a transição.
 
-        Azure App Service: Uso de App Service Plans (tiers)? Como os microsserviços foram deployed (JARs ou Docker Images)? Configurações de scale-out (horizontal scaling) e auto-scaling?
+        Azure App Service: Utilizou-se App Service Plans no tier PremiumV2 para hospedar microsserviços menos complexos ou que não exigiam orquestração completa. Os JARs executáveis (Spring Boot) foram deployed diretamente. As configurações de scale-out (escalonamento horizontal) e auto-scaling foram definidas com base em métricas de CPU e requisições para lidar com variação de carga.
 
-        Azure Kubernetes Service (AKS): Se Kubernetes foi usado, como os clusters foram configurados? Uso de Node Pools? Integração com Azure Container Registry (ACR) para imagens Docker?
+        Azure Kubernetes Service (AKS): Para os microsserviços e a arquitetura mais complexa, o AKS foi o orquestrador principal. Os clusters foram configurados com Node Pools para separar as cargas de trabalho (e.g., system pools para componentes AKS e user pools para aplicações). A integração com Azure Container Registry (ACR) foi padrão para armazenar e gerenciar as imagens Docker das aplicações.
 
-        Rede no Azure: Uso de Virtual Networks (VNets), Network Security Groups (NSGs), Private Endpoints para segurança e conectividade?
+        Rede no Azure: Virtual Networks (VNets) foram criadas para isolar ambientes. Network Security Groups (NSGs) foram configurados para controlar o tráfego de entrada e saída. Para maior segurança e evitar exposição de serviços internos à internet, foram utilizados Private Endpoints para acessar serviços PaaS (como bancos de dados) dentro da VNet.
 
-        Monitoramento e Logs: Integração com Azure Monitor, Application Insights, Log Analytics Workspace para observabilidade?
+        Monitoramento e Logs: A integração com Azure Monitor e Application Insights foi crucial para telemetria de aplicações (métricas, traces, eventos). Todos os logs eram centralizados no Log Analytics Workspace, permitindo consultas Kusto para diagnóstico e alertas.
 
 d. Docker / Kubernetes
 
@@ -195,23 +197,23 @@ d. Docker / Kubernetes
 
     Aspectos Técnicos e Como foi Usado:
 
-        Dockerfiles: Como os Dockerfiles foram escritos para construir imagens otimizadas (multi-stage builds, otimização de camadas)?
+        Dockerfiles: Os Dockerfiles foram escritos seguindo as melhores práticas, utilizando multi-stage builds para criar imagens de produção mais leves (separando a fase de compilação da fase de runtime) e otimizando a ordem das camadas para cache eficiente.
 
-        Docker Compose: Usado para orquestração local de múltiplos serviços durante o desenvolvimento?
+        Docker Compose: Usado extensivamente para orquestração local de múltiplos serviços e suas dependências (banco de dados local, Kafka local) durante o desenvolvimento, simplificando o ambiente de trabalho dos desenvolvedores.
 
-        Kubernetes Deployments: Como os Deployments foram definidos (número de réplicas, estratégia de rolling update)?
+        Kubernetes Deployments: Os Deployments foram a unidade fundamental para gerenciar o ciclo de vida dos microsserviços. Definíamos o número de réplicas desejado e a estratégia de rolling update para atualizações sem downtime.
 
-        Services: Uso de Service (ClusterIP, NodePort, LoadBalancer) para exposição e descoberta de serviços?
+        Services: Service do tipo ClusterIP foi usado para comunicação interna entre microsserviços. Para exposição de APIs para o exterior do cluster, LoadBalancer e posteriormente Ingress (com Ingress Controller) foram utilizados.
 
-        Ingress: Como o Ingress foi configurado para rotear tráfego externo para os services internos (com Ingress Controller como NGINX ou Azure Application Gateway)?
+        Ingress: O Ingress foi configurado para rotear tráfego externo baseado em host ou path para os services internos. Isso foi feito com um Ingress Controller (Azure Application Gateway ou NGINX), permitindo load balancing, terminação SSL e roteamento baseado em regras.
 
-        ConfigMaps & Secrets: Como as configurações e credenciais sensíveis foram gerenciadas no Kubernetes?
+        ConfigMaps & Secrets: As ConfigMaps foram usadas para gerenciar configurações não sensíveis (e.g., URLs de serviços, feature flags), enquanto Secrets foram usados para credenciais sensíveis (senhas de banco de dados, chaves de API), montados como arquivos ou variáveis de ambiente nos pods.
 
-        Liveness/Readiness Probes: Implementação de probes para verificar a saúde dos containers e gerenciar o lifecycle?
+        Liveness/Readiness Probes: Liveness probes (verificações de saúde) garantiam que os containers com falha fossem reiniciados. Readiness probes (verificações de prontidão) asseguravam que o tráfego só fosse enviado para um pod quando ele estivesse realmente pronto para receber requisições, crucial para rolling updates.
 
-        Horizontal Pod Autoscaler (HPA): Como o HPA foi configurado para escalar automaticamente os pods com base em métricas (CPU, memória, métricas customizadas)?
+        Horizontal Pod Autoscaler (HPA): O HPA foi configurado para escalar automaticamente os pods de microsserviços com base na utilização de CPU e memória, garantindo que as aplicações tivessem recursos suficientes durante picos de demanda.
 
-        Persistent Volumes: Como a persistência de dados foi tratada para bancos de dados ou outros volumes (se aplicável)?
+        Persistent Volumes: Para componentes que necessitavam de persistência de dados (como bancos de dados que ainda não estavam em serviços PaaS), utilizamos Persistent Volumes e Persistent Volume Claims no Kubernetes, mapeados para discos gerenciados no Azure.
 
 e. Kafka (Revisitado para Microsserviços)
 
@@ -219,11 +221,11 @@ e. Kafka (Revisitado para Microsserviços)
 
     Aspectos Técnicos e Como foi Usado:
 
-        Event-Driven Architecture: Como os microsserviços interagiam via eventos Kafka? Quais design patterns foram usados (e.g., Saga pattern para transações distribuídas)?
+        Event-Driven Architecture: A arquitetura de microsserviços adotou o Event-Driven Architecture, onde serviços se comunicavam predominantemente através de eventos publicados e consumidos via Kafka, garantindo alto desacoplamento e resiliência. Padrões como o Saga pattern foram aplicados para gerenciar transações distribuídas, usando tópicos Kafka para coordenar os estados entre serviços.
 
-        Schema Registry (Confluent Schema Registry): Uso de Avro ou Protobuf com Schema Registry para gerenciamento de schemas de mensagens? (Muito importante para evolução de eventos).
+        Schema Registry (Confluent Schema Registry): Para garantir a compatibilidade e a evolução dos schemas das mensagens, o Confluent Schema Registry foi integrado. As mensagens eram serializadas/desserializadas usando Avro, e o Schema Registry gerenciava a compatibilidade de schemas, prevenindo problemas de parsing quando um produtor ou consumidor era atualizado.
 
-        Kafka Connect / Kafka Streams: Se for o caso, para integração com outros sistemas ou processamento de streams de dados.
+        Kafka Connect / Kafka Streams: Em alguns casos, o Kafka Connect foi explorado para integrar o Kafka com bancos de dados (via source connectors para captura de dados e sink connectors para persistência em outros sistemas). Kafka Streams foi usado para pequenas pipelines de processamento de dados em tempo real, como agregações ou filtros.
 
 3. Infosys (Serasa)
 
@@ -233,13 +235,13 @@ a. Spring Framework (Geral)
 
     Aspectos Técnicos e Como foi Usado:
 
-        Inversão de Controle (IoC) / Injeção de Dependência (DI): Uso de @Autowired, @Component, @Service, @Repository para gerenciar o ciclo de vida e as dependências dos objetos.
+        Inversão de Controle (IoC) / Injeção de Dependência (DI): O core do Spring foi usado para gerenciar o ciclo de vida dos objetos e suas dependências. Anotações como @Autowired (para injeção), @Component, @Service, e @Repository eram o padrão para declarar beans e permitir que o Spring os gerenciasse.
 
-        Spring Core: Como os Beans foram definidos e configurados (XML, Java Config)?
+        Spring Core: Os beans eram definidos principalmente via Java Config (@Configuration, @Bean), embora alguns módulos legados ainda utilizassem configuração XML.
 
-        Spring MVC: Para APIs RESTful ou aplicações web.
+        Spring MVC: Utilizado para a construção de APIs RESTful para os serviços de integração.
 
-        Integração de Módulos: Como diferentes módulos do Spring (Spring Data, Spring AMQP) foram integrados na aplicação?
+        Integração de Módulos: Diferentes módulos do Spring, como Spring Data JPA para acesso a dados, e Spring AMQP para integração com RabbitMQ, foram perfeitamente integrados na aplicação, aproveitando o ecossistema Spring.
 
 b. RabbitMQ
 
@@ -247,17 +249,17 @@ b. RabbitMQ
 
     Aspectos Técnicos e Como foi Usado:
 
-        Exchanges e Queues: Quais tipos de Exchange foram usados (Direct, Topic, Fanout, Headers)? Como as Queues foram vinculadas às Exchanges?
+        Exchanges e Queues: Implementamos Exchanges do tipo Direct para roteamento direto (baseado em routing key) e Topic para cenários de publish/subscribe mais flexíveis. As Queues eram vinculadas às Exchanges com binding keys apropriadas para direcionar as mensagens.
 
-        Routing Keys: Como as Routing Keys foram usadas para direcionar mensagens para filas específicas?
+        Routing Keys: As Routing Keys eram usadas para definir a regra de entrega da mensagem, permitindo que as mensagens fossem entregues a filas específicas ou a um conjunto de filas (no caso de Topic Exchange) com base no padrão da key.
 
-        Confirmations/Acknowledgements: Como as confirmações de editor (Publisher Confirms) e acknowledgements de consumidor foram implementadas para garantir a entrega da mensagem?
+        Confirmations/Acknowledgements: Para garantir a entrega da mensagem, as confirmações de editor (Publisher Confirms) foram habilitadas para assegurar que o RabbitMQ havia recebido a mensagem. No lado do consumidor, os acknowledgements de consumidor eram feitos manualmente após o processamento bem-sucedido da mensagem, garantindo que a mensagem só fosse removida da fila se fosse processada corretamente.
 
-        Mensagens Persistentes: Como MessageProperties.PERSISTENT foi usado para garantir que mensagens não se perdessem em caso de falha do broker?
+        Mensagens Persistentes: As mensagens que não podiam ser perdidas em caso de reinício do RabbitMQ eram enviadas com MessageProperties.PERSISTENT, garantindo que fossem gravadas em disco pelo broker.
 
-        Dead Letter Exchange (DLX): Configuração de DLX e filas de dead-letter para mensagens que não puderam ser processadas?
+        Dead Letter Exchange (DLX): Configuramos um DLX e filas de dead-letter associadas a cada fila principal. Mensagens que falhavam no processamento (e.g., após várias retentativas, ou devido a validação negativa) eram automaticamente roteadas para a fila de dead-letter, permitindo análise posterior e reprocessamento manual ou automatizado.
 
-        Spring AMQP: Uso de RabbitTemplate para envio e SimpleMessageListenerContainer ou @RabbitListener para recepção?
+        Spring AMQP: O RabbitTemplate foi a ferramenta principal para envio de mensagens, simplificando a interação com o RabbitMQ. Para recepção, utilizamos a anotação @RabbitListener em métodos de serviço, que, sob o capô, utiliza um SimpleMessageListenerContainer para gerenciar os consumidores de forma eficiente.
 
 c. Jenkins / GitLab / Git Flow
 
@@ -265,17 +267,17 @@ c. Jenkins / GitLab / Git Flow
 
     Aspectos Técnicos e Como foi Usado:
 
-        Jenkins Pipelines (Jenkinsfile): Como os pipelines de CI/CD foram definidos como código (Groovy Script) no Jenkinsfile? Uso de stages, steps, e agents?
+        Jenkins Pipelines (Jenkinsfile): Os pipelines de CI/CD foram definidos como código (Groovy Script) em um Jenkinsfile no repositório de cada projeto. Isso promovia a rastreabilidade e a versão do pipeline junto com o código da aplicação. Os pipelines incluíam stages (e.g., Build, Test, Deploy), steps (execução de comandos, scripts) e agents para definir onde o pipeline seria executado.
 
-        Integração Jenkins-GitLab: Configuração de webhooks no GitLab para trigger de builds no Jenkins em cada push ou merge request?
+        Integração Jenkins-GitLab: Configuramos webhooks no GitLab para trigger automaticamente os builds correspondentes no Jenkins a cada push ou merge request em branches específicas, garantindo que as verificações de CI fossem executadas rapidamente.
 
-        Git Flow: Implementação das branches (master, develop, feature, release, hotfix) e do fluxo de trabalho associado (git flow feature start, git flow publish, etc.)? Como garantiu a adesão da equipe?
+        Git Flow: Adotamos e aplicamos rigorosamente o Git Flow. Isso significava o uso de branches dedicadas para master (produção), develop (integração), feature (desenvolvimento de novas funcionalidades), release (preparação para lançamento), e hotfix (correções urgentes). Ferramentas de linha de comando (git flow feature start, git flow publish) foram incentivadas para padronizar o fluxo.
 
-        Testes Automatizados na Esteira: Como os testes unitários (JUnit/Mock), de integração e funcionais foram integrados e enforced na esteira Jenkins?
+        Testes Automatizados na Esteira: A esteira Jenkins foi configurada para executar automaticamente testes unitários (JUnit/Mock) e de integração em cada build. Além disso, testes funcionais e de regressão foram integrados em stages posteriores para garantir a qualidade do software antes do deploy. A falha de qualquer teste impedia o avanço no pipeline.
 
-        Qualidade de Código: Integração com ferramentas como SonarQube para análise estática de código na esteira?
+        Qualidade de Código: O SonarQube foi integrado à esteira Jenkins. A cada build, uma análise estática de código era realizada, e os resultados (cobertura de código, dívida técnica, vulnerabilidades) eram exibidos. Quebras de quality gates no SonarQube bloqueavam o merge para develop ou master.
 
-        Deploy Automatizado: Como os deploys (para AWS) foram automatizados nas fases finais do pipeline (e.g., via scripts Shell ou plugins AWS do Jenkins)?
+        Deploy Automatizado: Os deploys para os ambientes AWS (desenvolvimento, homologação e produção) foram automatizados nas fases finais do pipeline. Isso era feito usando scripts Shell que interagiam com a AWS CLI e os plugins AWS do Jenkins para gerenciar o deploy em serviços como ECS e Lambda.
 
 d. AWS (S3, Lambda, ECS, EC2, GlueJob, ApiGateway, DynamoDB)
 
@@ -283,23 +285,23 @@ d. AWS (S3, Lambda, ECS, EC2, GlueJob, ApiGateway, DynamoDB)
 
     Aspectos Técnicos e Como foi Usado:
 
-        S3 (Simple Storage Service): Uso para armazenamento de artefatos de build do Jenkins, logs de aplicações, arquivos estáticos, ou como data lake para GlueJob? Políticas de bucket e IAM?
+        S3 (Simple Storage Service): O S3 foi usado como um repositório centralizado para artefatos de build do Jenkins, logs de aplicações, e para armazenar dados brutos que seriam processados por GlueJob. Políticas de bucket e IAM foram rigorosamente definidas para controlar o acesso.
 
-        Lambda: Como serverless functions foram usadas para lógica de negócio específica, event-driven processing (e.g., processar eventos S3 ou DynamoDB streams) ou backend de API Gateway? Qual a linguagem de runtime (Java)?
+        Lambda: As serverless functions do Lambda foram usadas para lógicas de negócio específicas e event-driven processing. Por exemplo, Lambdas eram acionadas por eventos do S3 (upload de arquivos) ou streams do DynamoDB para processamento imediato e leve. A linguagem de runtime primária para as funções Lambda era Java.
 
-        ECS (Elastic Container Service): Uso para orquestração de containers Docker? Fargate (serverless) ou EC2 (gerenciamento de instâncias)? Como as Task Definitions e Services foram configurados?
+        ECS (Elastic Container Service): O ECS foi a principal plataforma para orquestração de containers Docker dos microsserviços. Utilizamos o Fargate (modalidade serverless do ECS) para a maioria das aplicações, eliminando a necessidade de gerenciar instâncias EC2 subjacentes. As Task Definitions e Services foram configurados para definir como os containers deveriam ser executados e escalados.
 
-        EC2 (Elastic Compute Cloud): Se usado, para máquinas virtuais para Jenkins Master, SonarQube, ou outras ferramentas de suporte. Tipo de instância, security groups, key pairs?
+        EC2 (Elastic Compute Cloud): O EC2 foi usado para hospedar componentes que exigiam controle de servidor, como o Jenkins Master, e outras ferramentas de suporte. As instâncias foram dimensionadas conforme a necessidade e protegidas por security groups e key pairs para acesso seguro via SSH.
 
-        GlueJob: Como os Glue Jobs (Spark ou Python Shell) foram usados para processamento ETL de dados (transformação, limpeza) em larga escala? Conectores (JDBC)?
+        GlueJob: Os Glue Jobs (usando Spark em Python Shell) foram empregados para processamento ETL de dados em larga escala, como a ingestão e transformação de grandes volumes de dados da Riachuelo para o data lake da Serasa. Conectores JDBC eram usados para extrair dados de bancos de dados relacionais.
 
-        ApiGateway: Como foi usado para expor APIs RESTful de forma segura (autenticação, throttling, caching) e rotear requisições para Lambda, ECS ou outros backends?
+        ApiGateway: O ApiGateway foi o ponto de entrada para as APIs RESTful expostas aos sistemas externos (Riachuelo). Ele foi configurado para autenticação (e.g., via custom authorizers), throttling (limite de requisições), caching e roteamento de requisições para backends Lambda ou ECS.
 
-        DynamoDB: Uso de banco de dados NoSQL de chave-valor para casos de uso específicos (e.g., cache, sessões, metadados) que exigem alta performance e escalabilidade sem esquema fixo. Modelo de dados (tabelas, chaves primárias, índices secundários)?
+        DynamoDB: Usamos o DynamoDB como banco de dados NoSQL para casos de uso específicos que exigiam alta performance e escalabilidade, como armazenamento de sessões, caches distribuídos e metadados de transações. O modelo de dados (tabelas, chaves primárias, índices secundários globais/locais) foi otimizado para os padrões de acesso.
 
-        IAM (Identity and Access Management): Como as políticas de permissão (Roles, Policies) foram configuradas para garantir o princípio do menor privilégio entre os serviços AWS?
+        IAM (Identity and Access Management): As políticas de permissão (Roles, Policies) foram definidas granularmente via IAM para seguir o princípio do menor privilégio, controlando exatamente quais recursos AWS cada serviço ou usuário podia acessar.
 
-        CloudWatch: Como o CloudWatch foi usado para logs, métricas e alarmes para monitorar os serviços AWS?
+        CloudWatch: O CloudWatch foi o serviço central de monitoramento. Todos os logs das aplicações (CloudWatch Logs) e métricas de performance dos serviços AWS (CloudWatch Metrics) eram centralizados lá. Alarmes foram configurados para notificar sobre anomalias e problemas de performance.
 DECLARE
     -- Dados de entrada (o único "parâmetro" inicial fixo por enquanto)
     v_nu_sqncl_liberacao_contrato NUMBER := 141622;
