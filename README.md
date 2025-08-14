@@ -9,6 +9,228 @@
 <p>A seguir, a estrutura de diretórios e as funcionalidades principais de cada serviço.</p>
 Perfeito! Com base nas informações que você forneceu, aqui está um resumo da motivação e das circunstâncias de criação das Stored Procedures (SPs) mencionadas, bem como o impacto delas no fluxo Javaweb e na rotina Java batch FES.REPASSE:
 =========================================================================================================
+sobre funcionamento de shel e agendamentos de rorinas :
+Devops- Caixa
+
+cnpexdadvm02clu05.extra.caixa.gov.br
+1521
+orat05ng
+
+
+
+ESTEIRA DESENVOLVIMENTO:​
+
+https://sifes-intranet.esteiras.des.caixa/fes-web/​
+
+https://sifes-internet.esteiras.des.caixa/fes-web/​
+
+​
+
+ESTEIRA DES OPERADOR:​
+
+https://sifes-intranet-operador.esteiras.des.caixa/fes-web/​
+
+https://sifes-intranet-operadors.esteiras.des.caixa/fes-web ​
+
+https://sifes-internet-operador.esteiras.des.caixa/fes-web​
+
+​
+
+ESTEIRA DES FINANCEIRO:​
+
+https://sifes-intranet-financeiro.esteiras.des.caixa/fes-web/​
+
+https://sifes-intranet-financeiros.esteiras.des.caixa/fes-web/​
+
+https://sifes-internet-financeiro.esteiras.des.caixa/fes-web/​
+
+​
+
+ESTEIRA TQS:​
+
+https://sifes-intranet.esteiras.tqs.caixa/fes-web/ ​
+
+https://sifes-internet.esteiras.tqs.caixa/fes-web/
+
+
+===========================Branches===============================
+BRANCHS:​
+
+    release/master​
+
+    operador/master​
+
+    financeiro/master​
+
+OPERADOR:​
+
+    1 - Criar sua branch (NO PADRÃO operador/NUMERO_DESC_DA_DEMANDA) à partir da release/master​
+
+    2 - Trabalhar na sua branch LOCALMENTE.​
+
+    3 - Após CONCLUSÃO LOCAL, enviar via (NEW PULL REQUEST) da sua branch para a operador/master​
+
+    4 - Fazer a geração do artefato (pipeline/_build) da branch operador/master​
+
+    5 - Fazer o Deploy (Releases) do artefato gerado na etapa 4 no ambiente do OPERADOR (SIFES-internet-operador e SIFES-intranet-operador)​
+
+FINANCEIRO:​
+
+    1 - Criar sua branch (NO PADRÃO financeiro/NUMERO_DESC_DA_DEMANDA) à partir da release/master​
+
+    2 - Trabalhar na sua branch LOCALMENTE.​
+
+    3 - Após CONCLUSÃO LOCAL enviar via (NEW PULL REQUEST) da sua branch para a financeiro/master​
+
+    4 - Fazer a geração do artefato (pipeline/_build) da branch financeiro/master​
+
+    5 - Fazer o Deploy (Releases) do artefato gerado na etapa 4 no ambiente do FINANCEIRO (SIFES-internet-financeiro e SIFES-intranet-financeiro)​
+
+Endereços dos servidores :
+Estruturante
+
+SIFES-APP-DES= caddecldlx007.agil.nprd.caixa.gov.br 
+
+SIFES-APP-TQS= caddecldlx008.agil.nprd.caixa.gov.br 
+
+SIFES-internet-DES= caddeapllx981.agil.nprd.caixa.gov.br 
+
+SIFES-internet-TQS= caddeapllx963.agil.nprd.caixa.gov.br 
+
+SIFES-intranet-DES= caddeapllx912.agil.nprd.caixa.gov.br 
+
+SIFES-intranet-TQS= caddeapllx962.agil.nprd.caixa.gov.br
+
+
+Financeiro
+
+SIFES-internet-financeiro-DES= caddecldlx014.agil.nprd.caixa.gov.br 
+
+SIFES-intranet-financeiro-DES= caddecldlx011.agil.nprd.caixa.gov.br 
+
+SIFES-intranet-financeiros-DES= caddecldlx012.agil.nprd.caixa.gov.br
+
+Operador
+
+SIFES-internet-operador - DES= caddecldlx013.agil.nprd.caixa.gov.br 
+
+SIFES-intranet-operador-DES= caddecldlx009.agil.nprd.caixa.gov.br 
+
+SIFES-intranet-operadors-DES= caddecldlx010.agil.nprd.caixa.gov.br
+
+====================Todos os IPs Operador ==============================
+SIFES-internet-operador - DES
+caddecldlx013.agil.nprd.caixa.gov.br -> 10.116.196.48
+
+SIFES-intranet-operador-DES  
+caddecldlx009.agil.nprd.caixa.gov.br -> 10.116.196.44
+
+SIFES-intranet-operadors-DES 
+caddecldlx010.agil.nprd.caixa.gov.br -> 10.116.196.45
+
+
+=====================Caminho dos logs ======================
+
+ 
+caddeapllx912.agil.nprd.caixa.gov.br
+ 
+Acessar maquina via SSH
+ 
+seu usuario e senha
+ 
+/logs/jboss/jboss-eap/standalone/sifes-intranet/server.log
+ 
+ caddeapllx963.agil.nprd.caixa.gov.br 
+
+=====================Grey logs================================
+http://novalogesteirasageis.nprd.caixa/streams/67a3a4c0502f9020d5b1bf1e/search?q=&rangetype=relative&from=300&streams=67a3a4c0502f9020d5b1bf1e
+
+=====================Azure====================================
+==================================================================================
+AMBIENTES NO JBOSS 7
+============================================================
+ 
+ESTEIRA AMBIENTE DESENVOLVIMENTO:
+=================================
+https://sifes-intranet.esteiras.des.caixa/fes-web/
+https://sifes-internet.esteiras.des.caixa/fes-web/
+ 
+ 
+ESTEIRA DES OPERADOR:
+=====================
+https://sifes-intranet-operador.esteiras.des.caixa/fes-web/
+http://sifes-intranet-operadors.esteiras.des.caixa/fes-web
+http://sifes-internet-operador.esteiras.des.caixa/fes-web
+ 
+ 
+ESTEIRA DES FINANCEIRO:
+=======================
+https://sifes-intranet-financeiro.esteiras.des.caixa/fes-web/
+https://sifes-intranet-financeiros.esteiras.des.caixa/fes-web/
+https://sifes-internet-financeiro.esteiras.des.caixa/fes-web/
+ 
+ identiica  java e ver se esta gerando o arquivo 
+ demanda 2021 , analisa o Layout sinaf
+
+ESTEIRA TQS:
+============
+https://sifes-intranet.esteiras.tqs.caixa/fes-web/
+
+
+
+
+==================Exwcução de Rotinas ===================================
+
+ *Execução da fesRepasse:
+temos um arquivo no servidor .sh , esse setvar.sh roda um scripte que pega a um arquivo de exel e popula um banco de DES OU TQS
+depois que a query é chamada e e pega as informações do arquivo Ecxel , ele insere as informações na tabela
+
+qCom as informações já na tabela então rodamos a Rotina JavaBatch.
+
+Problema para rodar esse arquivo script que insere as informações na tabela usamos um Setvar,tqs onde vai as credenciais ( usuário de serviço e senha) nos permitindo assim inserir no banco as informações, o Problema é que a segurança não quer que fique visível mais essa senha no arquivo do setvar, quais as opções para que esse arquivo continue com a senha ou recebendo a senha  , mas obedecendo a segurança ?
+
+Arquivo setvar que vai a senha :
+./fesrt041 /desenvolvimento/rotina/SIFES/des/ibmbcp/FESDB001/shell/setvar.sh
+
+*Execução fesTotal.sh
+  precisa de 3 arquivos no New, com estenção .teot , 3 arquivos .ibm ( preciso ver quando e quem gera, sera que a proria execução que gera esse arquivo,) para não da erro, faltando esses arquivos da erro , e não vai para fesIndice , colocar as informações de como esse aquivo fesrepasse funciona , tem o índice a questão do drop quando é feito e quais tabelas e como funciona a arquitetura , como poderia ser feito 
+Carga SIFES nao realizada! Quantidade de arquivos teot menor que 3.
+
+Observação para executar precisa de três arquivos ,.teot , 3 arquivos .ibm observar o final dos números eles devem ser iguais , e também o arquivo de SQL na pasta sql, rodar a rotina e observar se vai fazer o insert da tabela correspondente , para rodar usar o comando 
+
+No momento :
+  precisa dar um set to ok pelo control-m na rotina
+  e Depois Run Now , ela ira falhar , mas ira atualizar os arquivos ( por algum motivo o servidor não esta atualizando mudanças dentro do arquivo )por algum motivo no servidor 
+  depois roda o comando no servidor :
+./festotal.sh /desenvolvimento/rotina/SIFES/des/ibmbcp/FESDB001/shell/setvar.sh
+
+Não temos mais privilégios de TRUCT para deletar e recriar índices 
+
+
+=======================================================
+Para execução do fesRepasse, deverá agendar a operação na tabela FESTB148_AGENDA_OPERACAO  com tipo de operação 10, recomendo que agende para uns 10 ou 15 minutos adiante.
+ 
+SELECT * FROM FES.FESTB148_AGENDA_OPERACAO WHERE CO_TIPO_OPERACAO = 10
+ 
+Após agendamento, deverá executar o fesRepasse, comando para executar.
+ 
+java -jar fesRepasse.jar
+ 
+Precisa estar no diretório bin/fesRepasse 
+
+=======================================================
+ 
+
+
+
+
+ 
+
+
+
+
+
+=========================================================================================================
 Aspectos Técnicos por Tecnologia Utilizada
 
 Aspectos Técnicos por Tecnologia Utilizada e Como Foram Usados
